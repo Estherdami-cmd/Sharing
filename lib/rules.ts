@@ -179,14 +179,14 @@ export const SAMPLE_ITEMS: SampleItem[] = [
     keywords: ["diaper", "기저귀", "위생"],
   },
   {
-    key: "dough",
-    label: "치즈볼생지 (번들 예시 사진)",
-    itemName: "치즈볼생지 750g",
+    key: "juice",
+    label: "아침에주스 오렌지 (번들 예시 사진)",
+    itemName: "아침에주스 오렌지 210mL",
     category: "기타",
-    // public/demo/cheese-dough.jpg 의 소비기한(2027-03-09)에 맞춘 값.
-    expiryOffsetDays: 203,
-    confidence: 0.94,
-    keywords: ["cheese", "dough", "생지", "치즈볼"],
+    // public/demo/juice-back.jpg 의 유통기한에 맞춘 값. 날짜를 박으면 데모가 썩는다.
+    expiryOffsetDays: 17,
+    confidence: 0.96,
+    keywords: ["juice", "주스", "orange", "오렌지"],
   },
   {
     key: "yogurt",

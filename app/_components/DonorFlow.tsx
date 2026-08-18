@@ -105,11 +105,15 @@ const STEPS: { key: Step; label: string }[] = [
 ];
 
 /**
- * 발표용으로 번들해 둔 실제 제품 사진(냉동 치즈볼생지, 소비기한 2027-03-09).
- * 파일명은 rules.ts의 dough 샘플 keywords와 맞춰뒀다. Gemini 호출이 실패해
- * 목업으로 떨어져도 같은 품목·같은 분기(나눔 가능)가 나와 시연이 안 끊긴다.
+ * 발표용으로 번들해 둔 실제 제품 사진 두 장(아침에주스 오렌지 210mL).
+ * 앞면에 품목명, 뒷면에 유통기한이 따로 있어 두 슬롯 구조를 그대로 보여준다.
+ * 제품 사진 파일명은 rules.ts의 juice 샘플 keywords와 맞춰뒀다. Gemini 호출이
+ * 실패해 목업으로 떨어져도 같은 품목이 나와 시연이 안 끊긴다.
  */
-const DEMO_PHOTO = { src: "/demo/cheese-dough.jpg", fileName: "cheese-dough.jpg" };
+const DEMO_PHOTOS = {
+  product: { src: "/demo/juice-front.jpg", fileName: "juice-front.jpg" },
+  expiry: { src: "/demo/juice-back.jpg", fileName: "juice-back.jpg" },
+} as const;
 
 const PLACE_PRESETS = ["기관에 직접 전달", "집 앞 수거", "직접 입력"];
 const SLOT_CHOICES = ["상관없음", "오전", "오후"];
@@ -208,17 +212,17 @@ export default function DonorFlow() {
     setRegisterError(null);
   }
 
-  /** 발표 중 파일 탐색기를 여는 대신 번들된 사진을 바로 집어넣는다. */
+  /** 발표 중 파일 탐색기를 여는 대신 번들된 사진 두 장을 두 슬롯에 바로 넣는다. */
   async function handleUseDemoPhoto() {
     setLoadingDemoPhoto(true);
     try {
-      const res = await fetch(DEMO_PHOTO.src);
-      if (!res.ok) throw new Error("demo photo fetch failed");
-      const blob = await res.blob();
-      handleFileSelected(
-        "product",
-        new File([blob], DEMO_PHOTO.fileName, { type: blob.type || "image/jpeg" })
-      );
+      for (const slot of ["product", "expiry"] as const) {
+        const { src, fileName } = DEMO_PHOTOS[slot];
+        const res = await fetch(src);
+        if (!res.ok) throw new Error(`demo photo fetch failed: ${slot}`);
+        const blob = await res.blob();
+        handleFileSelected(slot, new File([blob], fileName, { type: blob.type || "image/jpeg" }));
+      }
       // 예시 사진은 실제 AI가 읽는 걸 보여주는 용도라 데모 모드 지정은 풀어준다.
       setDemoSample("");
     } catch {
@@ -478,7 +482,7 @@ export default function DonorFlow() {
                 disabled={loadingDemoPhoto}
                 className={btnOutline}
               >
-                {loadingDemoPhoto ? "불러오는 중..." : "예시 사진 불러오기"}
+                {loadingDemoPhoto ? "불러오는 중..." : "예시 사진 불러오기 (2장)"}
               </button>
             </div>
 
