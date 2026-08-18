@@ -2,20 +2,21 @@
 
 /* 디자인 토큰. 자세한 근거는 DESIGN_GUIDE.md 참고. */
 @theme {
-  /* Primary — 라벤더. 500은 '면'에만 쓰고, 글자는 700 이상을 쓴다(대비 확보). */
-  --color-primary-50: #faf7fe;
-  --color-primary-100: #f3edfc;
-  --color-primary-200: #e8dcf9;
-  --color-primary-300: #dccbf6;
-  --color-primary-400: #d9c5f4;
-  --color-primary-500: #d1bbf2;
-  --color-primary-600: #b394e8;
-  --color-primary-700: #9670d9;
-  --color-primary-800: #7852b8;
-  --color-primary-900: #5c3d8c;
-  --color-primary-950: #3a2659;
+  /* Primary — 라임그린(#9ccf48). 밝은 색이라 500은 '면'에만 쓰고,
+     글자·아이콘은 700 이상을 쓴다. 700은 흰 글씨 대비 4.6:1로 AA를 넘긴다. */
+  --color-primary-50: #f6fbee;
+  --color-primary-100: #eaf6d8;
+  --color-primary-200: #d6edb5;
+  --color-primary-300: #bce287;
+  --color-primary-400: #a9d862;
+  --color-primary-500: #9ccf48;
+  --color-primary-600: #7fb02f;
+  --color-primary-700: #628a26;
+  --color-primary-800: #4e6d23;
+  --color-primary-900: #415b20;
+  --color-primary-950: #21330c;
 
-  /* Neutral — 살짝 푸른 기가 도는 회색. 라벤더와 나란히 놓아도 탁해지지 않는다. */
+  /* Neutral — 살짝 푸른 기가 도는 회색. 라임과 나란히 놓아도 탁해지지 않는다. */
   --color-neutral-50: #f9fafb;
   --color-neutral-100: #f2f4f6;
   --color-neutral-200: #e5e8eb;
@@ -28,9 +29,10 @@
   --color-neutral-900: #191f28;
   --color-neutral-950: #0d1117;
 
-  /* Semantic — 상태 전달 전용. 채도를 낮춰 라벤더보다 튀지 않게 했다. */
-  --color-success-bg: #e8f7ee;
-  --color-success-fg: #0f8a4c;
+  /* Semantic — 상태 전달 전용. 채도를 낮춰 라임보다 튀지 않게 했다.
+     success는 라임과 헷갈리지 않도록 청록 쪽으로 밀었다. */
+  --color-success-bg: #e4f5f0;
+  --color-success-fg: #0a8f6f;
   --color-warning-bg: #fff6e5;
   --color-warning-fg: #b26a00;
   --color-danger-bg: #fdeced;
@@ -73,4 +75,17 @@ select {
 /* 숫자를 세로로 정렬해 진행률이 바뀌어도 자릿수가 흔들리지 않게 한다. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* 랜딩에서 앵커로 이동할 때 sticky 헤더에 제목이 가리지 않게 한다. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
+/* 모션을 줄이도록 설정한 사용자에게는 스크롤 애니메이션을 끈다. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
