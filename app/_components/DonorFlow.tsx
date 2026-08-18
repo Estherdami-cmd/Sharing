@@ -103,6 +103,14 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "complete", label: "4. 신청 완료" },
 ];
 
+/**
+ * 발표용으로 번들해 둔 실제 제품 사진. 유통기한이 한참 지난 라면이라
+ * '나눔 불가' 분기를 실물로 보여줄 수 있다.
+ * 파일명에 expired를 남겨둔 건 의도적이다. Gemini 호출이 실패해 목업으로 떨어져도
+ * 파일명 키워드가 같은 분기(유통기한 지남)를 잡아줘서 시연 흐름이 안 끊긴다.
+ */
+const DEMO_PHOTO = { src: "/demo/ramen-expired.jpg", fileName: "ramen-expired.jpg" };
+
 const PLACE_PRESETS = ["기관에 직접 전달", "집 앞 수거", "직접 입력"];
 const SLOT_CHOICES = ["상관없음", "오전", "오후"];
 
@@ -127,6 +135,7 @@ export default function DonorFlow() {
   const [source, setSource] = useState<"demo" | "gemini" | "mock" | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submittingDonation, setSubmittingDonation] = useState(false);
+  const [loadingDemoPhoto, setLoadingDemoPhoto] = useState(false);
   const fileRef = useRef<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -176,6 +185,23 @@ export default function DonorFlow() {
     setConfidence(null);
     setSource(null);
     setRegisterError(null);
+  }
+
+  /** 발표 중 파일 탐색기를 여는 대신 번들된 사진을 바로 집어넣는다. */
+  async function handleUseDemoPhoto() {
+    setLoadingDemoPhoto(true);
+    try {
+      const res = await fetch(DEMO_PHOTO.src);
+      if (!res.ok) throw new Error("demo photo fetch failed");
+      const blob = await res.blob();
+      handleFileSelected(new File([blob], DEMO_PHOTO.fileName, { type: blob.type || "image/jpeg" }));
+      // 예시 사진은 실제 AI가 읽는 걸 보여주는 용도라 데모 모드 지정은 풀어준다.
+      setDemoSample("");
+    } catch {
+      setRegisterError("예시 사진을 불러오지 못했어요");
+    } finally {
+      setLoadingDemoPhoto(false);
+    }
   }
 
   async function handleRecognize() {
@@ -416,6 +442,16 @@ export default function DonorFlow() {
               </button>
               <button onClick={() => cameraInputRef.current?.click()} className={btnOutline}>
                 촬영하기
+              </button>
+            </div>
+
+            <div className="flex w-full">
+              <button
+                onClick={handleUseDemoPhoto}
+                disabled={loadingDemoPhoto}
+                className={btnOutline}
+              >
+                {loadingDemoPhoto ? "불러오는 중..." : "예시 사진 불러오기"}
               </button>
             </div>
 
