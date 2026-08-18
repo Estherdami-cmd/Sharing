@@ -29,6 +29,19 @@ export default function Home() {
         gap: "24px",
       }}
     >
+      <p
+        style={{
+          fontSize: "12px",
+          color: "#9ca3af",
+          textAlign: "center",
+          maxWidth: "460px",
+          lineHeight: 1.5,
+        }}
+      >
+        데모 화면입니다 · AI 인식은 시뮬레이션이고, 입력한 데이터는 서버에 저장되지 않아
+        일정 시간 뒤 초기 상태로 돌아갑니다
+      </p>
+
       <div
         style={{
           display: "flex",
