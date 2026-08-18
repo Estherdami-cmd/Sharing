@@ -1,12 +1,76 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import "tailwindcss";
+
+/* 디자인 토큰. 자세한 근거는 DESIGN_GUIDE.md 참고. */
+@theme {
+  /* Primary — 라벤더. 500은 '면'에만 쓰고, 글자는 700 이상을 쓴다(대비 확보). */
+  --color-primary-50: #faf7fe;
+  --color-primary-100: #f3edfc;
+  --color-primary-200: #e8dcf9;
+  --color-primary-300: #dccbf6;
+  --color-primary-400: #d9c5f4;
+  --color-primary-500: #d1bbf2;
+  --color-primary-600: #b394e8;
+  --color-primary-700: #9670d9;
+  --color-primary-800: #7852b8;
+  --color-primary-900: #5c3d8c;
+  --color-primary-950: #3a2659;
+
+  /* Neutral — 살짝 푸른 기가 도는 회색. 라벤더와 나란히 놓아도 탁해지지 않는다. */
+  --color-neutral-50: #f9fafb;
+  --color-neutral-100: #f2f4f6;
+  --color-neutral-200: #e5e8eb;
+  --color-neutral-300: #d1d6db;
+  --color-neutral-400: #b0b8c1;
+  --color-neutral-500: #8b95a1;
+  --color-neutral-600: #6b7684;
+  --color-neutral-700: #4e5968;
+  --color-neutral-800: #333d4b;
+  --color-neutral-900: #191f28;
+  --color-neutral-950: #0d1117;
+
+  /* Semantic — 상태 전달 전용. 채도를 낮춰 라벤더보다 튀지 않게 했다. */
+  --color-success-bg: #e8f7ee;
+  --color-success-fg: #0f8a4c;
+  --color-warning-bg: #fff6e5;
+  --color-warning-fg: #b26a00;
+  --color-danger-bg: #fdeced;
+  --color-danger-fg: #d13c40;
+
+  --font-sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+
+/* Tailwind preflight이 이미 리셋을 포함한다.
+   여기서 `* { padding: 0 }` 같은 걸 다시 쓰면 레이어 밖 규칙이라
+   Tailwind의 px-5 같은 유틸리티를 전부 덮어써 버린다. */
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  background: #f7faf7;
-  color: #1f2937;
+  font-family: var(--font-sans);
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-900);
   min-height: 100vh;
+  /* 한글은 큰 글씨일수록 자간을 좁혀야 덩어리로 읽힌다. */
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  letter-spacing: inherit;
+}
+
+input,
+select {
+  font-family: inherit;
+  letter-spacing: inherit;
+  /* iOS에서 16px 미만 입력 필드는 포커스 시 화면을 확대해버린다. */
+  font-size: 16px;
+}
+
+/* 숫자를 세로로 정렬해 진행률이 바뀌어도 자릿수가 흔들리지 않게 한다. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
