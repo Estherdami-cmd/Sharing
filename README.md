@@ -10,6 +10,13 @@
 npm install
 ```
 
+`.env.local`에 Gemini API 키를 넣습니다. 키가 없어도 목업으로 동작하지만, 실제 사진 판독은 안 됩니다.
+
+```bash
+GEMINI_API_KEY=발급받은_키
+# GEMINI_MODEL=gemini-3.1-flash-lite   # 선택. 비우면 이 값을 쓴다
+```
+
 ```bash
 npm run dev
 ```
@@ -35,13 +42,21 @@ http://localhost:3000 에서 열립니다.
 
 ## AI 인식에 대해
 
-**현재 실제 Vision API를 쓰지 않습니다.** 목업이지만 랜덤이 아니라 결정적입니다:
+**Gemini Vision(`gemini-3.1-flash-lite`)으로 실제 사진을 판독합니다.** 사진 1장에서 품목명·카테고리·유통기한을 읽어 옵니다. 응답은 JSON 스키마로 강제하고, 카테고리는 앱이 아는 6종 안에서만 고르게 합니다.
 
-1. 화면 1의 **데모 모드** 셀렉트로 원하는 품목을 직접 지정 (발표 중 원하는 분기를 재현)
-2. 파일명에 키워드가 있으면 그걸 사용 (`milk_expired.jpg` → 우유, 유통기한 지남)
-3. 그 외에는 파일 이름+크기 해시 → **같은 사진이면 항상 같은 결과**
+`flash-lite`를 쓰는 건 의도적입니다. 상위 모델(`gemini-3.6-flash`)은 판독 정확도가 같은데 응답이 25초를 넘고 503이 섞여서 시연에 못 씁니다. lite는 같은 사진을 **1.5~2초**에 읽습니다.
 
-실제 API로 교체하려면 `app/api/recognize/route.ts` 한 파일만 고치면 됩니다. 응답 형태(`itemName`, `category`, `expiryDate`, `shareable`, `reason`)만 맞추면 나머지는 그대로 동작합니다.
+판독 우선순위는 이렇습니다.
+
+1. 화면 1의 **데모 모드** 셀렉트로 지정하면 그 값을 씁니다 (발표 중 원하는 분기를 확실히 재현). Gemini보다 위입니다.
+2. 그 외에는 **Gemini Vision** 호출.
+3. 키가 없거나 호출이 실패하면 기존 목업으로 대체합니다 — 파일명 키워드(`milk_expired.jpg` → 우유), 없으면 파일 이름+크기 해시(같은 사진이면 항상 같은 결과). 이때는 화면에 *"AI 서버에 연결하지 못해 예시 데이터로 채웠어요"*가 함께 뜹니다.
+
+**사진에 물품이 없으면 목업으로 덮지 않고** 422와 함께 "물품이 잘 보이게 다시 찍어주세요"를 돌려줍니다. 엉뚱한 품목을 확신에 차서 보여주는 게 더 나쁘기 때문입니다.
+
+나눔 가능 여부는 모델이 정하지 않습니다. 모델이 읽은 유통기한을 받아 **서버의 `evaluateShareable`가 판정**합니다.
+
+다른 모델·다른 벤더로 바꾸려면 `app/api/recognize/route.ts` 한 파일만 고치면 됩니다. 응답 형태(`itemName`, `category`, `expiryDate`, `shareable`, `reason`)만 맞추면 나머지는 그대로 동작합니다.
 
 ## 시연 시나리오
 
@@ -73,7 +88,7 @@ app/
     AdminPanel.tsx          기관 관리
     NeedProgress.tsx        진행률 바 (공용)
   api/
-    recognize/              AI 인식 (목업)
+    recognize/              AI 인식 (Gemini Vision + 목업 폴백)
     needs/                  기관 요청 등록·조회
     donations/              기부 물품
     match/[id]/             필요도·거리 기반 추천

@@ -124,6 +124,7 @@ export default function DonorFlow() {
   const [category, setCategory] = useState("");
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
+  const [source, setSource] = useState<"demo" | "gemini" | "mock" | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submittingDonation, setSubmittingDonation] = useState(false);
   const fileRef = useRef<File | null>(null);
@@ -173,6 +174,7 @@ export default function DonorFlow() {
     setCategory("");
     setExpiryDate(null);
     setConfidence(null);
+    setSource(null);
     setRegisterError(null);
   }
 
@@ -189,13 +191,20 @@ export default function DonorFlow() {
       if (demoSample) formData.append("sample", demoSample);
 
       const res = await fetch("/api/recognize", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("recognize failed");
+      if (!res.ok) {
+        // 서버가 이유를 적어 보내면(물품을 못 찾음, 사진이 너무 큼) 그 문장을 그대로 쓴다.
+        const body = await res.json().catch(() => null);
+        setRecognizeStatus("error");
+        setRegisterError(body?.error ?? "AI 인식에 실패했어요. 다시 시도해주세요");
+        return;
+      }
       const data = await res.json();
 
       setItemName(data.itemName);
       setCategory(data.category);
       setExpiryDate(data.expiryDate);
       setConfidence(data.confidence);
+      setSource(data.source ?? null);
       setRecognizeStatus("done");
     } catch {
       setRecognizeStatus("error");
@@ -368,6 +377,7 @@ export default function DonorFlow() {
     setCategory("");
     setExpiryDate(null);
     setConfidence(null);
+    setSource(null);
     setRegisterError(null);
     setDonation(null);
     setMatches([]);
@@ -504,7 +514,15 @@ export default function DonorFlow() {
 
               <p className={`text-[13px] font-bold ${TONE_TEXT[verdict.tone]}`}>{verdict.reason}</p>
               {confidence !== null && (
-                <p className="text-xs text-neutral-400">AI 신뢰도 {Math.round(confidence * 100)}%</p>
+                <p className="text-xs text-neutral-400">
+                  AI 신뢰도 {Math.round(confidence * 100)}%
+                  {source === "demo" && " · 데모 모드로 지정한 결과예요"}
+                </p>
+              )}
+              {source === "mock" && (
+                <p className="text-xs text-warning-fg">
+                  AI 서버에 연결하지 못해 예시 데이터로 채웠어요. 내용이 맞는지 직접 확인해주세요
+                </p>
               )}
 
               {!verdict.shareable && (
