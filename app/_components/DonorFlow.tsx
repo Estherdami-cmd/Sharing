@@ -104,12 +104,11 @@ const STEPS: { key: Step; label: string }[] = [
 ];
 
 /**
- * 발표용으로 번들해 둔 실제 제품 사진. 유통기한이 한참 지난 라면이라
- * '나눔 불가' 분기를 실물로 보여줄 수 있다.
- * 파일명에 expired를 남겨둔 건 의도적이다. Gemini 호출이 실패해 목업으로 떨어져도
- * 파일명 키워드가 같은 분기(유통기한 지남)를 잡아줘서 시연 흐름이 안 끊긴다.
+ * 발표용으로 번들해 둔 실제 제품 사진(냉동 치즈볼생지, 소비기한 2027-03-09).
+ * 파일명은 rules.ts의 dough 샘플 keywords와 맞춰뒀다. Gemini 호출이 실패해
+ * 목업으로 떨어져도 같은 품목·같은 분기(나눔 가능)가 나와 시연이 안 끊긴다.
  */
-const DEMO_PHOTO = { src: "/demo/ramen-expired.jpg", fileName: "ramen-expired.jpg" };
+const DEMO_PHOTO = { src: "/demo/cheese-dough.jpg", fileName: "cheese-dough.jpg" };
 
 const PLACE_PRESETS = ["기관에 직접 전달", "집 앞 수거", "직접 입력"];
 const SLOT_CHOICES = ["상관없음", "오전", "오후"];

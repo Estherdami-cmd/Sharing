@@ -179,6 +179,16 @@ export const SAMPLE_ITEMS: SampleItem[] = [
     keywords: ["diaper", "기저귀", "위생"],
   },
   {
+    key: "dough",
+    label: "치즈볼생지 (번들 예시 사진)",
+    itemName: "치즈볼생지 750g",
+    category: "기타",
+    // public/demo/cheese-dough.jpg 의 소비기한(2027-03-09)에 맞춘 값.
+    expiryOffsetDays: 203,
+    confidence: 0.94,
+    keywords: ["cheese", "dough", "생지", "치즈볼"],
+  },
+  {
     key: "yogurt",
     label: "요구르트 (기한 임박)",
     itemName: "요구르트 4입",
