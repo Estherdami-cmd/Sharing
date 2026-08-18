@@ -19,6 +19,8 @@ const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODE
 
 /** inline_data는 base64라 원본의 4/3배가 된다. 요청 20MB 제한을 넉넉히 피한다. */
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+/** 사진 두 장을 한 요청에 같이 보내므로 합계도 막아둔다. */
+const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
 /** 평소 2초 안에 오지만 가끔 25초까지 튄다. 그때는 목업으로 넘겨 시연을 안 세운다. */
 const TIMEOUT_MS = 25_000;
 
@@ -37,10 +39,19 @@ const RESPONSE_SCHEMA = {
   propertyOrdering: ["itemName", "category", "expiryDate", "confidence"],
 };
 
-function buildPrompt(today: string) {
+function buildPrompt(today: string, hasExpiryPhoto: boolean) {
   return [
     "너는 푸드뱅크 기부 물품을 검수하는 담당자다. 사진 속 물품을 판독해라.",
     `오늘은 ${today}이다.`,
+    "",
+    hasExpiryPhoto
+      ? [
+          "사진이 두 장 온다. 둘은 같은 제품을 찍은 것이다.",
+          "[사진 1] 제품 사진 — 품목명과 용량/규격을 여기서 읽어라.",
+          "[사진 2] 유통기한 사진 — 날짜는 이쪽을 우선해서 읽어라.",
+          "[사진 2]에서 날짜를 못 찾으면 [사진 1]에서 찾아봐라.",
+        ].join("\n")
+      : "사진은 한 장이다. 품목명과 날짜를 모두 이 사진에서 읽어라.",
     "",
     "itemName: 한국어로 '품목명 + 용량/규격'. 예) '참치 통조림 200g', '백미 5kg', '성인용 기저귀 대형'.",
     `category: 반드시 다음 중 하나. ${CATEGORIES.join(", ")}`,
@@ -97,22 +108,32 @@ function normalize(raw: unknown): GeminiOutcome {
   return { status: "ok", data: { itemName, category, expiryDate, confidence } };
 }
 
-async function recognizeWithGemini(image: File, apiKey: string): Promise<GeminiOutcome> {
-  const base64 = Buffer.from(await image.arrayBuffer()).toString("base64");
+async function recognizeWithGemini(
+  productImage: File,
+  expiryImage: File | null,
+  apiKey: string
+): Promise<GeminiOutcome> {
+  async function toPart(file: File) {
+    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+    return { inline_data: { mime_type: file.type || "image/jpeg", data: base64 } };
+  }
+
+  // 사진마다 앞에 라벨 텍스트를 붙인다. 이게 없으면 모델이 어느 쪽이 유통기한 사진인지 모른다.
+  const requestParts: Record<string, unknown>[] = [
+    { text: buildPrompt(toISODate(startOfToday()), expiryImage !== null) },
+    { text: "[사진 1] 제품 사진" },
+    await toPart(productImage),
+  ];
+  if (expiryImage) {
+    requestParts.push({ text: "[사진 2] 유통기한 사진" }, await toPart(expiryImage));
+  }
 
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: buildPrompt(toISODate(startOfToday())) },
-            { inline_data: { mime_type: image.type || "image/jpeg", data: base64 } },
-          ],
-        },
-      ],
+      contents: [{ parts: requestParts }],
       generationConfig: {
         temperature: 0,
         responseMimeType: "application/json",
@@ -176,16 +197,35 @@ function recognizeWithMock(image: File, requestedSample: string | null): Recogni
 export async function POST(request: Request) {
   const formData = await request.formData();
   const image = formData.get("image");
+  const expiryField = formData.get("expiryImage");
 
   if (!(image instanceof File)) {
-    return NextResponse.json({ error: "이미지가 없습니다" }, { status: 400 });
+    return NextResponse.json({ error: "제품 사진이 없습니다" }, { status: 400 });
   }
-  if (image.size === 0) {
-    return NextResponse.json({ error: "빈 파일이에요. 다시 선택해주세요" }, { status: 400 });
+  // 유통기한 사진은 선택이다. 라벨이 같은 면에 있으면 한 장으로도 충분하다.
+  const expiryImage =
+    expiryField instanceof File && expiryField.size > 0 ? expiryField : null;
+
+  for (const [file, label] of [
+    [image, "제품 사진"],
+    ...(expiryImage ? [[expiryImage, "유통기한 사진"] as const] : []),
+  ] as [File, string][]) {
+    if (file.size === 0) {
+      return NextResponse.json(
+        { error: `${label}가 빈 파일이에요. 다시 선택해주세요` },
+        { status: 400 }
+      );
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      return NextResponse.json(
+        { error: `${label}가 너무 커요. 10MB 이하로 올려주세요` },
+        { status: 413 }
+      );
+    }
   }
-  if (image.size > MAX_IMAGE_BYTES) {
+  if (image.size + (expiryImage?.size ?? 0) > MAX_TOTAL_BYTES) {
     return NextResponse.json(
-      { error: "사진이 너무 커요. 10MB 이하로 올려주세요" },
+      { error: "두 사진 합계가 너무 커요. 더 작은 사진으로 올려주세요" },
       { status: 413 }
     );
   }
@@ -203,7 +243,7 @@ export async function POST(request: Request) {
   } else if (apiKey) {
     let outcome: GeminiOutcome;
     try {
-      outcome = await recognizeWithGemini(image, apiKey);
+      outcome = await recognizeWithGemini(image, expiryImage, apiKey);
     } catch (error) {
       console.error("[recognize] Gemini 호출 예외", error);
       outcome = { status: "failed" };
@@ -237,6 +277,7 @@ export async function POST(request: Request) {
     expiryDate: result.expiryDate,
     confidence: result.confidence,
     source,
+    photoCount: expiryImage ? 2 : 1,
     ...verdict,
   });
 }

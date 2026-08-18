@@ -31,6 +31,7 @@ import {
 } from "../ui";
 
 type Step = "register" | "match" | "apply" | "complete";
+type PhotoSlotKey = "product" | "expiry";
 type RecognizeStatus = "idle" | "loading" | "done" | "error";
 
 type Donation = {
@@ -124,7 +125,8 @@ export default function DonorFlow() {
   const [step, setStep] = useState<Step>("register");
 
   // 1. 물품 등록
-  const [preview, setPreview] = useState<string | null>(null);
+  const [productPreview, setProductPreview] = useState<string | null>(null);
+  const [expiryPreview, setExpiryPreview] = useState<string | null>(null);
   const [recognizeStatus, setRecognizeStatus] = useState<RecognizeStatus>("idle");
   const [demoSample, setDemoSample] = useState("");
   const [itemName, setItemName] = useState("");
@@ -135,9 +137,8 @@ export default function DonorFlow() {
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submittingDonation, setSubmittingDonation] = useState(false);
   const [loadingDemoPhoto, setLoadingDemoPhoto] = useState(false);
-  const fileRef = useRef<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const productFileRef = useRef<File | null>(null);
+  const expiryFileRef = useRef<File | null>(null);
 
   // 2. 매칭 확인
   const [donation, setDonation] = useState<Donation | null>(null);
@@ -173,16 +174,37 @@ export default function DonorFlow() {
   const place = placePreset === "직접 입력" ? placeDetail : placePreset;
   const canGoNext = Boolean(itemName && category && verdict?.shareable);
 
-  function handleFileSelected(selected: File | undefined) {
+  function handleFileSelected(slot: PhotoSlotKey, selected: File | undefined) {
     if (!selected) return;
-    fileRef.current = selected;
-    setPreview(URL.createObjectURL(selected));
+
+    const ref = slot === "product" ? productFileRef : expiryFileRef;
+    const setPreview = slot === "product" ? setProductPreview : setExpiryPreview;
+    ref.current = selected;
+    // 앞서 만든 blob URL은 놔두면 새 사진을 고를 때마다 쌓인다.
+    setPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return URL.createObjectURL(selected);
+    });
+
+    // 사진이 바뀌면 이전 판독 결과는 무효다.
     setRecognizeStatus("idle");
     setItemName("");
     setCategory("");
     setExpiryDate(null);
     setConfidence(null);
     setSource(null);
+    setRegisterError(null);
+  }
+
+  function handleClearSlot(slot: PhotoSlotKey) {
+    const ref = slot === "product" ? productFileRef : expiryFileRef;
+    const setPreview = slot === "product" ? setProductPreview : setExpiryPreview;
+    ref.current = null;
+    setPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return null;
+    });
+    setRecognizeStatus("idle");
     setRegisterError(null);
   }
 
@@ -193,7 +215,10 @@ export default function DonorFlow() {
       const res = await fetch(DEMO_PHOTO.src);
       if (!res.ok) throw new Error("demo photo fetch failed");
       const blob = await res.blob();
-      handleFileSelected(new File([blob], DEMO_PHOTO.fileName, { type: blob.type || "image/jpeg" }));
+      handleFileSelected(
+        "product",
+        new File([blob], DEMO_PHOTO.fileName, { type: blob.type || "image/jpeg" })
+      );
       // 예시 사진은 실제 AI가 읽는 걸 보여주는 용도라 데모 모드 지정은 풀어준다.
       setDemoSample("");
     } catch {
@@ -204,15 +229,16 @@ export default function DonorFlow() {
   }
 
   async function handleRecognize() {
-    if (!fileRef.current) {
-      setRegisterError("먼저 사진을 선택해주세요");
+    if (!productFileRef.current) {
+      setRegisterError("먼저 제품 사진을 올려주세요");
       return;
     }
     setRegisterError(null);
     setRecognizeStatus("loading");
     try {
       const formData = new FormData();
-      formData.append("image", fileRef.current);
+      formData.append("image", productFileRef.current);
+      if (expiryFileRef.current) formData.append("expiryImage", expiryFileRef.current);
       if (demoSample) formData.append("sample", demoSample);
 
       const res = await fetch("/api/recognize", { method: "POST", body: formData });
@@ -394,8 +420,8 @@ export default function DonorFlow() {
   }
 
   function handleRestart() {
-    fileRef.current = null;
-    setPreview(null);
+    handleClearSlot("product");
+    handleClearSlot("expiry");
     setRecognizeStatus("idle");
     setDemoSample("");
     setItemName("");
@@ -419,29 +445,31 @@ export default function DonorFlow() {
         <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
           <header className="text-center">
             <h1 className={pageTitle}>나눔할 물품을 등록해주세요</h1>
-            <p className={pageDesc}>사진 한 장이면 품목과 유통기한을 읽어드려요</p>
+            <p className={pageDesc}>
+              제품 사진과 유통기한 사진을 각각 올려주세요. 한 면에 다 보이면 제품 사진만으로도 됩니다
+            </p>
           </header>
 
           <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-primary-300 bg-primary-50/60 p-5">
-            {preview ? (
-              <img
-                src={preview}
-                alt="업로드한 물품 미리보기"
-                className="aspect-4/3 w-full rounded-xl object-cover md:aspect-video"
+            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+              <PhotoSlot
+                slot="product"
+                title="제품 사진"
+                requirement="필수"
+                hint="품목명과 용량이 보이게"
+                preview={productPreview}
+                onSelect={handleFileSelected}
+                onClear={handleClearSlot}
               />
-            ) : (
-              <div className="flex aspect-4/3 w-full items-center justify-center rounded-xl bg-white/70 text-sm text-neutral-400 md:aspect-video">
-                아직 등록된 사진이 없어요
-              </div>
-            )}
-
-            <div className="flex w-full gap-2">
-              <button onClick={() => fileInputRef.current?.click()} className={btnOutline}>
-                갤러리에서 선택
-              </button>
-              <button onClick={() => cameraInputRef.current?.click()} className={btnOutline}>
-                촬영하기
-              </button>
+              <PhotoSlot
+                slot="expiry"
+                title="유통기한 사진"
+                requirement="선택"
+                hint="날짜가 또렷하게 보이게"
+                preview={expiryPreview}
+                onSelect={handleFileSelected}
+                onClear={handleClearSlot}
+              />
             </div>
 
             <div className="flex w-full">
@@ -454,22 +482,6 @@ export default function DonorFlow() {
               </button>
             </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleFileSelected(e.target.files?.[0])}
-              className="hidden"
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => handleFileSelected(e.target.files?.[0])}
-              className="hidden"
-            />
-
             <button
               onClick={handleRecognize}
               disabled={recognizeStatus === "loading"}
@@ -477,7 +489,9 @@ export default function DonorFlow() {
             >
               {recognizeStatus === "loading"
                 ? "사진에서 품목과 유통기한을 읽는 중..."
-                : "AI로 확인하기"}
+                : expiryPreview
+                  ? "AI로 확인하기 (사진 2장)"
+                  : "AI로 확인하기"}
             </button>
 
             <div className="w-full">
@@ -929,6 +943,82 @@ export default function DonorFlow() {
 function formatKoreanDate(iso: string) {
   const [, m, d] = iso.split("-");
   return `${Number(m)}월 ${Number(d)}일`;
+}
+
+/** 제품 사진 / 유통기한 사진 슬롯. 둘이 완전히 같은 구조라 컴포넌트로 뺐다. */
+function PhotoSlot({
+  slot,
+  title,
+  requirement,
+  hint,
+  preview,
+  onSelect,
+  onClear,
+}: {
+  slot: PhotoSlotKey;
+  title: string;
+  requirement: string;
+  hint: string;
+  preview: string | null;
+  onSelect: (slot: PhotoSlotKey, file: File | undefined) => void;
+  onClear: (slot: PhotoSlotKey) => void;
+}) {
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between">
+        <p className="text-[13px] font-bold text-neutral-700">
+          {title}
+          <span className="ml-1.5 text-xs font-bold text-neutral-400">{requirement}</span>
+        </p>
+        {preview && (
+          <button onClick={() => onClear(slot)} className={btnGhost}>
+            지우기
+          </button>
+        )}
+      </div>
+
+      {preview ? (
+        <img
+          src={preview}
+          alt={`업로드한 ${title} 미리보기`}
+          className="aspect-4/3 w-full rounded-xl object-cover"
+        />
+      ) : (
+        <div className="flex aspect-4/3 w-full flex-col items-center justify-center gap-1 rounded-xl bg-white/70 px-3 text-center">
+          <p className="text-[13px] text-neutral-400">아직 없어요</p>
+          <p className="text-xs text-neutral-400">{hint}</p>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button onClick={() => galleryRef.current?.click()} className={`${btnOutline} h-11`}>
+          갤러리
+        </button>
+        <button onClick={() => cameraRef.current?.click()} className={`${btnOutline} h-11`}>
+          촬영
+        </button>
+      </div>
+
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => onSelect(slot, e.target.files?.[0])}
+        className="hidden"
+      />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => onSelect(slot, e.target.files?.[0])}
+        className="hidden"
+      />
+    </div>
+  );
 }
 
 function StepIndicator({ step }: { step: Step }) {
