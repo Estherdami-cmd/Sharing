@@ -95,15 +95,22 @@ export default function Home() {
           <br className="hidden md:block" /> 혼자 다 채우지 않아도 괜찮아요. 여럿이 나눠서 채웁니다.
         </p>
 
-        {stats && (
-          <p className="tabular mt-6 text-[15px] font-bold text-neutral-700">
-            지금 <span className="text-primary-700">{stats.count}건</span>의 요청이{" "}
-            <span className="text-primary-700">
-              {stats.target - stats.filled}개
-            </span>
-            를 기다리고 있어요
-          </p>
-        )}
+        {/* 숫자는 하나만 보여준다. 여러 개를 늘어놓으면 무엇을 세는 값인지 헷갈린다.
+            말투는 카드의 "35개만 더 모으면 목표를 채워요"와 일부러 맞췄다.
+            높이를 미리 잡아두는 건 수치가 늦게 도착해도 아래 버튼이 밀리지 않게 하려는 것이다. */}
+        <p className="mt-6 flex min-h-6 items-center text-[15px] font-bold text-neutral-700 md:text-[16px]">
+          {stats &&
+            (stats.target - stats.filled > 0 ? (
+              <>
+                <span className="tabular text-primary-700">
+                  {stats.target - stats.filled}개
+                </span>
+                만 더 모으면 모든 목표가 채워져요
+              </>
+            ) : (
+              "지금 올라온 목표가 모두 채워졌어요"
+            ))}
+        </p>
 
         <div className="mt-9 flex w-full max-w-xs flex-col gap-3 sm:max-w-md sm:flex-row sm:justify-center">
           <button
