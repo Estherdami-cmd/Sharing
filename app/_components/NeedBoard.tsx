@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CATEGORIES } from "@/lib/rules";
 import NeedProgress from "./NeedProgress";
-import { btnGhost, btnPrimary, card, cardUrgent, caption, pageDesc, pageTitle, toneBadge } from "../ui";
+import { btnGhost, btnPrimary, card, cardUrgent, caption, field, pageDesc, pageTitle, toneBadge } from "../ui";
 
 type NeedView = {
   id: string;
@@ -19,9 +20,13 @@ type NeedView = {
   foodBank: { name: string; address: string };
 };
 
+const FILTER_ALL = "전체";
+
 export default function NeedBoard() {
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState(FILTER_ALL);
+  const [searchQuery, setSearchQuery] = useState("");
 
   async function load() {
     setLoading(true);
@@ -36,6 +41,11 @@ export default function NeedBoard() {
 
   const totalTarget = needs.reduce((sum, n) => sum + n.targetQty, 0);
   const totalFilled = needs.reduce((sum, n) => sum + n.filledQty, 0);
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const filteredNeeds = needs
+    .filter((n) => categoryFilter === FILTER_ALL || n.category === categoryFilter)
+    .filter((n) => !trimmedQuery || n.itemName.toLowerCase().includes(trimmedQuery));
+  const isFiltered = categoryFilter !== FILTER_ALL || trimmedQuery.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -61,6 +71,33 @@ export default function NeedBoard() {
         </div>
       </header>
 
+      <div className="mx-auto w-full max-w-sm">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="품목명으로 검색 (예: 기저귀)"
+          className={field}
+        />
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-1.5">
+        {[FILTER_ALL, ...CATEGORIES].map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategoryFilter(c)}
+            className={
+              "cursor-pointer rounded-full border px-4 py-2 text-[13px] font-bold transition-colors " +
+              (categoryFilter === c
+                ? "border-primary-500 bg-primary-500 text-neutral-900"
+                : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
+            }
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
       {loading && <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>}
 
       {!loading && needs.length === 0 && (
@@ -74,8 +111,16 @@ export default function NeedBoard() {
         </div>
       )}
 
+      {!loading && needs.length > 0 && filteredNeeds.length === 0 && (
+        <div className="flex flex-col items-center gap-4 py-8">
+          <p className="text-[15px] text-neutral-400">
+            {isFiltered ? "조건에 맞는 요청이 없어요" : "아직 등록된 요청이 없어요"}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {needs.map((need) => (
+        {filteredNeeds.map((need) => (
           <article key={need.id} className={need.urgent ? cardUrgent : card}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -88,7 +133,7 @@ export default function NeedBoard() {
                 </p>
               </div>
               {need.urgent ? (
-                <span className={toneBadge("blocked")}>긴급</span>
+                <span className={toneBadge("caution")}>도움이 필요해요</span>
               ) : need.progress >= 100 ? (
                 <span className={toneBadge("ok")}>목표 달성</span>
               ) : null}
@@ -107,6 +152,10 @@ export default function NeedBoard() {
               </p>
             )}
             {need.note && <p className={caption}>{need.note}</p>}
+
+            <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} mt-auto`}>
+              여기에 나눔하기
+            </Link>
           </article>
         ))}
       </div>

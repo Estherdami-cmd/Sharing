@@ -5,6 +5,7 @@ import {
   distanceKm,
   evaluateShareable,
   getRegion,
+  isUrgent,
   parseLocalDate,
   startOfToday,
   toISODate,
@@ -30,7 +31,6 @@ export type Need = {
   category: string;
   targetQty: number;
   filledQty: number;
-  urgent: boolean;
   note: string;
   createdAt: string;
 };
@@ -102,7 +102,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     category: "위생용품",
     targetQty: 50,
     filledQty: 15,
-    urgent: true,
     note: "요양 어르신 12분께 매주 전달돼요",
   },
   {
@@ -111,7 +110,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     category: "통조림",
     targetQty: 100,
     filledQty: 72,
-    urgent: true,
     note: "결식 아동 도시락 반찬으로 나가요",
   },
   {
@@ -120,7 +118,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     category: "쌀/곡물",
     targetQty: 30,
     filledQty: 4,
-    urgent: false,
     note: "독거 어르신 가정 배달용",
   },
   {
@@ -129,7 +126,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     category: "세제",
     targetQty: 40,
     filledQty: 12,
-    urgent: true,
     note: "한부모 가정 생활용품 꾸러미",
   },
   {
@@ -138,7 +134,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     category: "화장지",
     targetQty: 20,
     filledQty: 18,
-    urgent: false,
     note: "거의 다 모였어요. 조금만 더요",
   },
   {
@@ -147,7 +142,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     category: "기타",
     targetQty: 20,
     filledQty: 15,
-    urgent: false,
     note: "긴급 지원 가정 비상식량",
   },
 ];
@@ -207,7 +201,6 @@ export function createNeed(input: {
   itemName: string;
   category: string;
   targetQty: number;
-  urgent: boolean;
   note: string;
 }): Need {
   const need: Need = {
@@ -225,6 +218,7 @@ export type NeedView = Need & {
   progress: number;
   remainingQty: number;
   pendingQty: number;
+  urgent: boolean;
 };
 
 function toView(need: Need): NeedView {
@@ -232,16 +226,19 @@ function toView(need: Need): NeedView {
     .filter((app) => app.needId === need.id && app.status === "pending")
     .reduce((sum, app) => sum + app.quantity, 0);
 
+  const progress = Math.min(100, Math.round((need.filledQty / need.targetQty) * 100));
+
   return {
     ...need,
     foodBank: getFoodBank(need.foodBankId)!,
-    progress: Math.min(100, Math.round((need.filledQty / need.targetQty) * 100)),
+    progress,
     remainingQty: Math.max(0, need.targetQty - need.filledQty),
     pendingQty,
+    urgent: isUrgent(progress),
   };
 }
 
-/** 진행률 게시판용. 급한 것(진행률 낮고 urgent) 먼저. */
+/** 진행률 게시판용. 도움이 필요한 것(진행률 낮은 것) 먼저. */
 export function listNeeds(): NeedView[] {
   return Array.from(needs.values())
     .map(toView)
@@ -265,7 +262,7 @@ function needLabelOf(score: number) {
 
 /**
  * 기부하려는 품목과 카테고리가 맞는 '필요 건'을 골라 순위를 매긴다.
- * 부족분이 클수록, 기관이 긴급으로 표시했을수록, 가까울수록 위로 온다.
+ * 부족분이 클수록, 진행률이 낮아 도움이 필요할수록, 가까울수록 위로 온다.
  */
 export function matchNeeds(category: string, regionName: string): NeedMatch[] {
   const origin = getRegion(regionName || DEFAULT_REGION);
@@ -292,7 +289,7 @@ export function matchNeeds(category: string, regionName: string): NeedMatch[] {
         : need.remainingQty === 0
           ? "목표를 이미 채웠어요. 여유분으로 받아요"
           : need.urgent
-            ? `${withJosa(need.itemName, "이", "가")} ${need.remainingQty}개 더 필요해요 (긴급)`
+            ? `${withJosa(need.itemName, "이", "가")} ${need.remainingQty}개 더 필요해요. 도움이 필요해요`
             : `${need.remainingQty}개만 더 모으면 목표를 채워요`;
 
       return {

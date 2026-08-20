@@ -51,6 +51,13 @@ export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; ln
   return Math.round(Math.hypot(dx, dy) * 10) / 10;
 }
 
+/** 기관이 임의로 켜던 "긴급"을 진행률 기준 자동 판정으로 바꾼다. 기준 미달이면 도움이 필요한 요청. */
+export const URGENT_PROGRESS_THRESHOLD = 30;
+
+export function isUrgent(progress: number): boolean {
+  return progress < URGENT_PROGRESS_THRESHOLD;
+}
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** "YYYY-MM-DD" 형식인지 확인한다. API 경계에서 잘못된 날짜 문자열이 들어오는 걸 막는다. */

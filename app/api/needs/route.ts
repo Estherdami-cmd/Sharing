@@ -38,7 +38,6 @@ export async function POST(request: Request) {
     itemName,
     category,
     targetQty: Math.max(1, Math.round(targetQtyNum)),
-    urgent: Boolean(body.urgent),
     note: body.note ?? "",
   });
   return NextResponse.json(need);

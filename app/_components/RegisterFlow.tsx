@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   CATEGORIES,
   DEFAULT_REGION,
@@ -52,6 +52,23 @@ const DEMO_PHOTOS = {
  */
 export default function RegisterFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const presetNeedId = searchParams.get("needId");
+
+  // 게시판에서 특정 요청으로 바로 들어온 경우, 등록 화면에 "지금 누굴 돕는지" 안내를 보여준다.
+  const [presetNeed, setPresetNeed] = useState<{ itemName: string; foodBankName: string } | null>(
+    null
+  );
+  useEffect(() => {
+    if (!presetNeedId) return;
+    fetch("/api/needs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const found = data?.needs?.find((n: { id: string }) => n.id === presetNeedId);
+        if (found) setPresetNeed({ itemName: found.itemName, foodBankName: found.foodBank.name });
+      })
+      .catch(() => {});
+  }, [presetNeedId]);
 
   // 사진을 올리기 전에 먼저 고른다. 유통기한을 물어봐야 하는지가 여기서 갈린다.
   const [kind, setKind] = useState<ItemKind | null>(null);
@@ -214,6 +231,13 @@ export default function RegisterFlow() {
       return;
     }
     const created = await res.json();
+
+    // 게시판에서 특정 요청을 보고 들어온 경우, 매칭 추천 화면을 건너뛰고 바로 그 신청 화면으로 간다.
+    if (presetNeedId) {
+      router.push(`/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=1`);
+      return;
+    }
+
     // 2단계는 별도 주소다. 물품 id만 넘기면 그쪽에서 매칭을 다시 불러온다.
     router.push(`/match/${created.id}`);
   }
@@ -241,6 +265,12 @@ export default function RegisterFlow() {
           제품 사진과 유통기한 사진을 각각 올려주세요. 한 면에 다 보이면 제품 사진만으로도 됩니다
         </p>
       </header>
+
+      {presetNeed && (
+        <p className="rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-center text-[13px] font-semibold text-primary-700">
+          지금 {presetNeed.foodBankName}의 {presetNeed.itemName} 요청에 채워질 물품을 등록해요
+        </p>
+      )}
 
       {/*
         사진보다 먼저 고른다. 이 선택이 세부분류 목록과 유통기한 입력 여부를 정하고,
