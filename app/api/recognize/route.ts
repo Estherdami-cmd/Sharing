@@ -12,30 +12,39 @@ import {
 } from "@/lib/rules";
 
 /**
- * flash-lite를 쓰는 건 의도적이다. 상위 모델(3.6-flash)도 판독 정확도는 같은데
- * 응답이 25초를 넘고 503이 섞여서 시연에 못 쓴다. lite는 같은 사진을 1.5~2초에 읽는다.
+ * gpt-5.4-mini를 쓰는 건 의도적이다. 데모 사진(아침에주스 210mL, 라벨 2026.09.04)으로
+ * 후보를 5회씩 돌려보고 골랐다.
+ *   gpt-5.4-mini(effort medium) 5/5 정확, 2.1~3.4초  ← 선택
+ *   gpt-4.1-mini(temperature 0) 3/3 정확, 3.5~5.1초
+ *   gpt-5.4-nano(effort low)    1/2 정확 — 연도를 틀린다. 못 쓴다.
+ * effort를 low로 낮추면 gpt-5.4-mini도 2026을 2028로 읽은 적이 있어 medium으로 고정한다.
  */
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
+const ENDPOINT = "https://api.openai.com/v1/responses";
+/** 유통기한 오독은 이 앱에서 가장 비싼 실수다. 속도보다 정확도를 산다. */
+const REASONING_EFFORT = "medium";
 
-/** inline_data는 base64라 원본의 4/3배가 된다. 요청 20MB 제한을 넉넉히 피한다. */
+/** data URL은 base64라 원본의 4/3배가 된다. 요청 크기 제한을 넉넉히 피한다. */
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 /** 사진 두 장을 한 요청에 같이 보내므로 합계도 막아둔다. */
 const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
-/** 평소 2초 안에 오지만 가끔 25초까지 튄다. 그때는 목업으로 넘겨 시연을 안 세운다. */
+/** 평소 3초 안에 오지만 가끔 튄다. 그때는 목업으로 넘겨 시연을 안 세운다. */
 const TIMEOUT_MS = 25_000;
 
-/** 모델이 자유 서술 대신 이 모양으로만 답하게 강제한다. */
+/**
+ * 모델이 자유 서술 대신 이 모양으로만 답하게 강제한다.
+ * strict 모드는 required에 모든 키가 있고 additionalProperties가 false여야 통과한다.
+ */
 const RESPONSE_SCHEMA = {
-  type: "OBJECT",
+  type: "object",
   properties: {
-    itemName: { type: "STRING" },
-    category: { type: "STRING", enum: CATEGORIES },
-    expiryDate: { type: "STRING" },
-    confidence: { type: "NUMBER" },
+    itemName: { type: "string" },
+    category: { type: "string", enum: CATEGORIES },
+    expiryDate: { type: "string" },
+    confidence: { type: "number" },
   },
   required: ["itemName", "category", "expiryDate", "confidence"],
-  propertyOrdering: ["itemName", "category", "expiryDate", "confidence"],
+  additionalProperties: false,
 };
 
 function buildPrompt(today: string, hasExpiryPhoto: boolean) {
@@ -57,6 +66,7 @@ function buildPrompt(today: string, hasExpiryPhoto: boolean) {
     "expiryDate: 포장에 적힌 유통기한 또는 소비기한을 YYYY-MM-DD로.",
     "  - '제조일자'는 유통기한이 아니다. 유통기한 표기만 읽어라.",
     "  - 2027.05.01 / 27.05.01 / 2027년 5월 1일 / 05 2027 같은 표기를 모두 정규화해라.",
+    "  - 연도 네 자리를 끝까지 확인해라. 잉크젯 각인은 6과 8, 0과 9가 닮아 보인다.",
     "  - 연·월만 보이면 그 달의 마지막 날로 본다.",
     '  - 세제·화장지·기저귀처럼 유통기한이 없는 품목이거나, 날짜가 안 보이면 빈 문자열 "".',
     "  - 추측해서 지어내지 마라. 안 보이면 빈 문자열이다.",
@@ -76,15 +86,15 @@ type Recognized = {
 /**
  * 판독 실패는 두 가지고, 사용자에게 할 말이 서로 다르다.
  * unrecognized = 모델은 답했는데 물품이 안 보임 → "다시 찍어주세요"
- * failed       = 호출 자체가 안 됨(타임아웃·503·키 없음) → 목업으로 대체
+ * failed       = 호출 자체가 안 됨(타임아웃·5xx·키 없음) → 목업으로 대체
  */
-type GeminiOutcome =
+type RecognizeOutcome =
   | { status: "ok"; data: Recognized }
   | { status: "unrecognized" }
   | { status: "failed" };
 
 /** 모델 응답은 스키마를 줘도 끝까지 믿지 않는다. 화면에 들어가기 전에 전부 정규화한다. */
-function normalize(raw: unknown): GeminiOutcome {
+function normalize(raw: unknown): RecognizeOutcome {
   if (!raw || typeof raw !== "object") return { status: "failed" };
   const data = raw as Record<string, unknown>;
 
@@ -107,67 +117,88 @@ function normalize(raw: unknown): GeminiOutcome {
   return { status: "ok", data: { itemName, category, expiryDate, confidence } };
 }
 
-async function recognizeWithGemini(
+async function recognizeWithOpenAI(
   productImage: File,
   expiryImage: File | null,
   apiKey: string
-): Promise<GeminiOutcome> {
+): Promise<RecognizeOutcome> {
   async function toPart(file: File) {
     const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-    return { inline_data: { mime_type: file.type || "image/jpeg", data: base64 } };
+    const mime = file.type || "image/jpeg";
+    return { type: "input_image", image_url: `data:${mime};base64,${base64}` };
   }
 
   // 사진마다 앞에 라벨 텍스트를 붙인다. 이게 없으면 모델이 어느 쪽이 유통기한 사진인지 모른다.
-  const requestParts: Record<string, unknown>[] = [
-    { text: buildPrompt(toISODate(startOfToday()), expiryImage !== null) },
-    { text: "[사진 1] 제품 사진" },
+  const content: Record<string, unknown>[] = [
+    { type: "input_text", text: buildPrompt(toISODate(startOfToday()), expiryImage !== null) },
+    { type: "input_text", text: "[사진 1] 제품 사진" },
     await toPart(productImage),
   ];
   if (expiryImage) {
-    requestParts.push({ text: "[사진 2] 유통기한 사진" }, await toPart(expiryImage));
+    content.push({ type: "input_text", text: "[사진 2] 유통기한 사진" }, await toPart(expiryImage));
   }
 
   const res = await fetch(ENDPOINT, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({
-      contents: [{ parts: requestParts }],
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
+      model: MODEL,
+      input: [{ role: "user", content }],
+      reasoning: { effort: REASONING_EFFORT },
+      text: {
+        format: {
+          type: "json_schema",
+          name: "recognized",
+          strict: true,
+          schema: RESPONSE_SCHEMA,
+        },
       },
     }),
   });
 
   if (!res.ok) {
-    console.error("[recognize] Gemini 응답 실패", res.status, (await res.text()).slice(0, 500));
+    console.error("[recognize] OpenAI 응답 실패", res.status, (await res.text()).slice(0, 500));
     return { status: "failed" };
   }
 
   const payload = await res.json();
-  const parts = payload?.candidates?.[0]?.content?.parts;
-  // thinking 모델은 응답 앞에 사고 파트를 끼워 넣는다. text를 가진 파트만 골라야 한다.
-  const text = Array.isArray(parts)
-    ? parts
-        .filter(
-          (part: { text?: unknown; thought?: unknown }) =>
-            typeof part?.text === "string" && part.thought !== true
-        )
-        .map((part: { text: string }) => part.text)
-        .join("")
-    : "";
+
+  // 추론 모델은 output에 reasoning 항목을 먼저 끼워 넣는다. message만 골라야 한다.
+  const output = Array.isArray(payload?.output) ? payload.output : [];
+  const blocks = output
+    .filter((item: { type?: unknown }) => item?.type === "message")
+    .flatMap((item: { content?: unknown }) => (Array.isArray(item.content) ? item.content : []));
+
+  // 안전 필터에 걸리면 output_text 대신 refusal이 온다. 목업으로 덮지 않고 실패로 남긴다.
+  const refusal = blocks.find((b: { type?: unknown }) => b?.type === "refusal");
+  if (refusal) {
+    console.error("[recognize] OpenAI 응답 거부", JSON.stringify(refusal).slice(0, 500));
+    return { status: "failed" };
+  }
+
+  const text = blocks
+    .filter(
+      (b: { type?: unknown; text?: unknown }) =>
+        b?.type === "output_text" && typeof b.text === "string"
+    )
+    .map((b: { text: string }) => b.text)
+    .join("");
 
   if (!text.trim()) {
-    console.error("[recognize] Gemini 응답에 텍스트가 없음", JSON.stringify(payload).slice(0, 500));
+    // status가 incomplete면 토큰 한도나 안전 필터에 걸린 것이다. 이유를 로그에 남긴다.
+    console.error(
+      "[recognize] OpenAI 응답에 텍스트가 없음",
+      payload?.status,
+      JSON.stringify(payload?.incomplete_details ?? payload).slice(0, 500)
+    );
     return { status: "failed" };
   }
 
   try {
     return normalize(JSON.parse(text));
   } catch {
-    console.error("[recognize] Gemini JSON 파싱 실패", text.slice(0, 500));
+    console.error("[recognize] OpenAI JSON 파싱 실패", text.slice(0, 500));
     return { status: "failed" };
   }
 }
@@ -189,8 +220,8 @@ function recognizeWithMock(image: File, requestedSample: string | null): Recogni
 
 /**
  * 물품 사진 판독.
- * 우선순위: 데모 모드 지정 > Gemini Vision > 파일명 키워드 > 파일 해시.
- * 데모 모드를 Gemini보다 위에 두는 건 의도적이다. 발표 중 원하는 분기를 확실히 재현해야 한다.
+ * 우선순위: 데모 모드 지정 > OpenAI Vision > 파일명 키워드 > 파일 해시.
+ * 데모 모드를 모델보다 위에 두는 건 의도적이다. 발표 중 원하는 분기를 확실히 재현해야 한다.
  * 나눔 가능 여부는 모델 답이 아니라 항상 서버의 evaluateShareable가 판정한다.
  */
 export async function POST(request: Request) {
@@ -231,20 +262,20 @@ export async function POST(request: Request) {
 
   const requested = formData.get("sample");
   const requestedSample = typeof requested === "string" && requested ? requested : null;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
 
   let result: Recognized | null = null;
-  let source: "demo" | "gemini" | "mock" = "mock";
+  let source: "demo" | "openai" | "mock" = "mock";
 
   if (requestedSample) {
     result = recognizeWithMock(image, requestedSample);
     source = "demo";
   } else if (apiKey) {
-    let outcome: GeminiOutcome;
+    let outcome: RecognizeOutcome;
     try {
-      outcome = await recognizeWithGemini(image, expiryImage, apiKey);
+      outcome = await recognizeWithOpenAI(image, expiryImage, apiKey);
     } catch (error) {
-      console.error("[recognize] Gemini 호출 예외", error);
+      console.error("[recognize] OpenAI 호출 예외", error);
       outcome = { status: "failed" };
     }
 
@@ -257,7 +288,7 @@ export async function POST(request: Request) {
     }
     if (outcome.status === "ok") {
       result = outcome.data;
-      source = "gemini";
+      source = "openai";
     }
   }
 

@@ -40,7 +40,7 @@ type MatchResult = NeedMatch;
 /**
  * 발표용으로 번들해 둔 실제 제품 사진 두 장(아침에주스 오렌지 210mL).
  * 앞면에 품목명, 뒷면에 유통기한이 따로 있어 두 슬롯 구조를 그대로 보여준다.
- * 제품 사진 파일명은 rules.ts의 juice 샘플 keywords와 맞춰뒀다. Gemini 호출이
+ * 제품 사진 파일명은 rules.ts의 juice 샘플 keywords와 맞춰뒀다. 모델 호출이
  * 실패해 목업으로 떨어져도 같은 품목이 나와 시연이 안 끊긴다.
  */
 const DEMO_PHOTOS = {
@@ -68,7 +68,7 @@ export default function DonateFlow() {
   const [category, setCategory] = useState("");
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
-  const [source, setSource] = useState<"demo" | "gemini" | "mock" | null>(null);
+  const [source, setSource] = useState<"demo" | "openai" | "mock" | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submittingDonation, setSubmittingDonation] = useState(false);
   const [loadingDemoPhoto, setLoadingDemoPhoto] = useState(false);
@@ -315,6 +315,23 @@ export default function DonateFlow() {
 
           {recognizeStatus === "done" && verdict && (
             <div className={card}>
+              {/*
+                목업으로 떨어졌을 때는 카드 맨 위에서 먼저 말한다.
+                아래 뱃지가 "나눔 가능"을 확신에 차서 보여주는데, 그 판정의 근거가
+                가짜 데이터라는 걸 뱃지보다 먼저 읽혀야 오해가 안 생긴다.
+              */}
+              {source === "mock" && (
+                <div className="flex flex-col gap-1 rounded-xl border-2 border-warning-fg/40 bg-warning-bg px-4 py-3">
+                  <p className="text-[15px] font-extrabold text-warning-fg">
+                    AI 서버에 연결하지 못했어요
+                  </p>
+                  <p className="text-[13px] leading-relaxed text-warning-fg">
+                    아래 내용은 실제 판독 결과가 아니라 <b>예시 데이터</b>예요. 품목명과 유통기한이
+                    사진과 맞는지 직접 확인하고 고쳐주세요.
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <h2 className="text-[17px] font-bold tracking-[-0.02em]">AI 인식 결과</h2>
                 <span className={toneBadge(verdict.tone)}>{TONE_LABEL[verdict.tone]}</span>
@@ -364,11 +381,6 @@ export default function DonateFlow() {
                 <p className="text-xs text-neutral-400">
                   AI 신뢰도 {Math.round(confidence * 100)}%
                   {source === "demo" && " · 데모 모드로 지정한 결과예요"}
-                </p>
-              )}
-              {source === "mock" && (
-                <p className="text-xs text-warning-fg">
-                  AI 서버에 연결하지 못해 예시 데이터로 채웠어요. 내용이 맞는지 직접 확인해주세요
                 </p>
               )}
 

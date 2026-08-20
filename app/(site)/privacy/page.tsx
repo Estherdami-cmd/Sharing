@@ -30,7 +30,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className={sectionTitle}>3. 제3자 제공</h2>
             <p className={`${caption} mt-1`}>
-              사진 인식에 Gemini Vision API를 호출할 때만 이미지가 외부로 전송돼요. 그 외에는
+              사진 인식에 OpenAI API를 호출할 때만 이미지가 외부로 전송돼요. 그 외에는
               어떤 정보도 제3자에게 제공하지 않아요.
             </p>
           </section>
