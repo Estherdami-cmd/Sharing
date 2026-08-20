@@ -19,6 +19,7 @@ import {
   toneBadge,
 } from "../ui";
 import NeedProgress from "./NeedProgress";
+import { useRefetchOnFocus } from "./useRefetchOnFocus";
 
 type MatchResult = NeedMatch;
 
@@ -67,6 +68,10 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
       cancelled = true;
     };
   }, [donationId, loadMatches]);
+
+  useRefetchOnFocus(useCallback(() => {
+    loadMatches(donationId);
+  }, [donationId, loadMatches]));
 
   async function patchDonation(patch: Record<string, unknown>) {
     if (!donation) return;

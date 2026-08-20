@@ -84,6 +84,18 @@ export function formatKoreanDate(iso: string): string {
   return `${Number(m)}월 ${Number(d)}일`;
 }
 
+/** ISO 타임스탬프를 "방금"/"5분 전"/"3시간 전"처럼 사람이 읽는 상대 시간으로 바꾼다. */
+export function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "방금";
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.floor(hours / 24);
+  return `${days}일 전`;
+}
+
 /** 기부 물품에 찍힐 수 있는 연도 범위. 이 밖으로 나가면 각인을 잘못 읽은 것으로 본다. */
 const EXPIRY_YEAR_BACK = 10;
 const EXPIRY_YEAR_AHEAD = 20;
