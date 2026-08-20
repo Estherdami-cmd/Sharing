@@ -6,7 +6,7 @@ export default function FoodBankAdminPage() {
   return (
     <main className="flex min-h-screen flex-col items-center px-5 pt-8 pb-12 md:px-6 lg:px-8 xl:px-10">
       <div className={shell}>
-        <AdminPanel refreshKey={0} />
+        <AdminPanel />
       </div>
     </main>
   );

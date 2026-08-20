@@ -18,7 +18,7 @@ type NeedView = {
   foodBank: { name: string; address: string };
 };
 
-export default function NeedBoard({ refreshKey }: { refreshKey: number }) {
+export default function NeedBoard() {
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +31,7 @@ export default function NeedBoard({ refreshKey }: { refreshKey: number }) {
 
   useEffect(() => {
     load();
-  }, [refreshKey]);
+  }, []);
 
   const totalTarget = needs.reduce((sum, n) => sum + n.targetQty, 0);
   const totalFilled = needs.reduce((sum, n) => sum + n.filledQty, 0);
