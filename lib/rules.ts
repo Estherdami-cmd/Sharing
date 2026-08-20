@@ -54,6 +54,114 @@ export function formatKoreanDate(iso: string): string {
   return `${Number(m)}월 ${Number(d)}일`;
 }
 
+/** 기부 물품에 찍힐 수 있는 연도 범위. 이 밖으로 나가면 각인을 잘못 읽은 것으로 본다. */
+const EXPIRY_YEAR_BACK = 10;
+const EXPIRY_YEAR_AHEAD = 20;
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+/** 실제로 존재하는 날짜인지, 그리고 기부 물품에 찍힐 만한 연도인지 본다. */
+function buildDate(year: number, month: number, day: number): string | null {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > daysInMonth(year, month)) return null;
+
+  const thisYear = startOfToday().getFullYear();
+  if (year < thisYear - EXPIRY_YEAR_BACK || year > thisYear + EXPIRY_YEAR_AHEAD) return null;
+
+  return toISODate(new Date(year, month - 1, day));
+}
+
+/** 두 자리 연도는 2000년대로 본다. 식품 라벨에 1900년대가 찍힐 일은 없다. */
+function expandYear(twoDigit: number): number {
+  return 2000 + twoDigit;
+}
+
+/**
+ * 라벨에 찍힌 날짜 표기를 "YYYY-MM-DD"로 맞춘다. 못 만들면 null.
+ *
+ * 모델에게 ISO로 달라고 시켜도 라벨 표기를 그대로 옮겨오는 경우가 있어서
+ * 서버에서 한 번 더 정규화한다. 잉크젯 각인은 뒤에 시간이나 라인 번호가 붙는 일이
+ * 많아("2026.09.04 B4 15:12") 숫자를 아무렇게나 긁어모으면 안 되고, 날짜 모양을
+ * 순서대로 맞춰봐야 한다.
+ *
+ * 연·월만 보이면 그 달의 마지막 날로 본다. 유통기한 표기가 그런 뜻이다.
+ *
+ * 앞뒤를 가릴 수 없는 표기(예: 03.05.2027 — 3월 5일인지 5월 3일인지)는 추측하지 않고
+ * null을 준다. 유통기한을 잘못 읽는 건 못 읽는 것보다 나쁘다.
+ */
+/**
+ * 모델이 준 두 값에서 쓸 수 있는 유통기한을 정한다.
+ * iso는 모델이 변환한 값, raw는 라벨에 적힌 문구 그대로다.
+ * 모델은 변환이 애매하면 iso를 비우고 raw만 채우라고 지시받았고, 지시를 어기고
+ * iso에 라벨 표기를 그대로 넣어오기도 한다. 그래서 둘 다 같은 정규화를 통과시킨다.
+ */
+export function resolveExpiryDate(iso: string, raw: string): string | null {
+  return normalizeExpiryDate(iso) ?? normalizeExpiryDate(raw);
+}
+
+export function normalizeExpiryDate(raw: string): string | null {
+  if (!raw) return null;
+
+  let s = raw.trim();
+  // 시간 표기를 먼저 떼어낸다. 안 그러면 "15:12"의 15가 날짜로 끌려온다.
+  s = s.replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, " ");
+  // 한국어 표기를 구분자로 바꿔 아래 숫자 패턴이 그대로 잡히게 한다.
+  s = s.replace(/[년월]/g, ".").replace(/일/g, " ");
+
+  // 구분자는 점·하이픈·슬래시뿐 아니라 공백일 수도 있다("2027 05 01").
+  const SEP = "(?:\\s*[.\\-/]\\s*|\\s+)";
+
+  // 1) 네 자리 연도가 앞: 2027.05.01
+  let m = s.match(new RegExp(`(\\d{4})${SEP}(\\d{1,2})${SEP}(\\d{1,2})`));
+  if (m) return buildDate(Number(m[1]), Number(m[2]), Number(m[3]));
+
+  // 2) 두 자리 연도가 앞: 27.05.01 — 한국 식품 라벨의 기본형이다.
+  m = s.match(new RegExp(`(?<!\\d)(\\d{2})${SEP}(\\d{1,2})${SEP}(\\d{1,2})(?!\\d)`));
+  if (m) return buildDate(expandYear(Number(m[1])), Number(m[2]), Number(m[3]));
+
+  // 3) 네 자리 연도가 뒤: 01.05.2027 — 일·월 순서를 가릴 수 있을 때만 받는다.
+  m = s.match(new RegExp(`(\\d{1,2})${SEP}(\\d{1,2})${SEP}(\\d{4})`));
+  if (m) {
+    const [a, b, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    if (a > 12 && b <= 12) return buildDate(year, b, a);
+    if (b > 12 && a <= 12) return buildDate(year, a, b);
+    return null; // 둘 다 12 이하면 어느 쪽이 월인지 알 수 없다
+  }
+
+  // 4) 연·월만: 2027.05 → 그 달 마지막 날
+  m = s.match(new RegExp(`(\\d{4})${SEP}(\\d{1,2})(?!${SEP}\\d)(?!\\d)`));
+  if (m) {
+    const [year, month] = [Number(m[1]), Number(m[2])];
+    if (month < 1 || month > 12) return null;
+    return buildDate(year, month, daysInMonth(year, month));
+  }
+
+  // 5) 월·연 순서: 05/2027 → 그 달 마지막 날
+  m = s.match(new RegExp(`(?<!\\d)(\\d{1,2})${SEP}(\\d{4})(?!\\d)`));
+  if (m) {
+    const [month, year] = [Number(m[1]), Number(m[2])];
+    if (month < 1 || month > 12) return null;
+    return buildDate(year, month, daysInMonth(year, month));
+  }
+
+  // 6) 구분자 없는 각인: 20270501 / 270501
+  m = s.match(/(?<!\d)(\d{8})(?!\d)/);
+  if (m) {
+    const v = m[1];
+    return buildDate(Number(v.slice(0, 4)), Number(v.slice(4, 6)), Number(v.slice(6, 8)));
+  }
+  m = s.match(/(?<!\d)(\d{6})(?!\d)/);
+  if (m) {
+    const v = m[1];
+    return buildDate(expandYear(Number(v.slice(0, 2))), Number(v.slice(2, 4)), Number(v.slice(4, 6)));
+  }
+
+  return null;
+}
+
 export function addDays(date: Date, days: number): Date {
   const next = new Date(date);
   next.setDate(next.getDate() + days);

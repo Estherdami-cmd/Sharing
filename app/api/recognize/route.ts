@@ -4,7 +4,7 @@ import {
   evaluateShareable,
   findSampleByFileName,
   getSample,
-  isValidISODate,
+  resolveExpiryDate,
   pickSampleByHash,
   sampleExpiryDate,
   startOfToday,
@@ -41,9 +41,10 @@ const RESPONSE_SCHEMA = {
     itemName: { type: "string" },
     category: { type: "string", enum: CATEGORIES },
     expiryDate: { type: "string" },
+    expiryRaw: { type: "string" },
     confidence: { type: "number" },
   },
-  required: ["itemName", "category", "expiryDate", "confidence"],
+  required: ["itemName", "category", "expiryDate", "expiryRaw", "confidence"],
   additionalProperties: false,
 };
 
@@ -63,13 +64,16 @@ function buildPrompt(today: string, hasExpiryPhoto: boolean) {
     "",
     "itemName: 한국어로 '품목명 + 용량/규격'. 예) '참치 통조림 200g', '백미 5kg', '성인용 기저귀 대형'.",
     `category: 반드시 다음 중 하나. ${CATEGORIES.join(", ")}`,
-    "expiryDate: 포장에 적힌 유통기한 또는 소비기한을 YYYY-MM-DD로.",
-    "  - '제조일자'는 유통기한이 아니다. 유통기한 표기만 읽어라.",
-    "  - 2027.05.01 / 27.05.01 / 2027년 5월 1일 / 05 2027 같은 표기를 모두 정규화해라.",
+    "expiryRaw: 포장에 적힌 날짜 문구를 본 그대로 옮겨라. 형식을 바꾸지 마라.",
+    '  - 예) "2027.05.01", "27.05.01", "2027년 5월", "20270501", "2027.05.01 B4 15:12"',
     "  - 연도 네 자리를 끝까지 확인해라. 잉크젯 각인은 6과 8, 0과 9가 닮아 보인다.",
+    '  - 날짜 표기가 안 보이면 빈 문자열 "". 지어내지 마라.',
+    "expiryDate: 위 날짜를 YYYY-MM-DD로 바꿔 적어라.",
+    "  - '제조일자'는 유통기한이 아니다. 유통기한 또는 소비기한 표기만 읽어라.",
     "  - 연·월만 보이면 그 달의 마지막 날로 본다.",
-    '  - 세제·화장지·기저귀처럼 유통기한이 없는 품목이거나, 날짜가 안 보이면 빈 문자열 "".',
-    "  - 추측해서 지어내지 마라. 안 보이면 빈 문자열이다.",
+    '  - 세제·화장지·기저귀처럼 유통기한이 없는 품목이면 빈 문자열 "".',
+    '  - 변환이 애매하거나 자신 없으면 빈 문자열 ""로 두고 expiryRaw만 정확히 채워라.',
+    "    서버가 표기를 정규화한다. 틀린 날짜를 만드는 것보다 그게 낫다.",
     "confidence: 판독 확신도 0.0~1.0.",
     "",
     "사진에 물품이 없거나 판독이 불가능하면 itemName을 빈 문자열로 두고 confidence를 0으로 해라.",
@@ -106,8 +110,12 @@ function normalize(raw: unknown): RecognizeOutcome {
       ? data.category
       : "기타";
 
+  // 모델이 준 ISO를 먼저 보고, 못 쓰면 라벨 원문에서 서버가 직접 뽑는다.
+  // 모델은 "27.05.01"처럼 라벨 표기를 그대로 옮겨오기도 하고, 변환에 자신이 없으면
+  // expiryDate를 비우고 expiryRaw만 채우라고 시켜뒀다. 둘 다 같은 정규화를 통과시킨다.
   const expiry = typeof data.expiryDate === "string" ? data.expiryDate.trim() : "";
-  const expiryDate = isValidISODate(expiry) ? expiry : null;
+  const expiryRaw = typeof data.expiryRaw === "string" ? data.expiryRaw.trim() : "";
+  const expiryDate = resolveExpiryDate(expiry, expiryRaw);
 
   const rawConfidence = Number(data.confidence);
   const confidence = Number.isFinite(rawConfidence)
