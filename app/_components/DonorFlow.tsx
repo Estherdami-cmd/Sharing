@@ -862,9 +862,11 @@ export default function DonorFlow() {
               <label className={label}>연락처</label>
               <input
                 type="tel"
-                placeholder="010-0000-0000"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="01000000000"
                 value={contact}
-                onChange={(e) => setContact(e.target.value)}
+                onChange={(e) => setContact(e.target.value.replace(/\D/g, ""))}
                 className={field}
               />
             </div>
