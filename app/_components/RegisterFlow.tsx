@@ -393,13 +393,27 @@ function PhotoSlot({
         </div>
       )}
 
+      {/*
+        PC에서는 촬영 버튼을 감춘다. 화면 폭이 아니라 포인터 종류로 가른다 —
+        터치스크린 노트북도 주 입력이 마우스면 pointer: fine이라 PC로 잡히고,
+        브라우저 창을 좁혀도 휴대폰 취급을 받지 않는다.
+        CSS로만 가르니 서버 렌더링과 어긋날 일도, 처음 한 번 깜빡일 일도 없다.
+        버튼 이름도 같이 바꾼다. PC에서 "갤러리"는 뜻이 안 통한다.
+      */}
       <div className="flex gap-2">
         <button onClick={() => galleryRef.current?.click()} className={`${btnOutline} h-11`}>
-          갤러리
+          <span className="pointer-coarse:hidden">파일 선택</span>
+          <span className="hidden pointer-coarse:inline">갤러리</span>
         </button>
-        <button onClick={() => cameraRef.current?.click()} className={`${btnOutline} h-11`}>
-          촬영
-        </button>
+        {/*
+          btnOutline에 inline-flex가 들어 있어서 같은 요소에 hidden을 얹으면
+          display가 충돌해 숨겨지지 않는다. display 유틸리티가 없는 래퍼로 감싼다.
+        */}
+        <span className="hidden flex-1 pointer-coarse:flex">
+          <button onClick={() => cameraRef.current?.click()} className={`${btnOutline} h-11`}>
+            촬영
+          </button>
+        </span>
       </div>
 
       <input
