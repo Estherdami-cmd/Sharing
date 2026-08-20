@@ -7,7 +7,10 @@ import {
   DEFAULT_REGION,
   SAMPLE_ITEMS,
   type ExpiryStatus,
+  ITEM_KIND_LABEL,
+  type ItemKind,
   type ShareVerdict,
+  categoriesFor,
   evaluateShareable,
   formatKoreanDate,
   isValidISODate,
@@ -50,6 +53,8 @@ const DEMO_PHOTOS = {
 export default function RegisterFlow() {
   const router = useRouter();
 
+  // 사진을 올리기 전에 먼저 고른다. 유통기한을 물어봐야 하는지가 여기서 갈린다.
+  const [kind, setKind] = useState<ItemKind | null>(null);
   const [productPreview, setProductPreview] = useState<string | null>(null);
   const [expiryPreview, setExpiryPreview] = useState<string | null>(null);
   const [recognizeStatus, setRecognizeStatus] = useState<RecognizeStatus>("idle");
@@ -75,7 +80,11 @@ export default function RegisterFlow() {
     빈 문자열도 unknown으로 떨어져야 한다. 예전에는 그게 "기한 없음"으로 통과했다.
   */
   const expiryStatus: ExpiryStatus =
-    expiryKnown === "none" ? "none" : expiryDate && isValidISODate(expiryDate) ? "read" : "unknown";
+    kind === "nonfood" || expiryKnown === "none"
+      ? "none"
+      : expiryDate && isValidISODate(expiryDate)
+        ? "read"
+        : "unknown";
 
   const verdict: ShareVerdict | null =
     recognizeStatus === "done" ? evaluateShareable(expiryDate, expiryStatus) : null;
@@ -95,6 +104,21 @@ export default function RegisterFlow() {
     });
 
     // 사진이 바뀌면 이전 판독 결과는 무효다.
+    setRecognizeStatus("idle");
+    setItemName("");
+    setCategory("");
+    setExpiryDate(null);
+    setExpiryKnown("has");
+    setManufacturedOn(null);
+    setConfidence(null);
+    setSource(null);
+    setRegisterError(null);
+  }
+
+  /** 대분류가 바뀌면 세부분류와 기한 판단의 전제가 달라진다. 판독 결과를 버린다. */
+  function handleKindChange(next: ItemKind) {
+    if (next === kind) return;
+    setKind(next);
     setRecognizeStatus("idle");
     setItemName("");
     setCategory("");
@@ -148,6 +172,7 @@ export default function RegisterFlow() {
     try {
       const formData = new FormData();
       formData.append("image", productFileRef.current);
+      if (kind) formData.append("kind", kind);
       if (expiryFileRef.current) formData.append("expiryImage", expiryFileRef.current);
       if (demoSample) formData.append("sample", demoSample);
 
@@ -217,6 +242,37 @@ export default function RegisterFlow() {
         </p>
       </header>
 
+      {/*
+        사진보다 먼저 고른다. 이 선택이 세부분류 목록과 유통기한 입력 여부를 정하고,
+        모델에게도 같이 넘어가서 엉뚱한 분류를 고르지 않게 한다.
+      */}
+      <div className="flex flex-col gap-2">
+        <p className={label}>어떤 물품인가요?</p>
+        <div className="flex gap-2">
+          {(["food", "nonfood"] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => handleKindChange(k)}
+              className={
+                "h-12 flex-1 cursor-pointer rounded-xl border-2 text-[15px] font-bold transition-colors " +
+                (kind === k
+                  ? "border-primary-500 bg-primary-50 text-primary-700"
+                  : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
+              }
+            >
+              {ITEM_KIND_LABEL[k]}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-neutral-400">
+          {kind === "nonfood"
+            ? "세제·화장지 같은 생활용품이에요. 유통기한은 묻지 않아요"
+            : kind === "food"
+              ? "먹는 물품이라 유통기한을 확인해요"
+              : "먼저 골라주세요. 유통기한을 확인할지가 달라져요"}
+        </p>
+      </div>
+
       <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-primary-300 bg-primary-50/60 p-5">
         <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
           <PhotoSlot
@@ -247,10 +303,12 @@ export default function RegisterFlow() {
 
         <button
           onClick={handleRecognize}
-          disabled={recognizeStatus === "loading"}
+          disabled={recognizeStatus === "loading" || kind === null}
           className={btnPrimary}
         >
-          {recognizeStatus === "loading"
+          {kind === null
+            ? "먼저 음식 여부를 골라주세요"
+            : recognizeStatus === "loading"
             ? "사진에서 품목과 유통기한을 읽는 중..."
             : expiryPreview
               ? "AI로 확인하기 (사진 2장)"
@@ -306,12 +364,14 @@ export default function RegisterFlow() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className={label}>카테고리</label>
+            <label className={label}>
+              세부분류{kind ? ` · ${ITEM_KIND_LABEL[kind]}` : ""}
+            </label>
             <select value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
               <option value="" disabled>
                 카테고리를 선택하세요
               </option>
-              {CATEGORIES.map((c) => (
+              {(kind ? categoriesFor(kind) : CATEGORIES).map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -319,47 +379,50 @@ export default function RegisterFlow() {
             </select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className={label}>유통기한</label>
+          {/* 먹는 물품이 아니면 유통기한 자체를 묻지 않는다. 기부자가 대분류에서 이미 답했다. */}
+          {kind !== "nonfood" && (
+            <div className="flex flex-col gap-1.5">
+              <label className={label}>유통기한</label>
 
-            {/*
-              날짜를 확인하지 못했으면 그 사실을 먼저 말한다. 예전에는 이 경우가
-              "유통기한 없는 품목"으로 조용히 넘어가서 그대로 나눔 가능이 됐다.
-              제조일자만 찍힌 라벨이 대표적인 경우라, 읽은 제조일자를 근거로 같이 보여준다.
-            */}
-            {verdict.needsExpiryInput && (
-              <div className="flex flex-col gap-1 rounded-xl border-2 border-warning-fg/40 bg-warning-bg px-4 py-3">
-                <p className="text-[14px] font-extrabold text-warning-fg">
-                  유통기한을 확인하지 못했어요
-                </p>
-                <p className="text-[13px] leading-relaxed text-warning-fg">
-                  {manufacturedOn
-                    ? `포장에서 제조일자(${formatKoreanDate(manufacturedOn)})만 찾았어요. 제조일자로는 유통기한을 알 수 없으니, 포장에 적힌 유통기한을 직접 입력해주세요.`
-                    : "포장에서 날짜를 찾지 못했어요. 유통기한이 보이면 직접 입력하고, 없는 품목이면 아래를 체크해주세요."}
-                </p>
-              </div>
-            )}
+              {/*
+                날짜를 확인하지 못했으면 그 사실을 먼저 말한다. 예전에는 이 경우가
+                "유통기한 없는 품목"으로 조용히 넘어가서 그대로 나눔 가능이 됐다.
+                제조일자만 찍힌 라벨이 대표적인 경우라, 읽은 제조일자를 근거로 같이 보여준다.
+              */}
+              {verdict.needsExpiryInput && (
+                <div className="flex flex-col gap-1 rounded-xl border-2 border-warning-fg/40 bg-warning-bg px-4 py-3">
+                  <p className="text-[14px] font-extrabold text-warning-fg">
+                    유통기한을 확인하지 못했어요
+                  </p>
+                  <p className="text-[13px] leading-relaxed text-warning-fg">
+                    {manufacturedOn
+                      ? `포장에서 제조일자(${formatKoreanDate(manufacturedOn)})만 찾았어요. 제조일자로는 유통기한을 알 수 없으니, 포장에 적힌 유통기한을 직접 입력해주세요.`
+                      : "포장에서 날짜를 찾지 못했어요. 유통기한이 보이면 직접 입력하고, 없는 품목이면 아래를 체크해주세요."}
+                  </p>
+                </div>
+              )}
 
-            <input
-              type="date"
-              value={expiryDate ?? ""}
-              disabled={expiryKnown === "none"}
-              onChange={(e) => setExpiryDate(e.target.value || null)}
-              className={`${field} disabled:bg-neutral-50 disabled:text-neutral-400`}
-            />
-            <label className="flex items-center gap-2 text-[13px] text-neutral-500">
               <input
-                type="checkbox"
-                checked={expiryKnown === "none"}
-                onChange={(e) => {
-                  setExpiryKnown(e.target.checked ? "none" : "has");
-                  if (e.target.checked) setExpiryDate(null);
-                }}
-                className="size-4 accent-primary-700"
+                type="date"
+                value={expiryDate ?? ""}
+                disabled={expiryKnown === "none"}
+                onChange={(e) => setExpiryDate(e.target.value || null)}
+                className={`${field} disabled:bg-neutral-50 disabled:text-neutral-400`}
               />
-              유통기한이 없는 품목이에요
-            </label>
-          </div>
+              <label className="flex items-center gap-2 text-[13px] text-neutral-500">
+                <input
+                  type="checkbox"
+                  checked={expiryKnown === "none"}
+                  onChange={(e) => {
+                    setExpiryKnown(e.target.checked ? "none" : "has");
+                    if (e.target.checked) setExpiryDate(null);
+                  }}
+                  className="size-4 accent-primary-700"
+                />
+                유통기한이 없는 품목이에요
+              </label>
+            </div>
+          )}
 
           <p className={`text-[13px] font-bold ${TONE_TEXT[verdict.tone]}`}>{verdict.reason}</p>
           {confidence !== null && (

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import {
   CATEGORIES,
+  FOOD_CATEGORIES,
+  type ItemKind,
+  NONFOOD_CATEGORIES,
+  categoriesFor,
   type ExpiryStatus,
   evaluateShareable,
   findSampleByFileName,
@@ -58,10 +62,26 @@ const RESPONSE_SCHEMA = {
   additionalProperties: false,
 };
 
-function buildPrompt(today: string, hasExpiryPhoto: boolean) {
+function buildPrompt(today: string, hasExpiryPhoto: boolean, kind: ItemKind | null) {
   return [
     "너는 푸드뱅크 기부 물품을 검수하는 담당자다. 사진 속 물품을 판독해라.",
     `오늘은 ${today}이다.`,
+    // 기부자가 먼저 고른 대분류를 알려준다. 세부분류를 그 안에서만 고르게 하고,
+    // 비음식이면 날짜를 찾느라 애쓰지 않게 한다.
+    ...(kind === "food"
+      ? [
+          "",
+          "기부자는 이 물품을 '음식'으로 분류했다.",
+          `category는 반드시 다음 중 하나. ${FOOD_CATEGORIES.join(", ")}`,
+        ]
+      : kind === "nonfood"
+        ? [
+            "",
+            "기부자는 이 물품을 '음식이 아님'으로 분류했다.",
+            `category는 반드시 다음 중 하나. ${NONFOOD_CATEGORIES.join(", ")}`,
+            "먹는 물품이 아니므로 유통기한을 찾지 마라. expiryKind는 '없음'으로 두면 된다.",
+          ]
+        : []),
     "",
     hasExpiryPhoto
       ? [
@@ -73,7 +93,7 @@ function buildPrompt(today: string, hasExpiryPhoto: boolean) {
       : "사진은 한 장이다. 품목명과 날짜를 모두 이 사진에서 읽어라.",
     "",
     "itemName: 한국어로 '품목명 + 용량/규격'. 예) '참치 통조림 200g', '백미 5kg', '성인용 기저귀 대형'.",
-    `category: 반드시 다음 중 하나. ${CATEGORIES.join(", ")}`,
+    ...(kind ? [] : [`category: 반드시 다음 중 하나. ${CATEGORIES.join(", ")}`]),
     "expiryRaw: 포장에 적힌 날짜 문구를 본 그대로 옮겨라. 형식을 바꾸지 마라.",
     '  - 예) "2027.05.01", "27.05.01", "2027년 5월", "20270501", "2027.05.01 B4 15:12"',
     '  - 연도가 안 찍힌 라벨도 있다. 그때는 보이는 대로 "09.04", "09월 04일"만 옮겨라.',
@@ -120,15 +140,18 @@ type RecognizeOutcome =
   | { status: "failed" };
 
 /** 모델 응답은 스키마를 줘도 끝까지 믿지 않는다. 화면에 들어가기 전에 전부 정규화한다. */
-function normalize(raw: unknown): RecognizeOutcome {
+function normalize(raw: unknown, kind: ItemKind | null): RecognizeOutcome {
   if (!raw || typeof raw !== "object") return { status: "failed" };
   const data = raw as Record<string, unknown>;
 
   const itemName = typeof data.itemName === "string" ? data.itemName.trim() : "";
   if (!itemName) return { status: "unrecognized" };
 
+  // 세부분류는 기부자가 고른 대분류 안에서만 인정한다. 모델이 벗어나면 그 대분류의
+  // "기타"로 떨어뜨린다. 화면의 선택지와 서버가 인정하는 값이 어긋나면 안 된다.
+  const allowedCategories = kind ? categoriesFor(kind) : CATEGORIES;
   const category =
-    typeof data.category === "string" && CATEGORIES.includes(data.category)
+    typeof data.category === "string" && allowedCategories.includes(data.category)
       ? data.category
       : "기타";
 
@@ -138,7 +161,7 @@ function normalize(raw: unknown): RecognizeOutcome {
   const expiry = typeof data.expiryDate === "string" ? data.expiryDate.trim() : "";
   const expiryRaw = typeof data.expiryRaw === "string" ? data.expiryRaw.trim() : "";
   const parsed = resolveExpiryDate(expiry, expiryRaw);
-  const kind = typeof data.expiryKind === "string" ? data.expiryKind : "불명";
+  const dateKind = typeof data.expiryKind === "string" ? data.expiryKind : "불명";
 
   /*
     날짜 종류에 따라 상태가 갈린다.
@@ -153,10 +176,13 @@ function normalize(raw: unknown): RecognizeOutcome {
   let expiryStatus: ExpiryStatus;
   let manufacturedOn: string | null = null;
 
-  if (kind === "제조일자") {
+  if (kind === "nonfood") {
+    // 먹는 물품이 아니면 유통기한을 묻지 않는다. 모델이 무슨 날짜를 읽어왔든 무시한다.
+    expiryStatus = "none";
+  } else if (dateKind === "제조일자") {
     expiryStatus = "unknown";
     manufacturedOn = parsed;
-  } else if (kind === "없음") {
+  } else if (dateKind === "없음") {
     expiryStatus = "none";
   } else if (parsed) {
     expiryDate = parsed;
@@ -180,7 +206,8 @@ function normalize(raw: unknown): RecognizeOutcome {
 async function recognizeWithOpenAI(
   productImage: File,
   expiryImage: File | null,
-  apiKey: string
+  apiKey: string,
+  kind: ItemKind | null
 ): Promise<RecognizeOutcome> {
   async function toPart(file: File) {
     const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
@@ -190,7 +217,10 @@ async function recognizeWithOpenAI(
 
   // 사진마다 앞에 라벨 텍스트를 붙인다. 이게 없으면 모델이 어느 쪽이 유통기한 사진인지 모른다.
   const content: Record<string, unknown>[] = [
-    { type: "input_text", text: buildPrompt(toISODate(startOfToday()), expiryImage !== null) },
+    {
+      type: "input_text",
+      text: buildPrompt(toISODate(startOfToday()), expiryImage !== null, kind),
+    },
     { type: "input_text", text: "[사진 1] 제품 사진" },
     await toPart(productImage),
   ];
@@ -256,7 +286,7 @@ async function recognizeWithOpenAI(
   }
 
   try {
-    return normalize(JSON.parse(text));
+    return normalize(JSON.parse(text), kind);
   } catch {
     console.error("[recognize] OpenAI JSON 파싱 실패", text.slice(0, 500));
     return { status: "failed" };
@@ -264,18 +294,26 @@ async function recognizeWithOpenAI(
 }
 
 /** API 키가 없거나 호출이 실패해도 시연이 멈추지 않도록 남겨둔 목업 경로. */
-function recognizeWithMock(image: File, requestedSample: string | null): Recognized {
+function recognizeWithMock(
+  image: File,
+  requestedSample: string | null,
+  kind: ItemKind | null
+): Recognized {
   const sample =
     (requestedSample ? getSample(requestedSample) : undefined) ??
     findSampleByFileName(image.name) ??
     pickSampleByHash(image.name, image.size);
 
+  // 비음식으로 골랐으면 기한을 묻지 않고, 세부분류도 그 대분류 안으로 맞춘다.
+  const nonfood = kind === "nonfood";
+  const allowed = kind ? categoriesFor(kind) : CATEGORIES;
+
   return {
     itemName: sample.itemName,
-    category: sample.category,
-    expiryDate: sampleExpiryDate(sample),
-    expiryStatus: sampleExpiryStatus(sample),
-    manufacturedOn: sampleManufacturedOn(sample),
+    category: allowed.includes(sample.category) ? sample.category : "기타",
+    expiryDate: nonfood ? null : sampleExpiryDate(sample),
+    expiryStatus: nonfood ? "none" : sampleExpiryStatus(sample),
+    manufacturedOn: nonfood ? null : sampleManufacturedOn(sample),
     confidence: sample.confidence,
   };
 }
@@ -324,18 +362,23 @@ export async function POST(request: Request) {
 
   const requested = formData.get("sample");
   const requestedSample = typeof requested === "string" && requested ? requested : null;
+
+  // 기부자가 사진을 올리기 전에 고른 대분류. 없으면 모델 답에만 의존한다.
+  const kindField = formData.get("kind");
+  const kind: ItemKind | null =
+    kindField === "food" || kindField === "nonfood" ? kindField : null;
   const apiKey = process.env.OPENAI_API_KEY;
 
   let result: Recognized | null = null;
   let source: "demo" | "openai" | "mock" = "mock";
 
   if (requestedSample) {
-    result = recognizeWithMock(image, requestedSample);
+    result = recognizeWithMock(image, requestedSample, kind);
     source = "demo";
   } else if (apiKey) {
     let outcome: RecognizeOutcome;
     try {
-      outcome = await recognizeWithOpenAI(image, expiryImage, apiKey);
+      outcome = await recognizeWithOpenAI(image, expiryImage, apiKey, kind);
     } catch (error) {
       console.error("[recognize] OpenAI 호출 예외", error);
       outcome = { status: "failed" };
@@ -357,7 +400,7 @@ export async function POST(request: Request) {
   if (!result) {
     // 목업 경로는 즉시 끝나서 오히려 AI처럼 안 보인다. 시연용으로 최소 지연을 준다.
     await new Promise((resolve) => setTimeout(resolve, 900));
-    result = recognizeWithMock(image, null);
+    result = recognizeWithMock(image, null, kind);
     source = "mock";
   }
 

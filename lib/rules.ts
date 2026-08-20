@@ -3,6 +3,29 @@
 
 export const CATEGORIES = ["통조림", "세제", "화장지", "위생용품", "쌀/곡물", "기타"];
 
+/** 물품 대분류. 유통기한을 물어봐야 하는지가 여기서 갈린다. */
+export type ItemKind = "food" | "nonfood";
+
+export const ITEM_KIND_LABEL: Record<ItemKind, string> = {
+  food: "음식",
+  nonfood: "음식이 아님",
+};
+
+/*
+  세부분류는 대분류 안에서만 고르게 한다.
+
+  카테고리 문자열은 기관 요청과 정확히 같아야 매칭된다(store의 matchNeeds가 === 로 본다).
+  그래서 이름은 그대로 두고 묶음만 나눴다. "기타"는 양쪽에 둔다 — 씨드 데이터의
+  즉석밥 요청이 "기타"를 쓰고 있어서 음식 쪽에 반드시 필요하고, 비음식 쪽도
+  담요·학용품처럼 세 분류에 안 맞는 물품을 받을 데가 있어야 한다.
+*/
+export const FOOD_CATEGORIES = ["통조림", "쌀/곡물", "기타"];
+export const NONFOOD_CATEGORIES = ["세제", "화장지", "위생용품", "기타"];
+
+export function categoriesFor(kind: ItemKind): string[] {
+  return kind === "food" ? FOOD_CATEGORIES : NONFOOD_CATEGORIES;
+}
+
 export const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
 export type Region = { name: string; lat: number; lng: number };
