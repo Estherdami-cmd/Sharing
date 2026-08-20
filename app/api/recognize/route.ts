@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import {
   CATEGORIES,
+  type ExpiryStatus,
   evaluateShareable,
   findSampleByFileName,
   getSample,
   resolveExpiryDate,
   pickSampleByHash,
   sampleExpiryDate,
+  sampleExpiryStatus,
+  sampleManufacturedOn,
   startOfToday,
   toISODate,
 } from "@/lib/rules";
@@ -32,6 +35,12 @@ const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
 const TIMEOUT_MS = 25_000;
 
 /**
+ * 라벨에 찍힌 날짜가 무엇인지. 이걸 구분하지 않으면 제조일자를 유통기한으로 쓰거나,
+ * 반대로 제조일자만 있는 물품을 "기한 없는 품목"으로 통과시키게 된다.
+ */
+const DATE_KINDS = ["유통기한", "소비기한", "제조일자", "없음", "불명"] as const;
+
+/**
  * 모델이 자유 서술 대신 이 모양으로만 답하게 강제한다.
  * strict 모드는 required에 모든 키가 있고 additionalProperties가 false여야 통과한다.
  */
@@ -42,9 +51,10 @@ const RESPONSE_SCHEMA = {
     category: { type: "string", enum: CATEGORIES },
     expiryDate: { type: "string" },
     expiryRaw: { type: "string" },
+    expiryKind: { type: "string", enum: DATE_KINDS },
     confidence: { type: "number" },
   },
-  required: ["itemName", "category", "expiryDate", "expiryRaw", "confidence"],
+  required: ["itemName", "category", "expiryDate", "expiryRaw", "expiryKind", "confidence"],
   additionalProperties: false,
 };
 
@@ -70,10 +80,17 @@ function buildPrompt(today: string, hasExpiryPhoto: boolean) {
     "    연도를 지어내지 마라. 서버가 오늘 날짜를 기준으로 정한다.",
     "  - 연도 네 자리를 끝까지 확인해라. 잉크젯 각인은 6과 8, 0과 9가 닮아 보인다.",
     '  - 날짜 표기가 안 보이면 빈 문자열 "". 지어내지 마라.',
+    "expiryKind: expiryRaw에 옮긴 날짜가 포장에 무엇으로 적혀 있었는지 그대로 골라라.",
+    "  - '유통기한' — 그 말이 적혀 있거나, 날짜만 찍혀 있고 어떤 날짜인지 안 적혀 있을 때",
+    "  - '소비기한' — '소비기한'으로 적혀 있을 때. 이것도 먹을 수 있는 기한이니 그대로 쓴다",
+    "  - '제조일자' — '제조일자'·'제조일'만 적혀 있고 먹을 수 있는 기한 표기가 따로 없을 때",
+    "  - '없음' — 세제·화장지·기저귀처럼 원래 기한 표기가 없는 품목일 때",
+    "  - '불명' — 기한이 있어야 할 식품인데 날짜가 안 보이거나 못 읽을 때",
+    "  유통기한과 제조일자가 같이 찍혀 있으면 유통기한 쪽을 옮기고 '유통기한'을 골라라.",
+    "  제조일자를 유통기한인 척 쓰지 마라. 제조일자만 있으면 '제조일자'를 고르면 된다.",
     "expiryDate: 위 날짜를 YYYY-MM-DD로 바꿔 적어라.",
-    "  - '제조일자'는 유통기한이 아니다. 유통기한 또는 소비기한 표기만 읽어라.",
     "  - 연·월만 보이면 그 달의 마지막 날로 본다.",
-    '  - 세제·화장지·기저귀처럼 유통기한이 없는 품목이면 빈 문자열 "".',
+    '  - 날짜 표기가 없으면 빈 문자열 "".',
     '  - 변환이 애매하거나 자신 없으면 빈 문자열 ""로 두고 expiryRaw만 정확히 채워라.',
     "    서버가 표기를 정규화한다. 틀린 날짜를 만드는 것보다 그게 낫다.",
     "confidence: 판독 확신도 0.0~1.0.",
@@ -86,6 +103,9 @@ type Recognized = {
   itemName: string;
   category: string;
   expiryDate: string | null;
+  expiryStatus: ExpiryStatus;
+  /** 먹을 수 있는 기한 대신 제조일자만 찍혀 있었을 때 그 날짜. 화면에서 근거로 보여준다. */
+  manufacturedOn: string | null;
   confidence: number;
 };
 
@@ -117,14 +137,44 @@ function normalize(raw: unknown): RecognizeOutcome {
   // expiryDate를 비우고 expiryRaw만 채우라고 시켜뒀다. 둘 다 같은 정규화를 통과시킨다.
   const expiry = typeof data.expiryDate === "string" ? data.expiryDate.trim() : "";
   const expiryRaw = typeof data.expiryRaw === "string" ? data.expiryRaw.trim() : "";
-  const expiryDate = resolveExpiryDate(expiry, expiryRaw);
+  const parsed = resolveExpiryDate(expiry, expiryRaw);
+  const kind = typeof data.expiryKind === "string" ? data.expiryKind : "불명";
+
+  /*
+    날짜 종류에 따라 상태가 갈린다.
+
+    제조일자만 있는 물품은 유통기한을 계산할 수 없다. 유통기한은 품목마다 달라서
+    제조일에 며칠을 더하면 된다는 규칙이 없다. 그래서 날짜를 읽었더라도 유통기한으로
+    쓰지 않고 "확인하지 못함"으로 두고, 읽은 제조일자는 사용자가 판단할 근거로 넘긴다.
+
+    소비기한은 유통기한과 같이 취급한다. 먹을 수 있는 기한을 가리키는 표기다.
+  */
+  let expiryDate: string | null = null;
+  let expiryStatus: ExpiryStatus;
+  let manufacturedOn: string | null = null;
+
+  if (kind === "제조일자") {
+    expiryStatus = "unknown";
+    manufacturedOn = parsed;
+  } else if (kind === "없음") {
+    expiryStatus = "none";
+  } else if (parsed) {
+    expiryDate = parsed;
+    expiryStatus = "read";
+  } else {
+    // 유통기한·소비기한이라고 했는데 날짜를 못 만들었거나, 모델이 '불명'을 골랐다.
+    expiryStatus = "unknown";
+  }
 
   const rawConfidence = Number(data.confidence);
   const confidence = Number.isFinite(rawConfidence)
     ? Math.max(0, Math.min(1, rawConfidence))
     : 0.5;
 
-  return { status: "ok", data: { itemName, category, expiryDate, confidence } };
+  return {
+    status: "ok",
+    data: { itemName, category, expiryDate, expiryStatus, manufacturedOn, confidence },
+  };
 }
 
 async function recognizeWithOpenAI(
@@ -224,6 +274,8 @@ function recognizeWithMock(image: File, requestedSample: string | null): Recogni
     itemName: sample.itemName,
     category: sample.category,
     expiryDate: sampleExpiryDate(sample),
+    expiryStatus: sampleExpiryStatus(sample),
+    manufacturedOn: sampleManufacturedOn(sample),
     confidence: sample.confidence,
   };
 }
@@ -309,12 +361,14 @@ export async function POST(request: Request) {
     source = "mock";
   }
 
-  const verdict = evaluateShareable(result.expiryDate);
+  const verdict = evaluateShareable(result.expiryDate, result.expiryStatus);
 
   return NextResponse.json({
     itemName: result.itemName,
     category: result.category,
     expiryDate: result.expiryDate,
+    expiryStatus: result.expiryStatus,
+    manufacturedOn: result.manufacturedOn,
     confidence: result.confidence,
     source,
     photoCount: expiryImage ? 2 : 1,

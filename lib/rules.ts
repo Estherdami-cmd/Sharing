@@ -219,11 +219,26 @@ export function withJosa(word: string, withFinal: string, withoutFinal: string) 
 
 export type ShareTone = "ok" | "caution" | "blocked";
 
+/**
+ * 유통기한을 어떤 상태로 알고 있는지.
+ *
+ * null 하나로 "기한 없는 품목"과 "못 읽었음"을 같이 나타내면 안 된다. 앞은
+ * 세제·화장지처럼 원래 기한이 없다는 판단이고, 뒤는 아직 아무것도 모른다는
+ * 뜻이다. 둘을 뭉개면 못 읽은 물품이 "기한 없음 → 나눔 가능"으로 통과한다.
+ *
+ * read    날짜를 읽었다
+ * none    기한이 없는 품목이다
+ * unknown 기한이 있어야 할 물품인데 날짜를 확인하지 못했다 (제조일자만 찍힌 경우 포함)
+ */
+export type ExpiryStatus = "read" | "none" | "unknown";
+
 export type ShareVerdict = {
   shareable: boolean;
   tone: ShareTone;
   reason: string;
   daysLeft: number | null;
+  /** 사용자가 유통기한을 직접 채워야 하는 상태. 나눔 불가와는 다른 뜻이다. */
+  needsExpiryInput: boolean;
 };
 
 export const TONE_LABEL: Record<ShareTone, string> = {
@@ -233,13 +248,33 @@ export const TONE_LABEL: Record<ShareTone, string> = {
 };
 
 /** 유통기한이 나눔 가능 여부를 결정한다. 화면1의 핵심 판독 로직. */
-export function evaluateShareable(expiryDate: string | null): ShareVerdict {
+/**
+ * 나눔 가능 여부를 판정한다. 모델 답이 아니라 항상 이 함수가 정한다.
+ *
+ * status를 생략하면 날짜가 있으면 read, 없으면 none으로 본다. 이미 날짜가 정해진
+ * 기부 기록(store)처럼 "못 읽음"이 있을 수 없는 자리에서 그대로 쓰기 위한 기본값이다.
+ */
+export function evaluateShareable(
+  expiryDate: string | null,
+  status: ExpiryStatus = expiryDate ? "read" : "none"
+): ShareVerdict {
+  if (status === "unknown") {
+    return {
+      shareable: false,
+      tone: "caution",
+      reason: "유통기한을 확인하지 못했어요. 포장에 적힌 날짜를 입력해주세요",
+      daysLeft: null,
+      needsExpiryInput: true,
+    };
+  }
+
   if (!expiryDate) {
     return {
       shareable: true,
       tone: "ok",
       reason: "유통기한이 없는 품목이에요. 나눔 가능해요",
       daysLeft: null,
+      needsExpiryInput: false,
     };
   }
 
@@ -253,6 +288,7 @@ export function evaluateShareable(expiryDate: string | null): ShareVerdict {
       tone: "blocked",
       reason: `유통기한이 ${-daysLeft}일 지났어요. 안전상 나눔이 어려워요`,
       daysLeft,
+      needsExpiryInput: false,
     };
   }
   if (daysLeft < 3) {
@@ -261,6 +297,7 @@ export function evaluateShareable(expiryDate: string | null): ShareVerdict {
       tone: "caution",
       reason: `유통기한이 ${daysLeft}일 남았어요. 오늘·내일 전달이면 가능해요`,
       daysLeft,
+      needsExpiryInput: false,
     };
   }
   if (daysLeft < 14) {
@@ -269,6 +306,7 @@ export function evaluateShareable(expiryDate: string | null): ShareVerdict {
       tone: "caution",
       reason: `유통기한이 ${daysLeft}일 남았어요. 빠른 전달을 추천해요`,
       daysLeft,
+      needsExpiryInput: false,
     };
   }
   return {
@@ -276,6 +314,7 @@ export function evaluateShareable(expiryDate: string | null): ShareVerdict {
     tone: "ok",
     reason: `유통기한까지 ${daysLeft}일 남았어요. 나눔 가능해요`,
     daysLeft,
+    needsExpiryInput: false,
   };
 }
 
@@ -286,6 +325,13 @@ export type SampleItem = {
   category: string;
   /** 오늘 기준 오프셋. null이면 유통기한 없는 품목. 날짜를 박아두면 몇 달 뒤 데모가 썩는다. */
   expiryOffsetDays: number | null;
+  /**
+   * 이 샘플이 나타내는 유통기한 상태. 생략하면 오프셋이 있으면 read, 없으면 none.
+   * unknown 샘플이 하나 있어야 "제조일자만 찍힌 라벨" 분기를 API 없이 재현할 수 있다.
+   */
+  expiryStatus?: ExpiryStatus;
+  /** unknown일 때 라벨에서 읽은 제조일자. 오늘 기준 오프셋(음수)로 둔다. */
+  manufacturedOffsetDays?: number;
   confidence: number;
   keywords: string[];
 };
@@ -335,6 +381,17 @@ export const SAMPLE_ITEMS: SampleItem[] = [
     expiryOffsetDays: null,
     confidence: 0.89,
     keywords: ["diaper", "기저귀", "위생"],
+  },
+  {
+    key: "manufactured-only",
+    label: "떡국떡 (제조일자만 찍힘)",
+    itemName: "떡국떡 1kg",
+    category: "기타",
+    expiryOffsetDays: null,
+    expiryStatus: "unknown",
+    manufacturedOffsetDays: -12,
+    confidence: 0.82,
+    keywords: ["떡", "떡국", "manufactured"],
   },
   {
     key: "juice",
@@ -390,6 +447,17 @@ export function pickSampleByHash(fileName: string, fileSize: number): SampleItem
 }
 
 export function sampleExpiryDate(sample: SampleItem): string | null {
+  if (sample.expiryStatus === "unknown") return null;
   if (sample.expiryOffsetDays === null) return null;
   return toISODate(addDays(startOfToday(), sample.expiryOffsetDays));
+}
+
+export function sampleExpiryStatus(sample: SampleItem): ExpiryStatus {
+  if (sample.expiryStatus) return sample.expiryStatus;
+  return sample.expiryOffsetDays === null ? "none" : "read";
+}
+
+export function sampleManufacturedOn(sample: SampleItem): string | null {
+  if (sample.manufacturedOffsetDays === undefined) return null;
+  return toISODate(addDays(startOfToday(), sample.manufacturedOffsetDays));
 }
