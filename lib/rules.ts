@@ -48,6 +48,12 @@ export function toISODate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** "2026-09-04" → "9월 4일". 신청 화면과 완료 화면이 각자 다른 페이지라 여기서 공유한다. */
+export function formatKoreanDate(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${Number(m)}월 ${Number(d)}일`;
+}
+
 export function addDays(date: Date, days: number): Date {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
