@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_REGION } from "@/lib/rules";
+import { DEFAULT_REGION, isValidISODate } from "@/lib/rules";
 import { createDonation } from "@/lib/store";
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "요청 형식이 올바르지 않습니다" }, { status: 400 });
+  }
   const { itemName, category } = body;
 
   if (!itemName || !category) {
     return NextResponse.json({ error: "품목명과 카테고리가 필요합니다" }, { status: 400 });
+  }
+  if (body.expiryDate && !isValidISODate(body.expiryDate)) {
+    return NextResponse.json({ error: "유통기한 형식이 올바르지 않습니다" }, { status: 400 });
   }
 
   const donation = createDonation({

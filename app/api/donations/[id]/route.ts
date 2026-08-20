@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isValidISODate } from "@/lib/rules";
 import { getDonation, updateDonation } from "@/lib/store";
 
 export async function GET(
@@ -18,7 +19,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body = await request.json();
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "요청 형식이 올바르지 않습니다" }, { status: 400 });
+  }
+
+  if (body.expiryDate && !isValidISODate(body.expiryDate)) {
+    return NextResponse.json({ error: "유통기한 형식이 올바르지 않습니다" }, { status: 400 });
+  }
 
   const donation = updateDonation(id, {
     ...(body.itemName !== undefined && { itemName: body.itemName }),

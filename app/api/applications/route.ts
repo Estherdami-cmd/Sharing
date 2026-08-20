@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { createApplication, describeApplication, listApplications } from "@/lib/store";
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "요청 형식이 올바르지 않습니다" }, { status: 400 });
+  }
   const { donationId, needId, quantity, preferredDate, place, contact } = body;
 
   if (!donationId || !needId || !quantity || !preferredDate || !place || !contact) {
@@ -12,10 +17,15 @@ export async function POST(request: Request) {
     );
   }
 
+  const quantityNum = Number(quantity);
+  if (!Number.isFinite(quantityNum) || quantityNum <= 0) {
+    return NextResponse.json({ error: "수량은 1 이상의 숫자여야 해요" }, { status: 400 });
+  }
+
   const application = createApplication({
     donationId,
     needId,
-    quantity,
+    quantity: Math.round(quantityNum),
     preferredDate,
     preferredSlot: body.preferredSlot ?? "",
     place,

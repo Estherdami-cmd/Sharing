@@ -652,6 +652,17 @@ export default function DonorFlow() {
             </p>
           )}
 
+          {!matchLoading && matches.length === 0 && (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <img
+                src="https://picsum.photos/seed/empty-match/240/180"
+                alt="매칭된 기관이 없는 상태를 나타내는 이미지"
+                className="w-60 rounded-2xl opacity-40 grayscale"
+              />
+              <p className="text-[15px] text-neutral-400">매칭되는 기관이 없어요</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {matches.map((need) => (
               <article key={need.id} className={need.rank === 1 ? cardHighlight : card}>

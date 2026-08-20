@@ -4,6 +4,7 @@ import {
   evaluateShareable,
   findSampleByFileName,
   getSample,
+  isValidISODate,
   pickSampleByHash,
   sampleExpiryDate,
   startOfToday,
@@ -23,8 +24,6 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
 /** 평소 2초 안에 오지만 가끔 25초까지 튄다. 그때는 목업으로 넘겨 시연을 안 세운다. */
 const TIMEOUT_MS = 25_000;
-
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** 모델이 자유 서술 대신 이 모양으로만 답하게 강제한다. */
 const RESPONSE_SCHEMA = {
@@ -98,7 +97,7 @@ function normalize(raw: unknown): GeminiOutcome {
       : "기타";
 
   const expiry = typeof data.expiryDate === "string" ? data.expiryDate.trim() : "";
-  const expiryDate = ISO_DATE.test(expiry) ? expiry : null;
+  const expiryDate = isValidISODate(expiry) ? expiry : null;
 
   const rawConfidence = Number(data.confidence);
   const confidence = Number.isFinite(rawConfidence)

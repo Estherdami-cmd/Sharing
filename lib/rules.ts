@@ -28,6 +28,13 @@ export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; ln
   return Math.round(Math.hypot(dx, dy) * 10) / 10;
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** "YYYY-MM-DD" 형식인지 확인한다. API 경계에서 잘못된 날짜 문자열이 들어오는 걸 막는다. */
+export function isValidISODate(value: string): boolean {
+  return ISO_DATE.test(value);
+}
+
 /** "YYYY-MM-DD"를 로컬 자정으로 파싱한다. new Date(문자열)은 UTC로 읽혀 KST에서 하루 밀린다. */
 export function parseLocalDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);

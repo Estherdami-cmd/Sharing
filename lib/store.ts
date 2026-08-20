@@ -463,7 +463,8 @@ export function updateApplicationStatus(id: string, status: Application["status"
   const need = needs.get(application.needId);
   if (need) {
     if (status === "accepted" && application.status !== "accepted") {
-      need.filledQty += application.quantity;
+      // 목표치를 넘겨 채우지 않는다. 여러 신청이 동시에 수락돼도 진행률은 100%를 넘지 않는다.
+      need.filledQty = Math.min(need.targetQty, need.filledQty + application.quantity);
     } else if (application.status === "accepted" && status !== "accepted") {
       need.filledQty = Math.max(0, need.filledQty - application.quantity);
     }
