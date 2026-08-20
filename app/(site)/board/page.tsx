@@ -3,7 +3,7 @@ import PageShell from "@/app/_components/PageShell";
 
 export default function BoardPage() {
   return (
-    <PageShell showDisclaimer>
+    <PageShell>
       <NeedBoard />
     </PageShell>
   );

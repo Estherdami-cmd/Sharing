@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DAY_NAMES } from "@/lib/rules";
 import type { ApplicationDetail, DateOption, Donation, NeedMatch } from "@/lib/store";
-import StepIndicator from "./StepIndicator";
 import {
   btnGhost,
   btnPrimary,
@@ -219,8 +218,6 @@ export default function ApplyFlow() {
 
   return (
     <div className="flex flex-col gap-6">
-      <StepIndicator step={step} />
-
       {step === "apply" && (
         <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
           <header className="text-center">

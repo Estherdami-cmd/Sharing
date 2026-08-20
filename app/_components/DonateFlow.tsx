@@ -10,7 +10,6 @@ import {
   evaluateShareable,
 } from "@/lib/rules";
 import type { Donation, NeedMatch } from "@/lib/store";
-import StepIndicator from "./StepIndicator";
 import {
   TONE_LABEL,
   TONE_TEXT,
@@ -237,8 +236,6 @@ export default function DonateFlow() {
 
   return (
     <div className="flex flex-col gap-6">
-      <StepIndicator step={step} />
-
       {step === "register" && (
         <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
           <header className="text-center">
