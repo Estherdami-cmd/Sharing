@@ -46,7 +46,7 @@ export default function ApplyFlow() {
   const [step, setStep] = useState<Step>("apply");
 
   // 3. 기부 신청
-  const [quantity, setQuantity] = useState(1);
+  const quantity = 1;
   const [donorDays, setDonorDays] = useState<string[]>([]);
   const [donorSlot, setDonorSlot] = useState("상관없음");
   const [dateOptions, setDateOptions] = useState<DateOption[]>([]);
@@ -231,29 +231,6 @@ export default function ApplyFlow() {
               progress={selectedNeed.progress}
               pendingQty={selectedNeed.pendingQty}
             />
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>수량</label>
-              <input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-                className={field}
-              />
-              <p className="text-xs text-neutral-500">
-                {quantity}개를 기부하면 진행률이{" "}
-                <strong className="text-primary-700">
-                  {Math.min(
-                    100,
-                    Math.round(((selectedNeed.filledQty + quantity) / selectedNeed.targetQty) * 100)
-                  )}
-                  %
-                </strong>
-                가 돼요
-                {selectedNeed.remainingQty > 0 && ` · 남은 목표 ${selectedNeed.remainingQty}개`}
-              </p>
-            </div>
 
             <div className="flex flex-col gap-1.5">
               <label className={label}>전달 장소</label>
