@@ -32,12 +32,12 @@ export default function ApplyForm() {
   const searchParams = useSearchParams();
   const donationId = searchParams.get("donationId");
   const needId = searchParams.get("needId");
+  const quantityParam = searchParams.get("quantity");
 
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [donation, setDonation] = useState<Donation | null>(null);
   const [selectedNeed, setSelectedNeed] = useState<MatchResult | null>(null);
 
-  const quantity = 1;
   const [donorDays, setDonorDays] = useState<string[]>([]);
   const [donorSlot, setDonorSlot] = useState("상관없음");
   const [dateOptions, setDateOptions] = useState<DateOption[]>([]);
@@ -50,6 +50,18 @@ export default function ApplyForm() {
   const [submittingApplication, setSubmittingApplication] = useState(false);
 
   const place = selectedNeed?.foodBank.name ?? "";
+
+  /*
+    수량은 매칭 화면(/match/[id])에서 고른 값이 주소로 실려 온다.
+    주소는 사용자가 직접 고칠 수 있으니 그대로 믿지 않고 여기서 다시 다듬는다.
+    남은 목표가 있으면 그 값으로 잠근다 — 목표보다 많이 내겠다는 신청은 만들지 않는다.
+  */
+  const parsedQuantity = Math.floor(Number(quantityParam));
+  const requestedQuantity = Number.isFinite(parsedQuantity) ? Math.max(1, parsedQuantity) : 1;
+  const quantity =
+    selectedNeed && selectedNeed.remainingQty > 0
+      ? Math.min(requestedQuantity, selectedNeed.remainingQty)
+      : requestedQuantity;
 
   // 별도 주소라 새로고침·직접 접속에도 대응해야 하므로 앞 단계의 state에 의존하지 않는다.
   useEffect(() => {
@@ -189,6 +201,16 @@ export default function ApplyForm() {
           progress={selectedNeed.progress}
           pendingQty={selectedNeed.pendingQty}
         />
+
+        <div className="flex flex-col gap-1.5">
+          <label className={label}>수량</label>
+          <p className={`${field} flex items-center bg-neutral-100 text-neutral-700`}>
+            {quantity}개
+          </p>
+          <p className="text-xs text-neutral-400">
+            수량은 앞 화면에서 고른 값이에요. 바꾸려면 매칭 결과로 돌아가주세요
+          </p>
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <label className={label}>전달 장소</label>

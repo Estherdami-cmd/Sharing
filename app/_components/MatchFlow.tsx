@@ -195,7 +195,57 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
             <p className="text-[14px] text-neutral-900">{need.needReason}</p>
             {need.note && <p className={caption}>{need.note}</p>}
 
-            <button onClick={() => handleSelectNeed(need)} className={`${btnPrimary} mt-auto`}>
+            {/*
+              수량은 카드 안에서 고른다. 목표가 기관마다 다르니 "몇 개 낼지"는
+              어느 기관을 고를지와 같이 판단하게 되는 값이다.
+              남은 목표보다 많이 내겠다고 할 수는 없어서 그 값으로 잠근다.
+            */}
+            <div className="mt-auto flex flex-col gap-1.5">
+              <label className={label} htmlFor={`qty-${need.id}`}>
+                낼 수량
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setQuantity(need, getQuantity(need) - 1)}
+                  disabled={getQuantity(need) <= 1}
+                  aria-label="수량 줄이기"
+                  className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
+                >
+                  −
+                </button>
+                <input
+                  id={`qty-${need.id}`}
+                  type="number"
+                  min={1}
+                  max={need.remainingQty > 0 ? need.remainingQty : undefined}
+                  value={getQuantity(need)}
+                  onChange={(e) => setQuantity(need, Number(e.target.value))}
+                  className={`${field} text-center`}
+                />
+                <button
+                  onClick={() => setQuantity(need, getQuantity(need) + 1)}
+                  disabled={need.remainingQty > 0 && getQuantity(need) >= need.remainingQty}
+                  aria-label="수량 늘리기"
+                  className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
+                >
+                  +
+                </button>
+              </div>
+              <p className="text-xs text-neutral-500">
+                {getQuantity(need)}개를 내면 진행률이{" "}
+                <strong className="text-primary-700">
+                  {Math.min(
+                    100,
+                    Math.round(((need.filledQty + getQuantity(need)) / need.targetQty) * 100)
+                  )}
+                  %
+                </strong>
+                가 돼요
+                {need.remainingQty > 0 && ` · 남은 목표 ${need.remainingQty}개`}
+              </p>
+            </div>
+
+            <button onClick={() => handleSelectNeed(need)} className={btnPrimary}>
               여기에 나눔하기
             </button>
           </article>
