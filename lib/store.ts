@@ -32,6 +32,8 @@ export type Need = {
   targetQty: number;
   filledQty: number;
   note: string;
+  /** data URL(base64). 파일 스토리지가 따로 없어 인메모리 레코드에 그대로 둔다. */
+  imageUrl: string | null;
   createdAt: string;
 };
 
@@ -103,6 +105,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     targetQty: 50,
     filledQty: 15,
     note: "요양 어르신 12분께 매주 전달돼요",
+    imageUrl: null,
   },
   {
     foodBankId: "fb1",
@@ -111,6 +114,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     targetQty: 100,
     filledQty: 72,
     note: "결식 아동 도시락 반찬으로 나가요",
+    imageUrl: null,
   },
   {
     foodBankId: "fb1",
@@ -119,6 +123,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     targetQty: 30,
     filledQty: 4,
     note: "독거 어르신 가정 배달용",
+    imageUrl: null,
   },
   {
     foodBankId: "fb2",
@@ -127,6 +132,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     targetQty: 40,
     filledQty: 12,
     note: "한부모 가정 생활용품 꾸러미",
+    imageUrl: null,
   },
   {
     foodBankId: "fb2",
@@ -135,6 +141,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     targetQty: 20,
     filledQty: 18,
     note: "거의 다 모였어요. 조금만 더요",
+    imageUrl: null,
   },
   {
     foodBankId: "fb3",
@@ -143,6 +150,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     targetQty: 20,
     filledQty: 15,
     note: "긴급 지원 가정 비상식량",
+    imageUrl: null,
   },
 ];
 
@@ -202,6 +210,7 @@ export function createNeed(input: {
   category: string;
   targetQty: number;
   note: string;
+  imageUrl: string | null;
 }): Need {
   const need: Need = {
     ...input,

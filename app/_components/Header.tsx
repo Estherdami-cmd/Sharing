@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/donate", label: "기부하기" },
   { href: "/board", label: "진행 현황" },
   { href: "/service", label: "서비스 소개" },
+  { href: "/foodbank", label: "기관등록" },
 ];
 
 /** 로고(좌) · 메뉴 · 우측 CTA. 모바일은 햄버거로 접힘. 스크롤 시 하단 보더가 생긴다. */

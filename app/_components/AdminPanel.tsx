@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CATEGORIES } from "@/lib/rules";
 import type { ApplicationDetail, FoodBank, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
@@ -38,8 +38,11 @@ export default function AdminPanel() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [targetQty, setTargetQty] = useState(50);
   const [note, setNote] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
@@ -58,6 +61,25 @@ export default function AdminPanel() {
     load();
   }, []);
 
+  function handleImageSelected(file: File | undefined) {
+    if (!file) return;
+    setImageError(null);
+    if (!file.type.startsWith("image/")) {
+      setImageError("이미지 파일만 올릴 수 있어요");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setImageUrl(reader.result as string);
+    reader.onerror = () => setImageError("사진을 읽지 못했어요");
+    reader.readAsDataURL(file);
+  }
+
+  function handleClearImage() {
+    setImageUrl(null);
+    setImageError(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  }
+
   async function handleCreateNeed() {
     setFormError(null);
     if (!itemName.trim()) {
@@ -68,7 +90,7 @@ export default function AdminPanel() {
     const res = await fetch("/api/needs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ foodBankId, itemName, category, targetQty, note }),
+      body: JSON.stringify({ foodBankId, itemName, category, targetQty, note, imageUrl }),
     });
     setSubmitting(false);
     if (!res.ok) {
@@ -78,6 +100,7 @@ export default function AdminPanel() {
     setItemName("");
     setTargetQty(50);
     setNote("");
+    handleClearImage();
     load();
   }
 
@@ -165,6 +188,34 @@ export default function AdminPanel() {
               />
             </div>
 
+            <div className="flex flex-col gap-1.5">
+              <label className={label}>대표 사진 (선택)</label>
+              {imageUrl ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={imageUrl}
+                    alt="등록할 물품 사진 미리보기"
+                    className="size-20 rounded-xl object-cover"
+                  />
+                  <button onClick={handleClearImage} className={btnGhost}>
+                    지우기
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => imageInputRef.current?.click()} className={btnOutline}>
+                  사진 선택
+                </button>
+              )}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageSelected(e.target.files?.[0])}
+                className="hidden"
+              />
+              {imageError && <p className="text-[13px] text-danger-fg">{imageError}</p>}
+            </div>
+
             <p className={caption}>
               "도움이 필요해요" 표시는 진행률 30% 미만인 요청에 자동으로 붙어요
             </p>
@@ -182,12 +233,21 @@ export default function AdminPanel() {
             {needs.map((need) => (
               <article key={need.id} className={card}>
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
-                    <h3 className="mt-0.5 text-[17px] font-bold tracking-[-0.02em]">
-                      {need.itemName}
-                    </h3>
-                    <p className="text-xs text-neutral-400">{need.category}</p>
+                  <div className="flex min-w-0 gap-3">
+                    {need.imageUrl && (
+                      <img
+                        src={need.imageUrl}
+                        alt={`${need.itemName} 사진`}
+                        className="size-14 shrink-0 rounded-xl object-cover"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
+                      <h3 className="mt-0.5 text-[17px] font-bold tracking-[-0.02em]">
+                        {need.itemName}
+                      </h3>
+                      <p className="text-xs text-neutral-400">{need.category}</p>
+                    </div>
                   </div>
                   {need.urgent && <span className={toneBadge("caution")}>도움이 필요해요</span>}
                 </div>

@@ -17,16 +17,39 @@ type NeedView = {
   pendingQty: number;
   urgent: boolean;
   note: string;
+  imageUrl: string | null;
   foodBank: { name: string; address: string };
 };
 
 const FILTER_ALL = "전체";
+/** 로그인이 없어 브라우저에만 저장한다. 다른 기기·시크릿창에선 안 보이는 게 맞다. */
+const SAVED_STORAGE_KEY = "nanumgotgan:saved-needs";
 
 export default function NeedBoard() {
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState(FILTER_ALL);
   const [searchQuery, setSearchQuery] = useState("");
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SAVED_STORAGE_KEY);
+      if (raw) setSavedIds(new Set(JSON.parse(raw)));
+    } catch {
+      // 저장된 값이 깨져 있으면 그냥 빈 상태로 시작한다.
+    }
+  }, []);
+
+  function toggleSaved(id: string) {
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  }
 
   async function load() {
     setLoading(true);
@@ -122,21 +145,48 @@ export default function NeedBoard() {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {filteredNeeds.map((need) => (
           <article key={need.id} className={need.urgent ? cardUrgent : card}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
-                <h2 className="mt-0.5 text-[20px] font-bold tracking-[-0.02em] text-neutral-900">
-                  {need.itemName}
-                </h2>
-                <p className="mt-0.5 text-xs text-neutral-400">
-                  {need.category} · {need.foodBank.address}
-                </p>
-              </div>
+            <div className="relative -mx-5 -mt-5 mb-1">
+              {need.imageUrl ? (
+                <img
+                  src={need.imageUrl}
+                  alt={`${need.itemName} 사진`}
+                  className="aspect-4/3 w-full rounded-t-2xl object-cover"
+                />
+              ) : (
+                <div className="flex aspect-4/3 w-full items-center justify-center rounded-t-2xl bg-neutral-100">
+                  <span className="text-xs text-neutral-400">사진 없음</span>
+                </div>
+              )}
+              <span className="absolute left-2.5 top-2.5 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs font-bold text-white">
+                {need.category}
+              </span>
+              <button
+                onClick={() => toggleSaved(need.id)}
+                aria-label={savedIds.has(need.id) ? "찜 해제" : "찜하기"}
+                className="absolute right-2.5 top-2.5 grid size-9 cursor-pointer place-items-center rounded-full bg-white/90 text-lg text-danger-fg shadow-sm transition-transform active:scale-90"
+              >
+                {savedIds.has(need.id) ? "♥" : "♡"}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <span className="tabular text-3xl font-extrabold text-primary-700">
+                {need.progress}%
+              </span>
               {need.urgent ? (
                 <span className={toneBadge("caution")}>도움이 필요해요</span>
               ) : need.progress >= 100 ? (
                 <span className={toneBadge("ok")}>목표 달성</span>
               ) : null}
+            </div>
+
+            <div>
+              <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">
+                {need.itemName}
+              </h2>
+              <p className="mt-0.5 text-xs text-neutral-400">
+                {need.foodBank.name} · {need.foodBank.address}
+              </p>
             </div>
 
             <NeedProgress

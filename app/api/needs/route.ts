@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { CATEGORIES } from "@/lib/rules";
 import { createNeed, getFoodBank, getFoodBanks, listNeeds } from "@/lib/store";
 
+/** data URL은 base64라 원본의 4/3배가 된다. 인메모리 저장소가 너무 커지지 않게 막아둔다. */
+const MAX_IMAGE_DATA_URL_LENGTH = 3 * 1024 * 1024;
+const IMAGE_DATA_URL = /^data:image\/(png|jpe?g|webp|gif);base64,/;
+
 export async function GET() {
   return NextResponse.json({ needs: listNeeds(), foodBanks: getFoodBanks() });
 }
@@ -33,12 +37,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "목표 수량은 숫자여야 해요" }, { status: 400 });
   }
 
+  const imageUrl: string | null = body.imageUrl || null;
+  if (imageUrl) {
+    if (!IMAGE_DATA_URL.test(imageUrl)) {
+      return NextResponse.json({ error: "이미지 형식이 올바르지 않습니다" }, { status: 400 });
+    }
+    if (imageUrl.length > MAX_IMAGE_DATA_URL_LENGTH) {
+      return NextResponse.json({ error: "이미지 용량이 너무 커요" }, { status: 400 });
+    }
+  }
+
   const need = createNeed({
     foodBankId,
     itemName,
     category,
     targetQty: Math.max(1, Math.round(targetQtyNum)),
     note: body.note ?? "",
+    imageUrl,
   });
   return NextResponse.json(need);
 }
