@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CATEGORIES } from "@/lib/rules";
 import NeedProgress from "./NeedProgress";
-import { btnGhost, btnPrimary, card, cardUrgent, caption, pageDesc, pageTitle, toneBadge } from "../ui";
+import { btnGhost, btnPrimary, card, cardUrgent, caption, field, pageDesc, pageTitle, toneBadge } from "../ui";
 
 type NeedView = {
   id: string;
@@ -26,6 +26,7 @@ export default function NeedBoard() {
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState(FILTER_ALL);
+  const [searchQuery, setSearchQuery] = useState("");
 
   async function load() {
     setLoading(true);
@@ -40,8 +41,11 @@ export default function NeedBoard() {
 
   const totalTarget = needs.reduce((sum, n) => sum + n.targetQty, 0);
   const totalFilled = needs.reduce((sum, n) => sum + n.filledQty, 0);
-  const filteredNeeds =
-    categoryFilter === FILTER_ALL ? needs : needs.filter((n) => n.category === categoryFilter);
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const filteredNeeds = needs
+    .filter((n) => categoryFilter === FILTER_ALL || n.category === categoryFilter)
+    .filter((n) => !trimmedQuery || n.itemName.toLowerCase().includes(trimmedQuery));
+  const isFiltered = categoryFilter !== FILTER_ALL || trimmedQuery.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -66,6 +70,16 @@ export default function NeedBoard() {
           </button>
         </div>
       </header>
+
+      <div className="mx-auto w-full max-w-sm">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="품목명으로 검색 (예: 기저귀)"
+          className={field}
+        />
+      </div>
 
       <div className="flex flex-wrap justify-center gap-1.5">
         {[FILTER_ALL, ...CATEGORIES].map((c) => (
@@ -100,7 +114,7 @@ export default function NeedBoard() {
       {!loading && needs.length > 0 && filteredNeeds.length === 0 && (
         <div className="flex flex-col items-center gap-4 py-8">
           <p className="text-[15px] text-neutral-400">
-            {categoryFilter} 카테고리엔 아직 요청이 없어요
+            {isFiltered ? "조건에 맞는 요청이 없어요" : "아직 등록된 요청이 없어요"}
           </p>
         </div>
       )}
