@@ -3,7 +3,7 @@ import PageShell from "@/app/_components/PageShell";
 
 export default function DonatePage() {
   return (
-    <PageShell showDisclaimer>
+    <PageShell>
       <DonateFlow />
     </PageShell>
   );

@@ -4,7 +4,7 @@ import PageShell from "@/app/_components/PageShell";
 
 export default function ApplyPage() {
   return (
-    <PageShell showDisclaimer>
+    <PageShell>
       <Suspense fallback={<p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>}>
         <ApplyFlow />
       </Suspense>
