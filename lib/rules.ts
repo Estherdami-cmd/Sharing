@@ -80,6 +80,34 @@ function expandYear(twoDigit: number): number {
 }
 
 /**
+ * 연도 없이 월·일만 찍힌 라벨의 연도를 정한다. 오늘에 가장 가까운 해를 고른다.
+ *
+ * 연도를 생략하는 건 유통기한이 짧은 제품(우유·두부·빵)이다. 그 라벨의 날짜는
+ * 오늘에서 몇 주 안쪽이고, 이미 지났을 수도 있다. 그래서 무조건 다음 해로 밀면
+ * 안 된다 — 지난 제품이 "나눔 가능"으로 통과해버린다. 8월 20일에 "08.15"를
+ * 보면 닷새 지난 것으로 읽어야 맞다.
+ *
+ * 작년·올해·내년 중 오늘과의 거리가 가장 짧은 후보를 쓴다. 이러면 가까운 과거는
+ * 과거로, 먼 과거처럼 보이는 것은 다가오는 날짜로 읽힌다.
+ */
+function inferYearForMonthDay(month: number, day: number): string | null {
+  if (month < 1 || month > 12) return null;
+
+  const today = startOfToday();
+  const thisYear = today.getFullYear();
+
+  let best: { iso: string; distance: number } | null = null;
+  for (const year of [thisYear - 1, thisYear, thisYear + 1]) {
+    if (day < 1 || day > daysInMonth(year, month)) continue; // 2월 29일은 윤년만
+    const iso = buildDate(year, month, day);
+    if (!iso) continue;
+    const distance = Math.abs(parseLocalDate(iso).getTime() - today.getTime());
+    if (!best || distance < best.distance) best = { iso, distance };
+  }
+  return best?.iso ?? null;
+}
+
+/**
  * 라벨에 찍힌 날짜 표기를 "YYYY-MM-DD"로 맞춘다. 못 만들면 null.
  *
  * 모델에게 ISO로 달라고 시켜도 라벨 표기를 그대로 옮겨오는 경우가 있어서
@@ -147,7 +175,16 @@ export function normalizeExpiryDate(raw: string): string | null {
     return buildDate(year, month, daysInMonth(year, month));
   }
 
-  // 6) 구분자 없는 각인: 20270501 / 270501
+  // 6) 월·일만: 09.04 → 연도는 오늘에 가장 가까운 해로 추론
+  //    앞자리가 13 이상이면 월이 될 수 없다. 그때는 무엇인지 알 수 없어 읽지 않는다.
+  m = s.match(new RegExp(`(?<!\\d)(\\d{1,2})${SEP}(\\d{1,2})(?!${SEP}\\d)(?!\\d)`));
+  if (m) {
+    const [month, day] = [Number(m[1]), Number(m[2])];
+    if (month >= 1 && month <= 12) return inferYearForMonthDay(month, day);
+    return null;
+  }
+
+  // 7) 구분자 없는 각인: 20270501 / 270501
   m = s.match(/(?<!\d)(\d{8})(?!\d)/);
   if (m) {
     const v = m[1];
