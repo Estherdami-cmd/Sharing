@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import {
   CATEGORIES,
+  FOOD_CATEGORIES,
+  type ItemKind,
+  NONFOOD_CATEGORIES,
+  categoriesFor,
+  type ExpiryStatus,
   evaluateShareable,
   findSampleByFileName,
   getSample,
-  isValidISODate,
+  resolveExpiryDate,
   pickSampleByHash,
   sampleExpiryDate,
+  sampleExpiryStatus,
+  sampleManufacturedOn,
   startOfToday,
   toISODate,
 } from "@/lib/rules";
@@ -32,6 +39,12 @@ const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
 const TIMEOUT_MS = 25_000;
 
 /**
+ * 라벨에 찍힌 날짜가 무엇인지. 이걸 구분하지 않으면 제조일자를 유통기한으로 쓰거나,
+ * 반대로 제조일자만 있는 물품을 "기한 없는 품목"으로 통과시키게 된다.
+ */
+const DATE_KINDS = ["유통기한", "소비기한", "제조일자", "없음", "불명"] as const;
+
+/**
  * 모델이 자유 서술 대신 이 모양으로만 답하게 강제한다.
  * strict 모드는 required에 모든 키가 있고 additionalProperties가 false여야 통과한다.
  */
@@ -41,16 +54,34 @@ const RESPONSE_SCHEMA = {
     itemName: { type: "string" },
     category: { type: "string", enum: CATEGORIES },
     expiryDate: { type: "string" },
+    expiryRaw: { type: "string" },
+    expiryKind: { type: "string", enum: DATE_KINDS },
     confidence: { type: "number" },
   },
-  required: ["itemName", "category", "expiryDate", "confidence"],
+  required: ["itemName", "category", "expiryDate", "expiryRaw", "expiryKind", "confidence"],
   additionalProperties: false,
 };
 
-function buildPrompt(today: string, hasExpiryPhoto: boolean) {
+function buildPrompt(today: string, hasExpiryPhoto: boolean, kind: ItemKind | null) {
   return [
     "너는 푸드뱅크 기부 물품을 검수하는 담당자다. 사진 속 물품을 판독해라.",
     `오늘은 ${today}이다.`,
+    // 기부자가 먼저 고른 대분류를 알려준다. 세부분류를 그 안에서만 고르게 하고,
+    // 비음식이면 날짜를 찾느라 애쓰지 않게 한다.
+    ...(kind === "food"
+      ? [
+          "",
+          "기부자는 이 물품을 '음식'으로 분류했다.",
+          `category는 반드시 다음 중 하나. ${FOOD_CATEGORIES.join(", ")}`,
+        ]
+      : kind === "nonfood"
+        ? [
+            "",
+            "기부자는 이 물품을 '음식이 아님'으로 분류했다.",
+            `category는 반드시 다음 중 하나. ${NONFOOD_CATEGORIES.join(", ")}`,
+            "먹는 물품이 아니므로 유통기한을 찾지 마라. expiryKind는 '없음'으로 두면 된다.",
+          ]
+        : []),
     "",
     hasExpiryPhoto
       ? [
@@ -62,14 +93,26 @@ function buildPrompt(today: string, hasExpiryPhoto: boolean) {
       : "사진은 한 장이다. 품목명과 날짜를 모두 이 사진에서 읽어라.",
     "",
     "itemName: 한국어로 '품목명 + 용량/규격'. 예) '참치 통조림 200g', '백미 5kg', '성인용 기저귀 대형'.",
-    `category: 반드시 다음 중 하나. ${CATEGORIES.join(", ")}`,
-    "expiryDate: 포장에 적힌 유통기한 또는 소비기한을 YYYY-MM-DD로.",
-    "  - '제조일자'는 유통기한이 아니다. 유통기한 표기만 읽어라.",
-    "  - 2027.05.01 / 27.05.01 / 2027년 5월 1일 / 05 2027 같은 표기를 모두 정규화해라.",
+    ...(kind ? [] : [`category: 반드시 다음 중 하나. ${CATEGORIES.join(", ")}`]),
+    "expiryRaw: 포장에 적힌 날짜 문구를 본 그대로 옮겨라. 형식을 바꾸지 마라.",
+    '  - 예) "2027.05.01", "27.05.01", "2027년 5월", "20270501", "2027.05.01 B4 15:12"',
+    '  - 연도가 안 찍힌 라벨도 있다. 그때는 보이는 대로 "09.04", "09월 04일"만 옮겨라.',
+    "    연도를 지어내지 마라. 서버가 오늘 날짜를 기준으로 정한다.",
     "  - 연도 네 자리를 끝까지 확인해라. 잉크젯 각인은 6과 8, 0과 9가 닮아 보인다.",
+    '  - 날짜 표기가 안 보이면 빈 문자열 "". 지어내지 마라.',
+    "expiryKind: expiryRaw에 옮긴 날짜가 포장에 무엇으로 적혀 있었는지 그대로 골라라.",
+    "  - '유통기한' — 그 말이 적혀 있거나, 날짜만 찍혀 있고 어떤 날짜인지 안 적혀 있을 때",
+    "  - '소비기한' — '소비기한'으로 적혀 있을 때. 이것도 먹을 수 있는 기한이니 그대로 쓴다",
+    "  - '제조일자' — '제조일자'·'제조일'만 적혀 있고 먹을 수 있는 기한 표기가 따로 없을 때",
+    "  - '없음' — 세제·화장지·기저귀처럼 원래 기한 표기가 없는 품목일 때",
+    "  - '불명' — 기한이 있어야 할 식품인데 날짜가 안 보이거나 못 읽을 때",
+    "  유통기한과 제조일자가 같이 찍혀 있으면 유통기한 쪽을 옮기고 '유통기한'을 골라라.",
+    "  제조일자를 유통기한인 척 쓰지 마라. 제조일자만 있으면 '제조일자'를 고르면 된다.",
+    "expiryDate: 위 날짜를 YYYY-MM-DD로 바꿔 적어라.",
     "  - 연·월만 보이면 그 달의 마지막 날로 본다.",
-    '  - 세제·화장지·기저귀처럼 유통기한이 없는 품목이거나, 날짜가 안 보이면 빈 문자열 "".',
-    "  - 추측해서 지어내지 마라. 안 보이면 빈 문자열이다.",
+    '  - 날짜 표기가 없으면 빈 문자열 "".',
+    '  - 변환이 애매하거나 자신 없으면 빈 문자열 ""로 두고 expiryRaw만 정확히 채워라.',
+    "    서버가 표기를 정규화한다. 틀린 날짜를 만드는 것보다 그게 낫다.",
     "confidence: 판독 확신도 0.0~1.0.",
     "",
     "사진에 물품이 없거나 판독이 불가능하면 itemName을 빈 문자열로 두고 confidence를 0으로 해라.",
@@ -80,6 +123,9 @@ type Recognized = {
   itemName: string;
   category: string;
   expiryDate: string | null;
+  expiryStatus: ExpiryStatus;
+  /** 먹을 수 있는 기한 대신 제조일자만 찍혀 있었을 때 그 날짜. 화면에서 근거로 보여준다. */
+  manufacturedOn: string | null;
   confidence: number;
 };
 
@@ -94,33 +140,74 @@ type RecognizeOutcome =
   | { status: "failed" };
 
 /** 모델 응답은 스키마를 줘도 끝까지 믿지 않는다. 화면에 들어가기 전에 전부 정규화한다. */
-function normalize(raw: unknown): RecognizeOutcome {
+function normalize(raw: unknown, kind: ItemKind | null): RecognizeOutcome {
   if (!raw || typeof raw !== "object") return { status: "failed" };
   const data = raw as Record<string, unknown>;
 
   const itemName = typeof data.itemName === "string" ? data.itemName.trim() : "";
   if (!itemName) return { status: "unrecognized" };
 
+  // 세부분류는 기부자가 고른 대분류 안에서만 인정한다. 모델이 벗어나면 그 대분류의
+  // "기타"로 떨어뜨린다. 화면의 선택지와 서버가 인정하는 값이 어긋나면 안 된다.
+  const allowedCategories = kind ? categoriesFor(kind) : CATEGORIES;
   const category =
-    typeof data.category === "string" && CATEGORIES.includes(data.category)
+    typeof data.category === "string" && allowedCategories.includes(data.category)
       ? data.category
       : "기타";
 
+  // 모델이 준 ISO를 먼저 보고, 못 쓰면 라벨 원문에서 서버가 직접 뽑는다.
+  // 모델은 "27.05.01"처럼 라벨 표기를 그대로 옮겨오기도 하고, 변환에 자신이 없으면
+  // expiryDate를 비우고 expiryRaw만 채우라고 시켜뒀다. 둘 다 같은 정규화를 통과시킨다.
   const expiry = typeof data.expiryDate === "string" ? data.expiryDate.trim() : "";
-  const expiryDate = isValidISODate(expiry) ? expiry : null;
+  const expiryRaw = typeof data.expiryRaw === "string" ? data.expiryRaw.trim() : "";
+  const parsed = resolveExpiryDate(expiry, expiryRaw);
+  const dateKind = typeof data.expiryKind === "string" ? data.expiryKind : "불명";
+
+  /*
+    날짜 종류에 따라 상태가 갈린다.
+
+    제조일자만 있는 물품은 유통기한을 계산할 수 없다. 유통기한은 품목마다 달라서
+    제조일에 며칠을 더하면 된다는 규칙이 없다. 그래서 날짜를 읽었더라도 유통기한으로
+    쓰지 않고 "확인하지 못함"으로 두고, 읽은 제조일자는 사용자가 판단할 근거로 넘긴다.
+
+    소비기한은 유통기한과 같이 취급한다. 먹을 수 있는 기한을 가리키는 표기다.
+  */
+  let expiryDate: string | null = null;
+  let expiryStatus: ExpiryStatus;
+  let manufacturedOn: string | null = null;
+
+  if (kind === "nonfood") {
+    // 먹는 물품이 아니면 유통기한을 묻지 않는다. 모델이 무슨 날짜를 읽어왔든 무시한다.
+    expiryStatus = "none";
+  } else if (dateKind === "제조일자") {
+    expiryStatus = "unknown";
+    manufacturedOn = parsed;
+  } else if (dateKind === "없음") {
+    expiryStatus = "none";
+  } else if (parsed) {
+    expiryDate = parsed;
+    expiryStatus = "read";
+  } else {
+    // 유통기한·소비기한이라고 했는데 날짜를 못 만들었거나, 모델이 '불명'을 골랐다.
+    expiryStatus = "unknown";
+  }
 
   const rawConfidence = Number(data.confidence);
   const confidence = Number.isFinite(rawConfidence)
     ? Math.max(0, Math.min(1, rawConfidence))
     : 0.5;
 
-  return { status: "ok", data: { itemName, category, expiryDate, confidence } };
+  return {
+    status: "ok",
+    data: { itemName, category, expiryDate, expiryStatus, manufacturedOn, confidence },
+  };
 }
 
 async function recognizeWithOpenAI(
   productImage: File,
   expiryImage: File | null,
-  apiKey: string
+  apiKey: string,
+  kind: ItemKind | null
 ): Promise<RecognizeOutcome> {
   async function toPart(file: File) {
     const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
@@ -130,7 +217,10 @@ async function recognizeWithOpenAI(
 
   // 사진마다 앞에 라벨 텍스트를 붙인다. 이게 없으면 모델이 어느 쪽이 유통기한 사진인지 모른다.
   const content: Record<string, unknown>[] = [
-    { type: "input_text", text: buildPrompt(toISODate(startOfToday()), expiryImage !== null) },
+    {
+      type: "input_text",
+      text: buildPrompt(toISODate(startOfToday()), expiryImage !== null, kind),
+    },
     { type: "input_text", text: "[사진 1] 제품 사진" },
     await toPart(productImage),
   ];
@@ -196,7 +286,7 @@ async function recognizeWithOpenAI(
   }
 
   try {
-    return normalize(JSON.parse(text));
+    return normalize(JSON.parse(text), kind);
   } catch {
     console.error("[recognize] OpenAI JSON 파싱 실패", text.slice(0, 500));
     return { status: "failed" };
@@ -204,16 +294,26 @@ async function recognizeWithOpenAI(
 }
 
 /** API 키가 없거나 호출이 실패해도 시연이 멈추지 않도록 남겨둔 목업 경로. */
-function recognizeWithMock(image: File, requestedSample: string | null): Recognized {
+function recognizeWithMock(
+  image: File,
+  requestedSample: string | null,
+  kind: ItemKind | null
+): Recognized {
   const sample =
     (requestedSample ? getSample(requestedSample) : undefined) ??
     findSampleByFileName(image.name) ??
     pickSampleByHash(image.name, image.size);
 
+  // 비음식으로 골랐으면 기한을 묻지 않고, 세부분류도 그 대분류 안으로 맞춘다.
+  const nonfood = kind === "nonfood";
+  const allowed = kind ? categoriesFor(kind) : CATEGORIES;
+
   return {
     itemName: sample.itemName,
-    category: sample.category,
-    expiryDate: sampleExpiryDate(sample),
+    category: allowed.includes(sample.category) ? sample.category : "기타",
+    expiryDate: nonfood ? null : sampleExpiryDate(sample),
+    expiryStatus: nonfood ? "none" : sampleExpiryStatus(sample),
+    manufacturedOn: nonfood ? null : sampleManufacturedOn(sample),
     confidence: sample.confidence,
   };
 }
@@ -262,18 +362,23 @@ export async function POST(request: Request) {
 
   const requested = formData.get("sample");
   const requestedSample = typeof requested === "string" && requested ? requested : null;
+
+  // 기부자가 사진을 올리기 전에 고른 대분류. 없으면 모델 답에만 의존한다.
+  const kindField = formData.get("kind");
+  const kind: ItemKind | null =
+    kindField === "food" || kindField === "nonfood" ? kindField : null;
   const apiKey = process.env.OPENAI_API_KEY;
 
   let result: Recognized | null = null;
   let source: "demo" | "openai" | "mock" = "mock";
 
   if (requestedSample) {
-    result = recognizeWithMock(image, requestedSample);
+    result = recognizeWithMock(image, requestedSample, kind);
     source = "demo";
   } else if (apiKey) {
     let outcome: RecognizeOutcome;
     try {
-      outcome = await recognizeWithOpenAI(image, expiryImage, apiKey);
+      outcome = await recognizeWithOpenAI(image, expiryImage, apiKey, kind);
     } catch (error) {
       console.error("[recognize] OpenAI 호출 예외", error);
       outcome = { status: "failed" };
@@ -295,16 +400,18 @@ export async function POST(request: Request) {
   if (!result) {
     // 목업 경로는 즉시 끝나서 오히려 AI처럼 안 보인다. 시연용으로 최소 지연을 준다.
     await new Promise((resolve) => setTimeout(resolve, 900));
-    result = recognizeWithMock(image, null);
+    result = recognizeWithMock(image, null, kind);
     source = "mock";
   }
 
-  const verdict = evaluateShareable(result.expiryDate);
+  const verdict = evaluateShareable(result.expiryDate, result.expiryStatus);
 
   return NextResponse.json({
     itemName: result.itemName,
     category: result.category,
     expiryDate: result.expiryDate,
+    expiryStatus: result.expiryStatus,
+    manufacturedOn: result.manufacturedOn,
     confidence: result.confidence,
     source,
     photoCount: expiryImage ? 2 : 1,
