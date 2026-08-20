@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CATEGORIES } from "@/lib/rules";
+import type { ApplicationDetail, FoodBank, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import {
   btnDanger,
@@ -18,35 +19,7 @@ import {
   toneBadge,
 } from "../ui";
 
-type FoodBank = { id: string; name: string };
-
-type NeedView = {
-  id: string;
-  itemName: string;
-  category: string;
-  targetQty: number;
-  filledQty: number;
-  progress: number;
-  remainingQty: number;
-  pendingQty: number;
-  urgent: boolean;
-  note: string;
-  foodBank: { id: string; name: string };
-};
-
-type ApplicationRow = {
-  id: string;
-  quantity: number;
-  preferredDate: string;
-  preferredSlot: string;
-  place: string;
-  contact: string;
-  status: "pending" | "accepted" | "rejected";
-  receiptRequested: boolean;
-  donation: { itemName: string; category: string; expiryDate: string | null };
-  foodBank: { name: string };
-  need?: { itemName: string; progress: number };
-};
+type ApplicationRow = ApplicationDetail;
 
 const STATUS_BADGE = {
   pending: { tone: "caution", label: "대기중" },
@@ -54,7 +27,7 @@ const STATUS_BADGE = {
   rejected: { tone: "blocked", label: "거절됨" },
 } as const;
 
-export default function AdminPanel({ refreshKey }: { refreshKey: number }) {
+export default function AdminPanel() {
   const [foodBanks, setFoodBanks] = useState<FoodBank[]>([]);
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
@@ -84,7 +57,7 @@ export default function AdminPanel({ refreshKey }: { refreshKey: number }) {
 
   useEffect(() => {
     load();
-  }, [refreshKey]);
+  }, []);
 
   async function handleCreateNeed() {
     setFormError(null);

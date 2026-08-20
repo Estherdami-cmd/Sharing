@@ -485,8 +485,12 @@ export function describeApplication(application: Application) {
   const need = needs.get(application.needId);
   return {
     ...application,
-    donation: getDonation(application.donationId),
-    foodBank: getFoodBank(application.foodBankId),
+    // 삭제 기능이 없어 신청이 참조하는 donation/foodBank는 항상 존재한다는 가정.
+    // 나중에 삭제 경로가 생기면 이 단언이 깨진다.
+    donation: getDonation(application.donationId)!,
+    foodBank: getFoodBank(application.foodBankId)!,
     need: need ? toView(need) : undefined,
   };
 }
+
+export type ApplicationDetail = ReturnType<typeof describeApplication>;
