@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import NeedProgress from "./NeedProgress";
-import { btnGhost, card, cardUrgent, caption, pageDesc, pageTitle, toneBadge } from "../ui";
+import { btnGhost, btnPrimary, card, cardUrgent, caption, pageDesc, pageTitle, toneBadge } from "../ui";
 
 type NeedView = {
   id: string;
@@ -46,9 +47,18 @@ export default function NeedBoard() {
             전체 {totalFilled} / {totalTarget}개 · 요청 {needs.length}건
           </p>
         )}
-        <button onClick={load} className={`${btnGhost} mt-2`}>
-          새로고침
-        </button>
+        {/*
+          여기서 바로 나눔을 시작할 수 있게 1단계(물품 등록)로 보내는 버튼.
+          "추가"만 쓰면 기관이 요청을 추가하는 것으로 읽혀서 "나눔 추가하기"로 적었다.
+        */}
+        <div className="mt-4 flex flex-col items-center gap-1">
+          <Link href="/donate" className={`${btnPrimary} max-w-xs`}>
+            ＋ 나눔 추가하기
+          </Link>
+          <button onClick={load} className={btnGhost}>
+            새로고침
+          </button>
+        </div>
       </header>
 
       {loading && <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>}

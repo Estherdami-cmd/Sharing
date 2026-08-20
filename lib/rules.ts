@@ -1,5 +1,5 @@
 // globalThis를 건드리지 않는 순수 규칙 모듈.
-// 서버(라우트)와 클라이언트(DonorFlow) 양쪽에서 같은 판정 함수를 공유하기 위해 분리했다.
+// 서버(라우트)와 클라이언트(단계별 화면들) 양쪽에서 같은 판정 함수를 공유하기 위해 분리했다.
 
 export const CATEGORIES = ["통조림", "세제", "화장지", "위생용품", "쌀/곡물", "기타"];
 
@@ -46,6 +46,12 @@ export function toISODate(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/** "2026-09-04" → "9월 4일". 신청 화면과 완료 화면이 각자 다른 페이지라 여기서 공유한다. */
+export function formatKoreanDate(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${Number(m)}월 ${Number(d)}일`;
 }
 
 export function addDays(date: Date, days: number): Date {
