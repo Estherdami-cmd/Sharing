@@ -32,7 +32,6 @@ const STATUS_TEXT: Record<ApplicationDetail["status"], string> = {
   rejected: "text-danger-fg",
 };
 
-const PLACE_PRESETS = ["기관에 직접 전달", "집 앞 수거", "직접 입력"];
 const SLOT_CHOICES = ["상관없음", "오전", "오후"];
 
 export default function ApplyFlow() {
@@ -48,8 +47,6 @@ export default function ApplyFlow() {
 
   // 3. 기부 신청
   const [quantity, setQuantity] = useState(1);
-  const [placePreset, setPlacePreset] = useState(PLACE_PRESETS[0]);
-  const [placeDetail, setPlaceDetail] = useState("");
   const [donorDays, setDonorDays] = useState<string[]>([]);
   const [donorSlot, setDonorSlot] = useState("상관없음");
   const [dateOptions, setDateOptions] = useState<DateOption[]>([]);
@@ -66,7 +63,7 @@ export default function ApplyFlow() {
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [requestingReceipt, setRequestingReceipt] = useState(false);
 
-  const place = placePreset === "직접 입력" ? placeDetail : placePreset;
+  const place = selectedNeed?.foodBank.name ?? "";
 
   // 물품 등록 페이지(/donate)에서 넘어온 donationId·needId로 매칭 정보를 다시 불러온다.
   // 별도 주소라 새로고침·직접 접속에도 대응해야 하므로 로컬 state로만 들고 있지 않는다.
@@ -260,25 +257,9 @@ export default function ApplyFlow() {
 
             <div className="flex flex-col gap-1.5">
               <label className={label}>전달 장소</label>
-              <select
-                value={placePreset}
-                onChange={(e) => setPlacePreset(e.target.value)}
-                className={field}
-              >
-                {PLACE_PRESETS.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-              {placePreset === "직접 입력" && (
-                <input
-                  placeholder="예: 흥해읍 대련리 OO아파트 정문"
-                  value={placeDetail}
-                  onChange={(e) => setPlaceDetail(e.target.value)}
-                  className={field}
-                />
-              )}
+              <p className="flex h-12 w-full items-center rounded-xl border border-neutral-200 bg-neutral-50 px-4 text-[15px] text-neutral-700">
+                {selectedNeed.foodBank.name}
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">
