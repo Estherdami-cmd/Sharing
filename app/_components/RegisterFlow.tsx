@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   CATEGORIES,
   DEFAULT_REGION,
@@ -46,6 +46,23 @@ const DEMO_PHOTOS = {
  */
 export default function RegisterFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const presetNeedId = searchParams.get("needId");
+
+  // 게시판에서 특정 요청으로 바로 들어온 경우, 등록 화면에 "지금 누굴 돕는지" 안내를 보여준다.
+  const [presetNeed, setPresetNeed] = useState<{ itemName: string; foodBankName: string } | null>(
+    null
+  );
+  useEffect(() => {
+    if (!presetNeedId) return;
+    fetch("/api/needs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const found = data?.needs?.find((n: { id: string }) => n.id === presetNeedId);
+        if (found) setPresetNeed({ itemName: found.itemName, foodBankName: found.foodBank.name });
+      })
+      .catch(() => {});
+  }, [presetNeedId]);
 
   const [productPreview, setProductPreview] = useState<string | null>(null);
   const [expiryPreview, setExpiryPreview] = useState<string | null>(null);
@@ -170,6 +187,13 @@ export default function RegisterFlow() {
       return;
     }
     const created = await res.json();
+
+    // 게시판에서 특정 요청을 보고 들어온 경우, 매칭 추천 화면을 건너뛰고 바로 그 신청 화면으로 간다.
+    if (presetNeedId) {
+      router.push(`/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=1`);
+      return;
+    }
+
     // 2단계는 별도 주소다. 물품 id만 넘기면 그쪽에서 매칭을 다시 불러온다.
     router.push(`/match/${created.id}`);
   }
@@ -195,6 +219,12 @@ export default function RegisterFlow() {
           제품 사진과 유통기한 사진을 각각 올려주세요. 한 면에 다 보이면 제품 사진만으로도 됩니다
         </p>
       </header>
+
+      {presetNeed && (
+        <p className="rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-center text-[13px] font-semibold text-primary-700">
+          지금 {presetNeed.foodBankName}의 {presetNeed.itemName} 요청에 채워질 물품을 등록해요
+        </p>
+      )}
 
       <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-primary-300 bg-primary-50/60 p-5">
         <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">

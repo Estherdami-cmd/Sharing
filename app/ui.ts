@@ -34,7 +34,7 @@ export const TONE_TEXT: Record<Tone, string> = {
 
 export const card = "bg-white border border-neutral-200 rounded-2xl p-5 flex flex-col gap-3";
 export const cardHighlight = "bg-white border-2 border-primary-500 rounded-2xl p-5 flex flex-col gap-3";
-export const cardUrgent = "bg-white border-2 border-danger-fg/25 rounded-2xl p-5 flex flex-col gap-3";
+export const cardUrgent = "bg-white border-2 border-warning-fg/40 rounded-2xl p-5 flex flex-col gap-3";
 
 export const label = "text-xs font-bold text-neutral-700";
 export const caption = "text-[13px] text-neutral-500 leading-relaxed";

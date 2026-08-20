@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DAY_NAMES, formatKoreanDate } from "@/lib/rules";
-import type { DateOption, Donation, NeedMatch } from "@/lib/store";
+import type { DateOption, Donation, NeedView } from "@/lib/store";
 import {
   btnGhost,
   btnPrimary,
@@ -17,8 +17,6 @@ import {
   pageTitle,
 } from "../ui";
 import NeedProgress from "./NeedProgress";
-
-type MatchResult = NeedMatch;
 
 const SLOT_CHOICES = ["상관없음", "오전", "오후"];
 
@@ -36,7 +34,7 @@ export default function ApplyForm() {
 
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [donation, setDonation] = useState<Donation | null>(null);
-  const [selectedNeed, setSelectedNeed] = useState<MatchResult | null>(null);
+  const [selectedNeed, setSelectedNeed] = useState<NeedView | null>(null);
 
   const [donorDays, setDonorDays] = useState<string[]>([]);
   const [donorSlot, setDonorSlot] = useState("상관없음");
@@ -64,6 +62,12 @@ export default function ApplyForm() {
       : requestedQuantity;
 
   // 별도 주소라 새로고침·직접 접속에도 대응해야 하므로 앞 단계의 state에 의존하지 않는다.
+  //
+  // /api/match/:donationId는 안 쓴다 — matchNeeds()가 등록한 사진의 카테고리와 정확히
+  // 맞는 요청이 하나라도 있으면 다른 카테고리는 통째로 목록에서 뺀다. 게시판에서 특정
+  // need를 보고 바로 들어온 경우(등록한 사진 카테고리가 그 need와 다를 수 있음) 그 필터링
+  // 때문에 여기서 못 찾을 수 있다. 이 화면은 애초에 needScore/needLabel 같은 매칭 전용
+  // 필드를 쓰지 않으니, 필터링 없는 /api/donations·/api/needs에서 직접 찾는다.
   useEffect(() => {
     if (!donationId || !needId) {
       setLoadState("error");
@@ -71,20 +75,24 @@ export default function ApplyForm() {
     }
     let cancelled = false;
     (async () => {
-      const res = await fetch(`/api/match/${donationId}`);
-      if (!res.ok) {
+      const [donationRes, needsRes] = await Promise.all([
+        fetch(`/api/donations/${donationId}`),
+        fetch("/api/needs"),
+      ]);
+      if (!donationRes.ok || !needsRes.ok) {
         if (!cancelled) setLoadState("error");
         return;
       }
-      const data = await res.json();
-      const match = (data.matches as MatchResult[]).find((m) => m.id === needId);
-      if (!match) {
+      const donationData = await donationRes.json();
+      const needsData = await needsRes.json();
+      const need = (needsData.needs as NeedView[]).find((n) => n.id === needId);
+      if (!need) {
         if (!cancelled) setLoadState("error");
         return;
       }
       if (cancelled) return;
-      setDonation(data.donation);
-      setSelectedNeed(match);
+      setDonation(donationData);
+      setSelectedNeed(need);
       setLoadState("ready");
     })();
     return () => {

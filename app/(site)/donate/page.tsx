@@ -1,11 +1,14 @@
+import { Suspense } from "react";
 import PageShell from "@/app/_components/PageShell";
 import RegisterFlow from "@/app/_components/RegisterFlow";
 
-/** 1단계: 물품 등록. 쿼리를 읽지 않는 유일한 단계라 Suspense가 필요 없다. */
+/** 1단계: 물품 등록. 게시판에서 넘어온 needId를 읽으므로 Suspense로 감싼다. */
 export default function DonatePage() {
   return (
     <PageShell>
-      <RegisterFlow />
+      <Suspense fallback={<p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>}>
+        <RegisterFlow />
+      </Suspense>
     </PageShell>
   );
 }

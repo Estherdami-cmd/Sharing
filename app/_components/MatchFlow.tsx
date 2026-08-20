@@ -167,7 +167,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
           <article key={need.id} className={need.rank === 1 ? cardHighlight : card}>
             <div className="flex flex-wrap items-center gap-1.5">
               {need.rank === 1 && <span className={rankBadge}>1순위</span>}
-              {need.urgent && <span className={toneBadge("blocked")}>긴급</span>}
+              {need.urgent && <span className={toneBadge("caution")}>도움이 필요해요</span>}
             </div>
             <div>
               <h2 className="text-[20px] font-bold tracking-[-0.02em]">{need.itemName}</h2>

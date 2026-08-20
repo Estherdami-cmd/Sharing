@@ -37,7 +37,6 @@ export default function AdminPanel() {
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [targetQty, setTargetQty] = useState(50);
-  const [urgent, setUrgent] = useState(false);
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -69,7 +68,7 @@ export default function AdminPanel() {
     const res = await fetch("/api/needs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ foodBankId, itemName, category, targetQty, urgent, note }),
+      body: JSON.stringify({ foodBankId, itemName, category, targetQty, note }),
     });
     setSubmitting(false);
     if (!res.ok) {
@@ -78,7 +77,6 @@ export default function AdminPanel() {
     }
     setItemName("");
     setTargetQty(50);
-    setUrgent(false);
     setNote("");
     load();
   }
@@ -167,15 +165,9 @@ export default function AdminPanel() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-[13px] text-neutral-500">
-              <input
-                type="checkbox"
-                checked={urgent}
-                onChange={(e) => setUrgent(e.target.checked)}
-                className="size-4 accent-primary-700"
-              />
-              긴급으로 표시 (추천 상단에 노출)
-            </label>
+            <p className={caption}>
+              "도움이 필요해요" 표시는 진행률 30% 미만인 요청에 자동으로 붙어요
+            </p>
 
             {formError && <p className="text-[13px] text-danger-fg">{formError}</p>}
 
@@ -197,7 +189,7 @@ export default function AdminPanel() {
                     </h3>
                     <p className="text-xs text-neutral-400">{need.category}</p>
                   </div>
-                  {need.urgent && <span className={toneBadge("blocked")}>긴급</span>}
+                  {need.urgent && <span className={toneBadge("caution")}>도움이 필요해요</span>}
                 </div>
                 <NeedProgress
                   filledQty={need.filledQty}
