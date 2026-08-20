@@ -80,6 +80,8 @@ export default function DonateFlow() {
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
+  // 기관마다 채우고 싶은 수량이 다를 수 있어 카드별로 따로 들고 있는다.
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
 
   // 서버가 최종 판정하지만, 사용자가 유통기한을 고치면 즉시 반영되도록 같은 규칙을 로컬에서도 돌린다.
   const verdict: ShareVerdict | null =
@@ -215,10 +217,21 @@ export default function DonateFlow() {
     await loadMatches(donation.id);
   }
 
-  /** 신청 페이지는 별도 주소(/apply)라 여기서 넘길 물품·요청 id만 쿼리로 전달한다. */
+  function getQuantity(need: MatchResult) {
+    return quantities[need.id] ?? 1;
+  }
+
+  function setQuantity(need: MatchResult, value: number) {
+    const capped = need.remainingQty > 0 ? Math.min(value, need.remainingQty) : value;
+    setQuantities((prev) => ({ ...prev, [need.id]: Math.max(1, capped) }));
+  }
+
+  /** 신청 페이지는 별도 주소(/apply)라 여기서 넘길 물품·요청 id·수량을 쿼리로 전달한다. */
   function handleSelectNeed(need: MatchResult) {
     if (!donation) return;
-    router.push(`/apply?donationId=${donation.id}&needId=${need.id}`);
+    router.push(
+      `/apply?donationId=${donation.id}&needId=${need.id}&quantity=${getQuantity(need)}`
+    );
   }
 
   function handleRestart() {
@@ -411,27 +424,10 @@ export default function DonateFlow() {
 
           <div className={`${card} mx-auto w-full max-w-lg`}>
             <div className="flex flex-col gap-1.5">
-              <label className={label}>품목명 (다르면 수정하세요)</label>
-              <input
-                value={donation.itemName}
-                onChange={(e) => setDonation({ ...donation, itemName: e.target.value })}
-                onBlur={(e) => patchDonation({ itemName: e.target.value })}
-                className={field}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>카테고리</label>
-              <select
-                value={donation.category}
-                onChange={(e) => patchDonation({ category: e.target.value })}
-                className={field}
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              <label className={label}>품목명</label>
+              <p className={`${field} flex items-center bg-neutral-100 text-neutral-700`}>
+                {donation.itemName}
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className={label}>내 지역</label>
