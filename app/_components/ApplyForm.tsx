@@ -152,8 +152,8 @@ export default function ApplyForm() {
       return;
     }
     const created = await res.json();
-    // 완료 화면은 별도 주소다. 신청 id만 넘기면 그쪽에서 상세를 다시 불러온다.
-    router.push(`/apply/complete?applicationId=${created.id}`);
+    // 완료 화면은 신청 id를 주소에 담는 독립 페이지다.
+    router.push(`/complete/${created.id}`);
   }
 
   if (loadState === "loading") {
@@ -292,7 +292,7 @@ export default function ApplyForm() {
       </div>
 
       <Link
-        href={donationId ? `/donate/match?donationId=${donationId}` : "/donate"}
+        href={donationId ? `/match/${donationId}` : "/donate"}
         className={`${btnGhost} mx-auto`}
       >
         ← 매칭 결과로 돌아가기

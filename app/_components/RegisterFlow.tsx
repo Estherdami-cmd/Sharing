@@ -171,7 +171,7 @@ export default function RegisterFlow() {
     }
     const created = await res.json();
     // 2단계는 별도 주소다. 물품 id만 넘기면 그쪽에서 매칭을 다시 불러온다.
-    router.push(`/donate/match?donationId=${created.id}`);
+    router.push(`/match/${created.id}`);
   }
 
   function handleRestart() {

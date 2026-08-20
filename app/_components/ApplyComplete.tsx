@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatKoreanDate } from "@/lib/rules";
 import type { ApplicationDetail } from "@/lib/store";
@@ -21,23 +20,16 @@ const STATUS_TEXT: Record<ApplicationDetail["status"], string> = {
 
 /**
  * 4단계: 신청 완료.
- * 3단계에서 넘어온 applicationId로 신청 상세를 서버에서 불러온다.
- * 상태는 기관이 바꾸므로 이 화면은 계속 새로 읽어야 한다. 그래서 별도 주소인 게 오히려 맞다.
+ * 신청 id는 주소(/complete/[id])에서 받아 상세를 서버에서 불러온다.
+ * 상태는 기관이 바꾸므로 이 화면은 계속 새로 읽어야 한다. 그래서 독립 주소인 게 오히려 맞다.
  */
-export default function ApplyComplete() {
-  const searchParams = useSearchParams();
-  const applicationId = searchParams.get("applicationId");
-
+export default function ApplyComplete({ applicationId }: { applicationId: string }) {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [application, setApplication] = useState<ApplicationDetail | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [requestingReceipt, setRequestingReceipt] = useState(false);
 
   useEffect(() => {
-    if (!applicationId) {
-      setLoadState("error");
-      return;
-    }
     let cancelled = false;
     (async () => {
       const res = await fetch(`/api/applications/${applicationId}`);
