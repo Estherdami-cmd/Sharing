@@ -71,7 +71,11 @@ export default function NeedBoard() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify([...next]));
+      try {
+        localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify([...next]));
+      } catch {
+        // 저장 공간이 막혀있어도(시크릿 모드 등) 화면 상태는 그대로 토글되게 둔다.
+      }
       return next;
     });
   }
