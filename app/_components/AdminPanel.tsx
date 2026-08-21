@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORIES } from "@/lib/rules";
 import type { ApplicationDetail, FoodBank, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
+import { useRefetchOnFocus } from "./useRefetchOnFocus";
 import {
   btnDanger,
   btnGhost,
@@ -44,7 +45,7 @@ export default function AdminPanel() {
   const [submitting, setSubmitting] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const [needsRes, appsRes] = await Promise.all([fetch("/api/needs"), fetch("/api/applications")]);
     if (needsRes.ok) {
@@ -55,11 +56,15 @@ export default function AdminPanel() {
     }
     if (appsRes.ok) setApplications(await appsRes.json());
     setLoading(false);
-  }
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  // 이 탭을 열어둔 채로 다른 곳에서 새 신청이 들어와도 자동으로는 안 보였다.
+  // 탭을 다시 보면(포커스) 들어온 신청·진행률을 다시 불러온다.
+  useRefetchOnFocus(load);
 
   function handleImageSelected(file: File | undefined) {
     if (!file) return;

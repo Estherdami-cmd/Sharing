@@ -44,6 +44,25 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           >
             다시 시도
           </button>
+          <div
+            style={{
+              marginTop: "1rem",
+              maxWidth: "32rem",
+              borderRadius: "0.75rem",
+              background: "#f2f4f6",
+              padding: "1rem",
+              textAlign: "left",
+            }}
+          >
+            <p style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "#4e5968", wordBreak: "break-all" }}>
+              {error.name}: {error.message || "(메시지 없음)"}
+            </p>
+            {error.digest && (
+              <p style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "#8b95a1", marginTop: "0.25rem" }}>
+                digest: {error.digest}
+              </p>
+            )}
+          </div>
         </main>
       </body>
     </html>

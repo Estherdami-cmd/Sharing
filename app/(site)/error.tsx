@@ -28,6 +28,20 @@ export default function SiteError({ error, reset }: { error: Error & { digest?: 
           홈으로 가기
         </a>
       </div>
+
+      {/* 콘솔을 열 필요 없이 이 화면 그대로 캡처해서 보내면 원인을 바로 알 수 있게 한다. */}
+      <div className="mt-4 w-full max-w-lg rounded-xl bg-neutral-100 p-4 text-left">
+        <p className="text-xs font-bold text-neutral-500">개발용 상세 정보</p>
+        <p className="mt-1 break-all font-mono text-xs text-neutral-700">
+          {error.name}: {error.message || "(메시지 없음)"}
+        </p>
+        {error.digest && (
+          <p className="mt-1 font-mono text-xs text-neutral-400">digest: {error.digest}</p>
+        )}
+        <p className="mt-2 text-xs text-neutral-400">
+          현재 페이지: {typeof window !== "undefined" ? window.location.href : ""}
+        </p>
+      </div>
     </main>
   );
 }
