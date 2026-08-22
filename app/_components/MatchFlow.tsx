@@ -265,18 +265,24 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
                   +
                 </button>
               </div>
-              <p className="text-xs text-neutral-500">
-                {getQuantity(need)}개를 내면 진행률이{" "}
-                <strong className="text-primary-700">
-                  {Math.min(
-                    100,
-                    Math.round(((need.filledQty + getQuantity(need)) / need.targetQty) * 100)
-                  )}
-                  %
-                </strong>
-                가 돼요
-                {need.remainingQty > 0 && ` · 남은 목표 ${need.remainingQty}개`}
-              </p>
+              {need.exactMatch ? (
+                <p className="text-xs text-neutral-500">
+                  {getQuantity(need)}개를 내면 진행률이{" "}
+                  <strong className="text-primary-700">
+                    {Math.min(
+                      100,
+                      Math.round(((need.filledQty + getQuantity(need)) / need.targetQty) * 100)
+                    )}
+                    %
+                  </strong>
+                  가 돼요
+                  {need.remainingQty > 0 && ` · 남은 목표 ${need.remainingQty}개`}
+                </p>
+              ) : (
+                <p className="text-xs text-warning-fg">
+                  카테고리가 달라 이 요청의 진행률에는 반영되지 않아요
+                </p>
+              )}
             </div>
 
             <button onClick={() => handleSelectNeed(need)} className={btnPrimary}>

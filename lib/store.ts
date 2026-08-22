@@ -231,8 +231,11 @@ export type NeedView = Need & {
 };
 
 function toView(need: Need): NeedView {
+  // 카테고리가 다른 대기중 신청은 수락돼도 이 진행률을 안 채우니, "대기중 반영 시"
+  // 미리보기에서도 빼야 한다 — 안 그러면 실제로는 안 오를 숫자를 예고하게 된다.
   const pendingQty = Array.from(applications.values())
     .filter((app) => app.needId === need.id && app.status === "pending")
+    .filter((app) => getDonation(app.donationId)?.category === need.category)
     .reduce((sum, app) => sum + app.quantity, 0);
 
   const progress = Math.min(100, Math.round((need.filledQty / need.targetQty) * 100));
