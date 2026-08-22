@@ -28,23 +28,33 @@ export default function NeedProgress({
   targetQty,
   progress,
   pendingQty = 0,
+  resetKey,
 }: {
   filledQty: number;
   targetQty: number;
   progress: number;
   pendingQty?: number;
+  /** 값이 바뀔 때만 카운트업을 0부터 다시(느리게) 재생하고 싶을 때(예: 새로고침) 넘긴다. */
+  resetKey?: unknown;
 }) {
   const pendingWidth = Math.min(100 - progress, Math.round((pendingQty / targetQty) * 100));
 
   // 바가 뜨자마자 최종 길이로 딱 나타나지 않고, 0에서 실제 값까지 채워지며 나타나게 한다.
   const [barWidth, setBarWidth] = useState(0);
+  // progress가 정확히 0이면 barWidth도 계속 0이라, "barWidth가 채워진 뒤에 대기중
+  // 줄무늬를 보여준다"는 신호를 barWidth 자체로 판단하면 대기중 줄무늬가 영원히 안
+  // 뜬다. 애니메이션이 한 번 시작됐는지는 따로 표시한다.
+  const [animationStarted, setAnimationStarted] = useState(false);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setBarWidth(progress));
+    const id = requestAnimationFrame(() => {
+      setBarWidth(progress);
+      setAnimationStarted(true);
+    });
     return () => cancelAnimationFrame(id);
   }, [progress]);
 
-  const displayedFilled = useCountUp(filledQty);
-  const displayedProgress = useCountUp(progress);
+  const displayedFilled = useCountUp(filledQty, 800, resetKey);
+  const displayedProgress = useCountUp(progress, 800, resetKey);
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -70,7 +80,7 @@ export default function NeedProgress({
           <div
             className="opacity-30 transition-[width] duration-700 ease-out"
             style={{
-              width: `${barWidth > 0 ? pendingWidth : 0}%`,
+              width: `${animationStarted ? pendingWidth : 0}%`,
               backgroundImage:
                 "repeating-linear-gradient(45deg, currentColor 0 4px, transparent 4px 8px)",
               color: "var(--color-neutral-900)",

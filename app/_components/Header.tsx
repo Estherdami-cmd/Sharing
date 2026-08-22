@@ -23,6 +23,9 @@ export default function Header() {
   useEffect(() => {
     function onScroll() {
       setScrolled(window.scrollY > 0);
+      // 모바일 메뉴가 펼쳐진 채로 스크롤하면, 늘어난 헤더 높이가 아래 페이지의
+      // sticky 요소(예: 게시판 필터바)를 가려버린다. 스크롤 시작하면 메뉴를 닫는다.
+      setMenuOpen((open) => (open ? false : open));
     }
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });

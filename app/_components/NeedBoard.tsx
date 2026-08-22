@@ -61,8 +61,16 @@ const ALMOST_THERE_THRESHOLD = 80;
  * 카드마다 큰 % 숫자에 카운트업을 걸려면 useCountUp을 카드 단위로 호출해야 한다
  * (map 콜백 안에서 훅을 직접 부르면 Rules of Hooks를 어긴다).
  */
-function NeedCard({ need, index }: { need: NeedView; index: number }) {
-  const displayedProgress = useCountUp(need.progress);
+function NeedCard({
+  need,
+  index,
+  countUpResetKey,
+}: {
+  need: NeedView;
+  index: number;
+  countUpResetKey: unknown;
+}) {
+  const displayedProgress = useCountUp(need.progress, 800, countUpResetKey);
 
   return (
     <article
@@ -104,6 +112,7 @@ function NeedCard({ need, index }: { need: NeedView; index: number }) {
         targetQty={need.targetQty}
         progress={need.progress}
         pendingQty={need.pendingQty}
+        resetKey={countUpResetKey}
       />
 
       {need.remainingQty > 0 && (
@@ -129,6 +138,8 @@ export default function NeedBoard() {
   const [sortBy, setSortBy] = useState<SortKey>("default");
 
   const { toast, showToast } = useToast();
+  // 새로고침을 직접 눌렀을 때만, 숫자들이 0부터 다시(느긋하게) 올라가는 걸 보여준다.
+  const [countUpResetKey, setCountUpResetKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,6 +167,7 @@ export default function NeedBoard() {
   // 알림을 띄우면 탭을 왔다갔다 할 때마다 시끄러워진다.
   const handleRefreshClick = useCallback(async () => {
     const ok = await load();
+    setCountUpResetKey((k) => k + 1);
     showToast(
       ok ? "최신 정보로 새로고침했어요" : "새로고침에 실패했어요. 잠시 후 다시 시도해주세요",
       ok ? "success" : "error",
@@ -184,7 +196,7 @@ export default function NeedBoard() {
         ? [...filteredNeeds].sort((a, b) => b.progress - a.progress)
         : filteredNeeds;
   const isFiltered = categoryFilter !== FILTER_ALL || trimmedQuery.length > 0;
-  const displayedTotalFilled = useCountUp(totalFilled);
+  const displayedTotalFilled = useCountUp(totalFilled, 800, countUpResetKey);
 
   return (
     <div className="flex flex-col gap-8">
@@ -280,6 +292,7 @@ export default function NeedBoard() {
                       targetQty={need.targetQty}
                       progress={need.progress}
                       pendingQty={need.pendingQty}
+                      resetKey={countUpResetKey}
                     />
                     <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} h-11 text-[14px]`}>
                       여기에 나눔하기
@@ -347,7 +360,12 @@ export default function NeedBoard() {
         </div>
       </div>
 
-      {loading && (
+      {/*
+        새로고침·포커스 복귀로 다시 불러오는 동안엔 이미 보이던 카드를 그대로 두고
+        조용히 갱신한다. loading만 보고 스켈레톤을 띄우면, 이미 떠 있는 실제 카드
+        위에 스켈레톤이 겹쳐 순간적으로 두 세트가 동시에 보이게 된다.
+      */}
+      {loading && needs.length === 0 && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className={`${card} animate-pulse`}>
@@ -381,7 +399,7 @@ export default function NeedBoard() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sortedNeeds.map((need, i) => (
-          <NeedCard key={need.id} need={need} index={i} />
+          <NeedCard key={need.id} need={need} index={i} countUpResetKey={countUpResetKey} />
         ))}
       </div>
 
