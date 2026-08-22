@@ -238,7 +238,12 @@ function toView(need: Need): NeedView {
     .filter((app) => getDonation(app.donationId)?.category === need.category)
     .reduce((sum, app) => sum + app.quantity, 0);
 
-  const progress = Math.min(100, Math.round((need.filledQty / need.targetQty) * 100));
+  // Math.round는 99.5%도 100%로 올려버려서, 1개가 남았는데도 "목표 달성"으로
+  // 보이는 경우가 생긴다. 실제로 다 채워졌을 때(filledQty >= targetQty)만 100%를 준다.
+  const progress =
+    need.filledQty >= need.targetQty
+      ? 100
+      : Math.min(99, Math.round((need.filledQty / need.targetQty) * 100));
 
   return {
     ...need,

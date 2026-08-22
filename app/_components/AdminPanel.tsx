@@ -328,9 +328,13 @@ export default function AdminPanel() {
                     onClick={() => handleDecision(app.id, "accepted")}
                     className={`${btnOutline} border-primary-500 text-primary-700 hover:border-primary-600`}
                   >
-                    {app.need && app.donation.category === app.need.category
-                      ? `수락 (진행률 +${app.quantity})`
-                      : "수락"}
+                    {(() => {
+                      if (!app.need || app.donation.category !== app.need.category) return "수락";
+                      // 다른 신청이 먼저 수락돼 이미 목표가 다 찼을 수 있다 — 그럴 땐
+                      // 이 신청을 수락해도 실제로는 0만큼만 반영된다.
+                      const gain = Math.min(app.quantity, app.need.remainingQty);
+                      return gain > 0 ? `수락 (진행률 +${gain})` : "수락 (이미 목표 달성됨)";
+                    })()}
                   </button>
                   <button onClick={() => handleDecision(app.id, "rejected")} className={btnDanger}>
                     거절

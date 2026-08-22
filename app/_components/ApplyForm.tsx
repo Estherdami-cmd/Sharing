@@ -56,10 +56,14 @@ export default function ApplyForm() {
   */
   const parsedQuantity = Math.floor(Number(quantityParam));
   const requestedQuantity = Number.isFinite(parsedQuantity) ? Math.max(1, parsedQuantity) : 1;
-  const quantity =
-    selectedNeed && selectedNeed.remainingQty > 0
-      ? Math.min(requestedQuantity, selectedNeed.remainingQty)
-      : requestedQuantity;
+  // 목표가 남아있으면 그만큼으로, 이미 다 찼으면(여유분 받기) 목표 수량만큼으로
+  // 상한을 둔다 — 주소창에 quantity=9999처럼 직접 써넣어도 그대로 통과하던 버그가 있었다.
+  const quantity = selectedNeed
+    ? Math.min(
+        requestedQuantity,
+        selectedNeed.remainingQty > 0 ? selectedNeed.remainingQty : selectedNeed.targetQty
+      )
+    : requestedQuantity;
 
   // 별도 주소라 새로고침·직접 접속에도 대응해야 하므로 앞 단계의 state에 의존하지 않는다.
   //

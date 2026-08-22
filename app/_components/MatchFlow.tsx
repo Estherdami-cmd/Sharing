@@ -89,8 +89,15 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
     return quantities[need.id] ?? 1;
   }
 
+  // 목표가 남아있으면 그만큼으로, 이미 다 찼으면(여유분 받기) 목표 수량만큼으로
+  // 상한을 둔다 — 이미 다 찬 요청엔 상한이 아예 없어서 9999처럼 비상식적인
+  // 값도 그대로 입력·전송되던 버그가 있었다.
+  function getMaxQuantity(need: MatchResult) {
+    return need.remainingQty > 0 ? need.remainingQty : need.targetQty;
+  }
+
   function setQuantity(need: MatchResult, value: number) {
-    const capped = need.remainingQty > 0 ? Math.min(value, need.remainingQty) : value;
+    const capped = Math.min(value, getMaxQuantity(need));
     setQuantities((prev) => ({ ...prev, [need.id]: Math.max(1, capped) }));
   }
 
@@ -251,14 +258,14 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
                   id={`qty-${need.id}`}
                   type="number"
                   min={1}
-                  max={need.remainingQty > 0 ? need.remainingQty : undefined}
+                  max={getMaxQuantity(need)}
                   value={getQuantity(need)}
                   onChange={(e) => setQuantity(need, Number(e.target.value))}
                   className={`${field} text-center`}
                 />
                 <button
                   onClick={() => setQuantity(need, getQuantity(need) + 1)}
-                  disabled={need.remainingQty > 0 && getQuantity(need) >= need.remainingQty}
+                  disabled={getQuantity(need) >= getMaxQuantity(need)}
                   aria-label="수량 늘리기"
                   className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
                 >
