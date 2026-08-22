@@ -52,8 +52,6 @@ type ActivityItem = {
 };
 
 const FILTER_ALL = "전체";
-/** 로그인이 없어 브라우저에만 저장한다. 다른 기기·시크릿창에선 안 보이는 게 맞다. */
-const SAVED_STORAGE_KEY = "nanumgotgan:saved-needs";
 /** 이 진행률을 넘으면 "조금만 더!" 하이라이트에 올라간다. */
 const ALMOST_THERE_THRESHOLD = 80;
 
@@ -63,32 +61,7 @@ export default function NeedBoard() {
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState(FILTER_ALL);
   const [searchQuery, setSearchQuery] = useState("");
-  const [savedOnly, setSavedOnly] = useState(false);
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<SortKey>("default");
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SAVED_STORAGE_KEY);
-      if (raw) setSavedIds(new Set(JSON.parse(raw)));
-    } catch {
-      // 저장된 값이 깨져 있으면 그냥 빈 상태로 시작한다.
-    }
-  }, []);
-
-  function toggleSaved(id: string) {
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify([...next]));
-      } catch {
-        // 저장 공간이 막혀있어도(시크릿 모드 등) 화면 상태는 그대로 토글되게 둔다.
-      }
-      return next;
-    });
-  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,8 +91,7 @@ export default function NeedBoard() {
   const trimmedQuery = searchQuery.trim().toLowerCase();
   const filteredNeeds = activeNeeds
     .filter((n) => categoryFilter === FILTER_ALL || n.category === categoryFilter)
-    .filter((n) => !trimmedQuery || n.itemName.toLowerCase().includes(trimmedQuery))
-    .filter((n) => !savedOnly || savedIds.has(n.id));
+    .filter((n) => !trimmedQuery || n.itemName.toLowerCase().includes(trimmedQuery));
   // "추천순"은 서버가 이미 정해준 순서(도움 필요한 것 먼저)를 그대로 쓴다. 따로 정렬하지 않는다.
   const sortedNeeds =
     sortBy === "newest"
@@ -127,13 +99,16 @@ export default function NeedBoard() {
       : sortBy === "almost"
         ? [...filteredNeeds].sort((a, b) => b.progress - a.progress)
         : filteredNeeds;
-  const isFiltered = categoryFilter !== FILTER_ALL || trimmedQuery.length > 0 || savedOnly;
+  const isFiltered = categoryFilter !== FILTER_ALL || trimmedQuery.length > 0;
 
   return (
     <div className="flex flex-col gap-8">
       <header className="text-center">
         <h1 className={pageTitle}>지금 필요한 것들</h1>
         <p className={pageDesc}>기관이 올린 목표를 여럿이 나눠 채우고 있어요</p>
+        <button onClick={load} className={`${btnGhost} mt-1`}>
+          새로고침
+        </button>
 
         {/*
           totalFilled(각 need.filledQty 합)와 acceptedCount(실제 접수된 신청 건수)는
@@ -163,16 +138,18 @@ export default function NeedBoard() {
           <Link href="/donate" className={`${btnPrimary} max-w-xs`}>
             ＋ 나눔 추가하기
           </Link>
-          <button onClick={load} className={btnGhost}>
-            새로고침
-          </button>
         </div>
       </header>
 
-      {/* 최근 나눔 소식: "지금 실제로 돌아가는 서비스"라는 느낌을 주는 활동 로그. */}
-      {recentActivity.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-center text-[13px] font-bold text-neutral-400">최근 나눔 소식</h2>
+      {/*
+        최근 나눔 소식: "지금 실제로 돌아가는 서비스"라는 느낌을 주는 활동 로그.
+        신청 기록이 하나도 없어도(서버가 막 리셋됐을 때 등) 섹션 자체를 숨기지
+        않는다 — 통째로 사라지면 화면이 허전해 보인다. 대신 곧 채워질 거라는
+        기대를 주는 빈 상태를 보여준다.
+      */}
+      <section className="flex flex-col gap-2">
+        <h2 className="text-center text-[13px] font-bold text-neutral-400">최근 나눔 소식</h2>
+        {recentActivity.length > 0 ? (
           <div className="flex gap-2 overflow-x-auto pb-1">
             {recentActivity.map((a) => (
               <p
@@ -185,35 +162,45 @@ export default function NeedBoard() {
               </p>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="text-center text-[13px] text-neutral-400">
+            아직 나눔 소식이 없어요. 첫 나눔의 주인공이 되어보세요!
+          </p>
+        )}
+      </section>
 
       {/* 목표 임박 하이라이트: "여럿이 나눠서 채운다"가 가장 눈에 보이는 순간. */}
-      {almostThereNeeds.length > 0 && (
+      {activeNeeds.length > 0 && (
         <section className="flex flex-col gap-3 rounded-2xl bg-warning-bg/60 p-4">
           <h2 className="text-center text-[15px] font-extrabold text-warning-fg">
             조금만 더 도와주시면 돼요!
           </h2>
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {almostThereNeeds.map((need) => (
-              <article
-                key={need.id}
-                className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl bg-white p-4"
-              >
-                <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
-                <h3 className="text-[15px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
-                <NeedProgress
-                  filledQty={need.filledQty}
-                  targetQty={need.targetQty}
-                  progress={need.progress}
-                  pendingQty={need.pendingQty}
-                />
-                <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} h-11 text-[14px]`}>
-                  여기에 나눔하기
-                </Link>
-              </article>
-            ))}
-          </div>
+          {almostThereNeeds.length > 0 ? (
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {almostThereNeeds.map((need) => (
+                <article
+                  key={need.id}
+                  className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl bg-white p-4 transition-shadow hover:shadow-md"
+                >
+                  <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
+                  <h3 className="text-[15px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
+                  <NeedProgress
+                    filledQty={need.filledQty}
+                    targetQty={need.targetQty}
+                    progress={need.progress}
+                    pendingQty={need.pendingQty}
+                  />
+                  <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} h-11 text-[14px]`}>
+                    여기에 나눔하기
+                  </Link>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-[13px] text-warning-fg/70">
+              아직 {ALMOST_THERE_THRESHOLD}% 넘게 채워진 요청은 없어요. 조금씩 모이면 여기 뜰 거예요
+            </p>
+          )}
         </section>
       )}
 
@@ -242,17 +229,6 @@ export default function NeedBoard() {
             {c}
           </button>
         ))}
-        <button
-          onClick={() => setSavedOnly((v) => !v)}
-          className={
-            "cursor-pointer rounded-full border px-4 py-2 text-[13px] font-bold transition-colors " +
-            (savedOnly
-              ? "border-danger-fg bg-danger-bg text-danger-fg"
-              : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
-          }
-        >
-          ♥ 찜한 것만
-        </button>
       </div>
 
       <div className="flex items-center justify-center gap-1.5 text-[13px] text-neutral-400">
@@ -304,8 +280,12 @@ export default function NeedBoard() {
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {sortedNeeds.map((need) => (
-          <article key={need.id} className={need.urgent ? cardUrgent : card}>
+        {sortedNeeds.map((need, i) => (
+          <article
+            key={need.id}
+            style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
+            className={`${need.urgent ? cardUrgent : card} animate-fade-in-up transition-shadow hover:shadow-lg`}
+          >
             <div className="relative -mx-5 -mt-5 mb-1">
               {need.imageUrl ? (
                 <img
@@ -321,13 +301,6 @@ export default function NeedBoard() {
               <span className="absolute left-2.5 top-2.5 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs font-bold text-white">
                 {need.category}
               </span>
-              <button
-                onClick={() => toggleSaved(need.id)}
-                aria-label={savedIds.has(need.id) ? "찜 해제" : "찜하기"}
-                className="absolute right-2.5 top-2.5 grid size-9 cursor-pointer place-items-center rounded-full bg-white/90 text-lg text-danger-fg shadow-sm transition-transform active:scale-90"
-              >
-                {savedIds.has(need.id) ? "♥" : "♡"}
-              </button>
             </div>
 
             <div className="flex items-center justify-between gap-2">
@@ -370,26 +343,36 @@ export default function NeedBoard() {
         ))}
       </div>
 
-      {/* 완료된 목표 아카이브: 이 서비스로 실제로 목표가 채워진 적이 있다는 증거. */}
-      {completedNeeds.length > 0 && (
+      {/*
+        완료된 목표 아카이브: 이 서비스로 실제로 목표가 채워진 적이 있다는 증거.
+        아직 하나도 없어도(리셋 직후 등) 섹션을 숨기지 않고, 첫 성공 스토리를
+        기다리고 있다는 초대 문구로 대신한다.
+      */}
+      {needs.length > 0 && (
         <section className="flex flex-col gap-3 border-t border-neutral-200 pt-6">
           <h2 className="text-center text-[15px] font-extrabold text-neutral-700">
             🎉 목표를 채운 요청들
           </h2>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {completedNeeds.map((need) => (
-              <article key={need.id} className={`${cardHighlight} opacity-80`}>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
-                  <span className={toneBadge("ok")}>목표 달성</span>
-                </div>
-                <h3 className="text-[17px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
-                <p className="text-[13px] text-neutral-500">
-                  {need.targetQty}개 목표를 여럿이 나눠서 다 채웠어요
-                </p>
-              </article>
-            ))}
-          </div>
+          {completedNeeds.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {completedNeeds.map((need) => (
+                <article key={need.id} className={`${cardHighlight} opacity-80`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
+                    <span className={toneBadge("ok")}>목표 달성</span>
+                  </div>
+                  <h3 className="text-[17px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
+                  <p className="text-[13px] text-neutral-500">
+                    {need.targetQty}개 목표를 여럿이 나눠서 다 채웠어요
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-[13px] text-neutral-400">
+              아직 다 채운 목표는 없어요. 여러분의 나눔이 첫 성공 스토리가 될 수 있어요
+            </p>
+          )}
         </section>
       )}
     </div>
