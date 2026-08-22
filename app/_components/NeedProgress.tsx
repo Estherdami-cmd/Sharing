@@ -1,8 +1,13 @@
+"use client";
+
 /**
  * 이 서비스에서 가장 많이 반복되는 요소라 별도 컴포넌트로 뺐다.
  * 낮은 진행률에 빨강을 쓰는 건 의도적이다 — 0%가 회색이면 "아무도 관심 없는 요청"으로
  * 보이지만, 빨강이면 "여기가 제일 급하다"로 읽힌다.
  */
+
+import { useEffect, useState } from "react";
+import { useCountUp } from "./useCountUp";
 
 function fillClass(progress: number) {
   if (progress >= 100) return "bg-success-fg";
@@ -31,29 +36,41 @@ export default function NeedProgress({
 }) {
   const pendingWidth = Math.min(100 - progress, Math.round((pendingQty / targetQty) * 100));
 
+  // 바가 뜨자마자 최종 길이로 딱 나타나지 않고, 0에서 실제 값까지 채워지며 나타나게 한다.
+  const [barWidth, setBarWidth] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setBarWidth(progress));
+    return () => cancelAnimationFrame(id);
+  }, [progress]);
+
+  const displayedFilled = useCountUp(filledQty);
+  const displayedProgress = useCountUp(progress);
+
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between">
         <p className="text-[13px] text-neutral-500">
           <span className="tabular text-2xl font-extrabold tracking-[-0.02em] text-neutral-900">
-            {filledQty}
+            {displayedFilled}
           </span>
           <span className="mx-1">/</span>
           {targetQty}개 채워짐
         </p>
-        <span className={`tabular text-[17px] font-extrabold ${textClass(progress)}`}>{progress}%</span>
+        <span className={`tabular text-[17px] font-extrabold ${textClass(progress)}`}>
+          {displayedProgress}%
+        </span>
       </div>
 
       <div className="flex h-2.5 overflow-hidden rounded-full bg-neutral-100">
         <div
-          className={`${fillClass(progress)} rounded-full transition-[width] duration-500 ease-out`}
-          style={{ width: `${progress}%` }}
+          className={`${fillClass(progress)} rounded-full transition-[width] duration-700 ease-out`}
+          style={{ width: `${barWidth}%` }}
         />
         {pendingWidth > 0 && (
           <div
-            className="opacity-30 transition-[width] duration-500 ease-out"
+            className="opacity-30 transition-[width] duration-700 ease-out"
             style={{
-              width: `${pendingWidth}%`,
+              width: `${barWidth > 0 ? pendingWidth : 0}%`,
               backgroundImage:
                 "repeating-linear-gradient(45deg, currentColor 0 4px, transparent 4px 8px)",
               color: "var(--color-neutral-900)",

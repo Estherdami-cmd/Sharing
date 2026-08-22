@@ -16,6 +16,7 @@ import {
   pageTitle,
   toneBadge,
 } from "../ui";
+import { useCountUp } from "./useCountUp";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
 
 type NeedView = {
@@ -54,6 +55,69 @@ type ActivityItem = {
 const FILTER_ALL = "전체";
 /** 이 진행률을 넘으면 "조금만 더!" 하이라이트에 올라간다. */
 const ALMOST_THERE_THRESHOLD = 80;
+
+/**
+ * 카드마다 큰 % 숫자에 카운트업을 걸려면 useCountUp을 카드 단위로 호출해야 한다
+ * (map 콜백 안에서 훅을 직접 부르면 Rules of Hooks를 어긴다).
+ */
+function NeedCard({ need, index }: { need: NeedView; index: number }) {
+  const displayedProgress = useCountUp(need.progress);
+
+  return (
+    <article
+      style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
+      className={`${need.urgent ? cardUrgent : card} animate-fade-in-up transition-shadow hover:shadow-lg`}
+    >
+      <div className="relative -mx-5 -mt-5 mb-1">
+        {need.imageUrl ? (
+          <img
+            src={need.imageUrl}
+            alt={`${need.itemName} 사진`}
+            className="aspect-4/3 w-full rounded-t-2xl object-cover"
+          />
+        ) : (
+          <div className="flex aspect-4/3 w-full items-center justify-center rounded-t-2xl bg-neutral-100">
+            <span className="text-xs text-neutral-400">사진 없음</span>
+          </div>
+        )}
+        <span className="absolute left-2.5 top-2.5 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs font-bold text-white">
+          {need.category}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="tabular text-3xl font-extrabold text-primary-700">{displayedProgress}%</span>
+        {need.urgent && <span className={toneBadge("caution")}>도움이 필요해요</span>}
+      </div>
+
+      <div>
+        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">{need.itemName}</h2>
+        <p className="mt-0.5 text-xs text-neutral-400">
+          {need.foodBank.name} · {need.foodBank.address}
+        </p>
+        <p className="mt-0.5 text-xs text-neutral-400">{formatRelativeTime(need.createdAt)} 등록</p>
+      </div>
+
+      <NeedProgress
+        filledQty={need.filledQty}
+        targetQty={need.targetQty}
+        progress={need.progress}
+        pendingQty={need.pendingQty}
+      />
+
+      {need.remainingQty > 0 && (
+        <p className="text-[15px] font-semibold text-neutral-900">
+          {need.remainingQty}개만 더 모으면 목표를 채워요
+        </p>
+      )}
+      {need.note && <p className={caption}>{need.note}</p>}
+
+      <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} mt-auto`}>
+        여기에 나눔하기
+      </Link>
+    </article>
+  );
+}
 
 export default function NeedBoard() {
   const [needs, setNeeds] = useState<NeedView[]>([]);
@@ -100,6 +164,7 @@ export default function NeedBoard() {
         ? [...filteredNeeds].sort((a, b) => b.progress - a.progress)
         : filteredNeeds;
   const isFiltered = categoryFilter !== FILTER_ALL || trimmedQuery.length > 0;
+  const displayedTotalFilled = useCountUp(totalFilled);
 
   return (
     <div className="flex flex-col gap-8">
@@ -121,7 +186,7 @@ export default function NeedBoard() {
           <div className="mx-auto mt-4 flex w-full max-w-lg flex-col items-center gap-1 rounded-2xl bg-primary-50 px-6 py-5">
             <p className="text-xs font-bold text-primary-700">지금까지의 나눔</p>
             <p className="tabular text-2xl font-extrabold text-neutral-900">
-              <span className="text-primary-700">{totalFilled}개</span>가 모였어요
+              <span className="text-primary-700">{displayedTotalFilled}개</span>가 모였어요
             </p>
             <p className="tabular text-[13px] font-semibold text-neutral-500">
               전체 {totalFilled} / {totalTarget}개 · 요청 {needs.length}건
@@ -150,17 +215,21 @@ export default function NeedBoard() {
       <section className="flex flex-col gap-2">
         <h2 className="text-center text-[13px] font-bold text-neutral-400">최근 나눔 소식</h2>
         {recentActivity.length > 0 ? (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {recentActivity.map((a) => (
-              <p
-                key={a.id}
-                className="shrink-0 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[13px] whitespace-nowrap text-neutral-600"
-              >
-                <span className="font-bold text-neutral-900">{a.foodBank.name}</span>에{" "}
-                {a.donation.itemName} {a.quantity}개
-                <span className="ml-1.5 text-neutral-400">· {formatRelativeTime(a.createdAt)}</span>
-              </p>
-            ))}
+          <div className="relative">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {recentActivity.map((a) => (
+                <p
+                  key={a.id}
+                  className="shrink-0 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[13px] whitespace-nowrap text-neutral-600"
+                >
+                  <span className="font-bold text-neutral-900">{a.foodBank.name}</span>에{" "}
+                  {a.donation.itemName} {a.quantity}개
+                  <span className="ml-1.5 text-neutral-400">· {formatRelativeTime(a.createdAt)}</span>
+                </p>
+              ))}
+            </div>
+            {/* 가로로 더 스크롤할 게 있다는 걸 은은하게 알려준다. */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-neutral-50 to-transparent" />
           </div>
         ) : (
           <p className="text-center text-[13px] text-neutral-400">
@@ -176,25 +245,28 @@ export default function NeedBoard() {
             조금만 더 도와주시면 돼요!
           </h2>
           {almostThereNeeds.length > 0 ? (
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {almostThereNeeds.map((need) => (
-                <article
-                  key={need.id}
-                  className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl bg-white p-4 transition-shadow hover:shadow-md"
-                >
-                  <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
-                  <h3 className="text-[15px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
-                  <NeedProgress
-                    filledQty={need.filledQty}
-                    targetQty={need.targetQty}
-                    progress={need.progress}
-                    pendingQty={need.pendingQty}
-                  />
-                  <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} h-11 text-[14px]`}>
-                    여기에 나눔하기
-                  </Link>
-                </article>
-              ))}
+            <div className="relative">
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {almostThereNeeds.map((need) => (
+                  <article
+                    key={need.id}
+                    className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl bg-white p-4 transition-shadow hover:shadow-md"
+                  >
+                    <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
+                    <h3 className="text-[15px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
+                    <NeedProgress
+                      filledQty={need.filledQty}
+                      targetQty={need.targetQty}
+                      progress={need.progress}
+                      pendingQty={need.pendingQty}
+                    />
+                    <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} h-11 text-[14px]`}>
+                      여기에 나눔하기
+                    </Link>
+                  </article>
+                ))}
+              </div>
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-warning-bg to-transparent" />
             </div>
           ) : (
             <p className="text-center text-[13px] text-warning-fg/70">
@@ -281,65 +353,7 @@ export default function NeedBoard() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sortedNeeds.map((need, i) => (
-          <article
-            key={need.id}
-            style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
-            className={`${need.urgent ? cardUrgent : card} animate-fade-in-up transition-shadow hover:shadow-lg`}
-          >
-            <div className="relative -mx-5 -mt-5 mb-1">
-              {need.imageUrl ? (
-                <img
-                  src={need.imageUrl}
-                  alt={`${need.itemName} 사진`}
-                  className="aspect-4/3 w-full rounded-t-2xl object-cover"
-                />
-              ) : (
-                <div className="flex aspect-4/3 w-full items-center justify-center rounded-t-2xl bg-neutral-100">
-                  <span className="text-xs text-neutral-400">사진 없음</span>
-                </div>
-              )}
-              <span className="absolute left-2.5 top-2.5 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs font-bold text-white">
-                {need.category}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between gap-2">
-              <span className="tabular text-3xl font-extrabold text-primary-700">
-                {need.progress}%
-              </span>
-              {need.urgent && <span className={toneBadge("caution")}>도움이 필요해요</span>}
-            </div>
-
-            <div>
-              <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">
-                {need.itemName}
-              </h2>
-              <p className="mt-0.5 text-xs text-neutral-400">
-                {need.foodBank.name} · {need.foodBank.address}
-              </p>
-              <p className="mt-0.5 text-xs text-neutral-400">
-                {formatRelativeTime(need.createdAt)} 등록
-              </p>
-            </div>
-
-            <NeedProgress
-              filledQty={need.filledQty}
-              targetQty={need.targetQty}
-              progress={need.progress}
-              pendingQty={need.pendingQty}
-            />
-
-            {need.remainingQty > 0 && (
-              <p className="text-[15px] font-semibold text-neutral-900">
-                {need.remainingQty}개만 더 모으면 목표를 채워요
-              </p>
-            )}
-            {need.note && <p className={caption}>{need.note}</p>}
-
-            <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} mt-auto`}>
-              여기에 나눔하기
-            </Link>
-          </article>
+          <NeedCard key={need.id} need={need} index={i} />
         ))}
       </div>
 
