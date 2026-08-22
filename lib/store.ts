@@ -270,20 +270,18 @@ function needLabelOf(score: number) {
 }
 
 /**
- * 기부하려는 품목과 카테고리가 맞는 '필요 건'을 골라 순위를 매긴다.
+ * 기부하려는 품목과 카테고리가 맞는 '필요 건'일수록 위로 오도록 순위를 매긴다.
+ * 카테고리가 다르다고 목록에서 아예 숨기지는 않는다 — 다른 기관에 직접
+ * 나눔하고 싶을 수도 있으니, 항상 전체를 보여주되 우선순위만 다르게 준다.
  * 부족분이 클수록, 진행률이 낮아 도움이 필요할수록, 가까울수록 위로 온다.
  */
 export function matchNeeds(category: string, regionName: string): NeedMatch[] {
   const origin = getRegion(regionName || DEFAULT_REGION);
   const all = listNeeds();
 
-  const exact = all.filter((n) => n.category === category);
-  // 정확히 맞는 요청이 없으면 빈 화면 대신 다른 요청을 보여주되 exactMatch로 구분한다.
-  const pool = exact.length > 0 ? exact : all;
-  const isExact = exact.length > 0;
-
-  return pool
+  return all
     .map((need) => {
+      const isExact = need.category === category;
       const distance = distanceKm(origin, need.foodBank);
       const shortage = need.remainingQty / need.targetQty;
 
@@ -294,7 +292,7 @@ export function matchNeeds(category: string, regionName: string): NeedMatch[] {
       const needScore = Math.max(0, Math.min(100, raw));
 
       const needReason = !isExact
-        ? `${category} 요청은 없지만 ${need.foodBank.name}에서 다른 물품을 기다려요`
+        ? `${category} 요청은 아니지만 ${need.foodBank.name}에서 다른 물품을 기다려요`
         : need.remainingQty === 0
           ? "목표를 이미 채웠어요. 여유분으로 받아요"
           : need.urgent
@@ -311,7 +309,14 @@ export function matchNeeds(category: string, regionName: string): NeedMatch[] {
         exactMatch: isExact,
       };
     })
-    .sort((a, b) => b.needScore - a.needScore || a.distanceKm - b.distanceKm)
+    // 카테고리가 맞는 요청을 항상 먼저 보여준다 — 점수만으로 정렬하면 카테고리가
+    // 다른데 아주 급한 요청이 카테고리가 맞는 요청보다 위로 올 수 있어서다.
+    .sort(
+      (a, b) =>
+        Number(b.exactMatch) - Number(a.exactMatch) ||
+        b.needScore - a.needScore ||
+        a.distanceKm - b.distanceKm
+    )
     .map((n, i) => ({ ...n, rank: i + 1 }));
 }
 
@@ -461,13 +466,22 @@ export function listApplications() {
   return Array.from(applications.values()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
-/** 기관이 수락하면 그 수량만큼 진행률이 실제로 채워진다. */
+/**
+ * 기관이 수락하면 그 수량만큼 진행률이 실제로 채워진다 — 단, 기부 물품 카테고리가
+ * 그 요청과 정확히 일치할 때만이다. 카테고리가 다른 기부도 신청·수락 자체는 막지
+ * 않지만(기관이 어차피 필요해서 받는 물건일 수 있으니), 그 요청의 진행률 숫자에는
+ * 반영하지 않는다 — 안 그러면 "초콜릿을 받았는데 즉석밥 목표가 채워지는" 것처럼
+ * 숫자가 실제와 안 맞게 된다.
+ */
 export function updateApplicationStatus(id: string, status: Application["status"]) {
   const application = applications.get(id);
   if (!application) return undefined;
 
   const need = needs.get(application.needId);
-  if (need) {
+  const donation = getDonation(application.donationId);
+  const countsTowardProgress = Boolean(need && donation && need.category === donation.category);
+
+  if (need && countsTowardProgress) {
     if (status === "accepted" && application.status !== "accepted") {
       // 목표치를 넘겨 채우지 않는다. 여러 신청이 동시에 수락돼도 진행률은 100%를 넘지 않는다.
       need.filledQty = Math.min(need.targetQty, need.filledQty + application.quantity);

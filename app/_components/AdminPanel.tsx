@@ -316,13 +316,21 @@ export default function AdminPanel() {
                 </span>
               </div>
 
+              {app.status === "pending" && app.need && app.donation.category !== app.need.category && (
+                <p className="text-xs text-warning-fg">
+                  카테고리가 달라 수락해도 이 요청의 진행률에는 반영되지 않아요
+                </p>
+              )}
+
               {app.status === "pending" && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleDecision(app.id, "accepted")}
                     className={`${btnOutline} border-primary-500 text-primary-700 hover:border-primary-600`}
                   >
-                    수락 (진행률 +{app.quantity})
+                    {app.need && app.donation.category === app.need.category
+                      ? `수락 (진행률 +${app.quantity})`
+                      : "수락"}
                   </button>
                   <button onClick={() => handleDecision(app.id, "rejected")} className={btnDanger}>
                     거절

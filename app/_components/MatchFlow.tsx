@@ -45,6 +45,8 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
   const [matchLoading, setMatchLoading] = useState(false);
   // 기관마다 채우고 싶은 수량이 다를 수 있어 카드별로 따로 들고 있는다.
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  // 추천 순위와 별개로, 특정 기관을 알고 있으면 이름으로 바로 찾을 수 있게 한다.
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadMatches = useCallback(async (id: string) => {
     setMatchLoading(true);
@@ -91,6 +93,11 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
     const capped = need.remainingQty > 0 ? Math.min(value, need.remainingQty) : value;
     setQuantities((prev) => ({ ...prev, [need.id]: Math.max(1, capped) }));
   }
+
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const visibleMatches = trimmedQuery
+    ? matches.filter((need) => need.foodBank.name.toLowerCase().includes(trimmedQuery))
+    : matches;
 
   /** 신청 페이지는 또 다른 주소라 넘길 물품·요청 id·수량을 쿼리로 전달한다. */
   function handleSelectNeed(need: MatchResult) {
@@ -156,6 +163,22 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
         </p>
       )}
 
+      {/*
+        추천 순위만으로는 원하는 기관이 아래로 밀려있을 수 있다.
+        이름으로 바로 찾을 수 있게 검색을 둔다 (카테고리와 안 맞아도 전체 목록에서 찾을 수 있음).
+      */}
+      {!matchLoading && matches.length > 0 && (
+        <div className="mx-auto w-full max-w-lg">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="기관명으로 검색 (예: 사랑의 열매)"
+            className={field}
+          />
+        </div>
+      )}
+
       {!matchLoading && matches.length === 0 && (
         <div className="flex flex-col items-center gap-4 py-8">
           <img
@@ -167,8 +190,14 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
         </div>
       )}
 
+      {!matchLoading && matches.length > 0 && visibleMatches.length === 0 && (
+        <p className="text-center text-[15px] text-neutral-400">
+          "{searchQuery}"와 일치하는 기관이 없어요
+        </p>
+      )}
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {matches.map((need) => (
+        {visibleMatches.map((need) => (
           <article key={need.id} className={need.rank === 1 ? cardHighlight : card}>
             <div className="flex flex-wrap items-center gap-1.5">
               {need.rank === 1 && <span className={rankBadge}>1순위</span>}
