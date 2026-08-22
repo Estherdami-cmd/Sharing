@@ -30,8 +30,17 @@ type NeedView = {
   urgent: boolean;
   note: string;
   imageUrl: string | null;
+  createdAt: string;
   foodBank: { name: string; address: string };
 };
+
+type SortKey = "default" | "newest" | "almost";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "default", label: "추천순" },
+  { key: "newest", label: "최신 등록순" },
+  { key: "almost", label: "목표 달성 임박순" },
+];
 
 type ActivityItem = {
   id: string;
@@ -56,6 +65,7 @@ export default function NeedBoard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [savedOnly, setSavedOnly] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<SortKey>("default");
 
   useEffect(() => {
     try {
@@ -110,6 +120,13 @@ export default function NeedBoard() {
     .filter((n) => categoryFilter === FILTER_ALL || n.category === categoryFilter)
     .filter((n) => !trimmedQuery || n.itemName.toLowerCase().includes(trimmedQuery))
     .filter((n) => !savedOnly || savedIds.has(n.id));
+  // "추천순"은 서버가 이미 정해준 순서(도움 필요한 것 먼저)를 그대로 쓴다. 따로 정렬하지 않는다.
+  const sortedNeeds =
+    sortBy === "newest"
+      ? [...filteredNeeds].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      : sortBy === "almost"
+        ? [...filteredNeeds].sort((a, b) => b.progress - a.progress)
+        : filteredNeeds;
   const isFiltered = categoryFilter !== FILTER_ALL || trimmedQuery.length > 0 || savedOnly;
 
   return (
@@ -130,6 +147,9 @@ export default function NeedBoard() {
             <p className="text-xs font-bold text-primary-700">지금까지의 나눔</p>
             <p className="tabular text-2xl font-extrabold text-neutral-900">
               <span className="text-primary-700">{totalFilled}개</span>가 모였어요
+            </p>
+            <p className="tabular text-[13px] font-semibold text-neutral-500">
+              전체 {totalFilled} / {totalTarget}개 · 요청 {needs.length}건
             </p>
             {acceptedCount > 0 && (
               <p className="text-[13px] text-neutral-500">
@@ -235,15 +255,42 @@ export default function NeedBoard() {
         </button>
       </div>
 
-      {loading && <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>}
+      <div className="flex items-center justify-center gap-1.5 text-[13px] text-neutral-400">
+        <span>정렬</span>
+        {SORT_OPTIONS.map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setSortBy(opt.key)}
+            className={
+              "cursor-pointer rounded-full px-3 py-1 font-bold transition-colors " +
+              (sortBy === opt.key ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-900")
+            }
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className={`${card} animate-pulse`}>
+              <div className="-mx-5 -mt-5 aspect-4/3 rounded-t-2xl bg-neutral-200" />
+              <div className="h-7 w-16 rounded bg-neutral-200" />
+              <div className="h-5 w-3/4 rounded bg-neutral-200" />
+              <div className="h-4 w-1/2 rounded bg-neutral-200" />
+              <div className="h-2.5 w-full rounded-full bg-neutral-200" />
+              <div className="h-11 w-full rounded-xl bg-neutral-200" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {!loading && needs.length === 0 && (
-        <div className="flex flex-col items-center gap-4 py-8">
-          <img
-            src="https://picsum.photos/seed/empty-board/240/180"
-            alt="등록된 요청이 없는 상태를 나타내는 이미지"
-            className="w-60 rounded-2xl opacity-40 grayscale"
-          />
+        <div className="flex flex-col items-center gap-3 py-8">
+          <span className="text-6xl" role="img" aria-label="빈 상자">
+            📭
+          </span>
           <p className="text-[15px] text-neutral-400">아직 등록된 요청이 없어요</p>
         </div>
       )}
@@ -257,7 +304,7 @@ export default function NeedBoard() {
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {filteredNeeds.map((need) => (
+        {sortedNeeds.map((need) => (
           <article key={need.id} className={need.urgent ? cardUrgent : card}>
             <div className="relative -mx-5 -mt-5 mb-1">
               {need.imageUrl ? (
@@ -296,6 +343,9 @@ export default function NeedBoard() {
               </h2>
               <p className="mt-0.5 text-xs text-neutral-400">
                 {need.foodBank.name} · {need.foodBank.address}
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-400">
+                {formatRelativeTime(need.createdAt)} 등록
               </p>
             </div>
 
