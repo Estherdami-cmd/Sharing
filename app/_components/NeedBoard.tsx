@@ -18,6 +18,7 @@ import {
 } from "../ui";
 import { useCountUp } from "./useCountUp";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
+import { useToast, ToastViewport } from "./Toast";
 
 type NeedView = {
   id: string;
@@ -127,12 +128,21 @@ export default function NeedBoard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("default");
 
+  const { toast, showToast } = useToast();
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [needsRes, appsRes] = await Promise.all([fetch("/api/needs"), fetch("/api/applications")]);
-    if (needsRes.ok) setNeeds((await needsRes.json()).needs);
-    if (appsRes.ok) setActivity(await appsRes.json());
-    setLoading(false);
+    try {
+      const [needsRes, appsRes] = await Promise.all([fetch("/api/needs"), fetch("/api/applications")]);
+      if (!needsRes.ok || !appsRes.ok) throw new Error("failed to load board data");
+      setNeeds((await needsRes.json()).needs);
+      setActivity(await appsRes.json());
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -141,6 +151,16 @@ export default function NeedBoard() {
 
   // 기관 관리 창에서 신청을 수락하고 이 탭으로 돌아오면, 열어둔 채 옛 숫자를 보여주지 않게 다시 불러온다.
   useRefetchOnFocus(load);
+
+  // 직접 누른 새로고침에만 토스트로 결과를 알려준다 — 포커스 복귀 등 배경 새로고침까지
+  // 알림을 띄우면 탭을 왔다갔다 할 때마다 시끄러워진다.
+  const handleRefreshClick = useCallback(async () => {
+    const ok = await load();
+    showToast(
+      ok ? "최신 정보로 새로고침했어요" : "새로고침에 실패했어요. 잠시 후 다시 시도해주세요",
+      ok ? "success" : "error",
+    );
+  }, [load, showToast]);
 
   // 이미 목표를 채운 요청은 "성공 스토리"로 따로 모아 보여주고, 활발히 모금 중인 목록에서는 뺀다.
   const activeNeeds = needs.filter((n) => n.progress < 100);
@@ -168,10 +188,11 @@ export default function NeedBoard() {
 
   return (
     <div className="flex flex-col gap-8">
+      <ToastViewport toast={toast} />
       <header className="text-center">
         <h1 className={pageTitle}>지금 필요한 것들</h1>
         <p className={pageDesc}>기관이 올린 목표를 여럿이 나눠 채우고 있어요</p>
-        <button onClick={load} className={`${btnGhost} mt-1`}>
+        <button onClick={handleRefreshClick} className={`${btnGhost} mt-1`}>
           새로고침
         </button>
 
@@ -276,47 +297,54 @@ export default function NeedBoard() {
         </section>
       )}
 
-      <div className="mx-auto w-full max-w-sm">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="품목명으로 검색 (예: 기저귀)"
-          className={field}
-        />
-      </div>
+      {/*
+        검색·필터·정렬은 카드가 많아질수록 스크롤해서 다시 위로 올라와야 하는
+        번거로움이 커진다. 헤더 바로 아래에 붙여서 목록을 내려보다가도 바로
+        조건을 바꿀 수 있게 한다.
+      */}
+      <div className="sticky top-16 z-30 -mt-2 flex flex-col gap-3 border-b border-neutral-200/60 bg-neutral-50/95 py-3 backdrop-blur-md">
+        <div className="mx-auto w-full max-w-sm">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="품목명으로 검색 (예: 기저귀)"
+            className={field}
+          />
+        </div>
 
-      <div className="flex flex-wrap justify-center gap-1.5">
-        {[FILTER_ALL, ...CATEGORIES].map((c) => (
-          <button
-            key={c}
-            onClick={() => setCategoryFilter(c)}
-            className={
-              "cursor-pointer rounded-full border px-4 py-2 text-[13px] font-bold transition-colors " +
-              (categoryFilter === c
-                ? "border-primary-500 bg-primary-500 text-neutral-900"
-                : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
-            }
-          >
-            {c}
-          </button>
-        ))}
-      </div>
+        <div className="flex flex-wrap justify-center gap-1.5">
+          {[FILTER_ALL, ...CATEGORIES].map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategoryFilter(c)}
+              className={
+                "cursor-pointer rounded-full border px-4 py-2 text-[13px] font-bold transition-colors " +
+                (categoryFilter === c
+                  ? "border-primary-500 bg-primary-500 text-neutral-900"
+                  : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
+              }
+            >
+              {c}
+            </button>
+          ))}
+        </div>
 
-      <div className="flex items-center justify-center gap-1.5 text-[13px] text-neutral-400">
-        <span>정렬</span>
-        {SORT_OPTIONS.map((opt) => (
-          <button
-            key={opt.key}
-            onClick={() => setSortBy(opt.key)}
-            className={
-              "cursor-pointer rounded-full px-3 py-1 font-bold transition-colors " +
-              (sortBy === opt.key ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-900")
-            }
-          >
-            {opt.label}
-          </button>
-        ))}
+        <div className="flex items-center justify-center gap-1.5 text-[13px] text-neutral-400">
+          <span>정렬</span>
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setSortBy(opt.key)}
+              className={
+                "cursor-pointer rounded-full px-3 py-1 font-bold transition-colors " +
+                (sortBy === opt.key ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-900")
+              }
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading && (
