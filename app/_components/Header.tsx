@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 /** ui.ts의 btnPrimary는 폼용 풀사이즈 버튼이라 h-14/rounded-xl이 고정돼 있다.
- * 헤더 CTA는 히어로의 알약형 버튼과 같은 크기라 직접 스타일링한다. */
+ * 헤더 CTA는 히어로의 알약형 버튼과 같은 크기라 직접 스타일링한다.
+ * display(inline-flex/hidden)는 여기 넣지 않고 쓰는 곳마다 직접 준다 — 컴파일된
+ * CSS에서 .inline-flex가 .hidden보다 뒤에 나와서, 이 상수에 inline-flex를
+ * 박아두면 나중에 hidden을 덧붙여도 항상 inline-flex가 이긴다(모바일에서도 안 숨음). */
 const navCta =
-  "inline-flex cursor-pointer items-center justify-center rounded-full bg-primary-700 font-bold text-white transition-all hover:bg-primary-800 active:scale-[0.98]";
+  "cursor-pointer items-center justify-center rounded-full bg-primary-700 font-bold text-white transition-all hover:bg-primary-800 active:scale-[0.98]";
 
 const NAV_LINKS = [
   { href: "/donate", label: "기부하기" },
@@ -88,7 +91,7 @@ export default function Header() {
           <Link
             href="/donate"
             onClick={() => setMenuOpen(false)}
-            className={`${navCta} mt-1 h-12 w-full text-[15px]`}
+            className={`${navCta} mt-1 inline-flex h-12 w-full text-[15px]`}
           >
             기부하기
           </Link>
