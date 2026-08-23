@@ -240,7 +240,11 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
               수량은 카드 안에서 고른다. 목표가 기관마다 다르니 "몇 개 낼지"는
               어느 기관을 고를지와 같이 판단하게 되는 값이다.
               남은 목표보다 많이 내겠다고 할 수는 없어서 그 값으로 잠근다.
+
+              임시로 꺼둠 (요청에 의해). 되돌리려면 아래 블록의 주석만 해제하면 됨 —
+              getQuantity/setQuantity/getMaxQuantity 함수는 그대로 남겨뒀다.
             */}
+            {/*
             <div className="mt-auto flex flex-col gap-1.5">
               <label className={label} htmlFor={`qty-${need.id}`}>
                 낼 수량
@@ -291,6 +295,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
                 </p>
               )}
             </div>
+            */}
 
             <button onClick={() => handleSelectNeed(need)} className={btnPrimary}>
               여기에 나눔하기
