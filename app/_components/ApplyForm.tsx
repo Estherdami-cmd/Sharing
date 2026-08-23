@@ -41,8 +41,8 @@ export default function ApplyForm() {
   const [dateOptions, setDateOptions] = useState<DateOption[]>([]);
   const [slotMessage, setSlotMessage] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [preferredDate, setPreferredDate] = useState("");
-  const [preferredSlot, setPreferredSlot] = useState("");
+  // 여러 날짜를 눌러볼 수 있게 배열로 들고 있는다. 실제 신청에는 마지막으로 고른 날짜 하나만 쓴다.
+  const [selectedOptions, setSelectedOptions] = useState<DateOption[]>([]);
   const [contact, setContact] = useState("");
   const [applyError, setApplyError] = useState<string | null>(null);
   const [submittingApplication, setSubmittingApplication] = useState(false);
@@ -108,6 +108,7 @@ export default function ApplyForm() {
     setDonorDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
     setDateOptions([]);
     setSlotMessage(null);
+    setSelectedOptions([]);
   }
 
   async function handleRecommendDates() {
@@ -125,17 +126,20 @@ export default function ApplyForm() {
     const data = await res.json();
     setDateOptions(data.options);
     setSlotMessage(data.message);
-    if (!data.ok) {
-      setPreferredDate("");
-      setPreferredSlot("");
-    }
+    setSelectedOptions([]);
   }
 
+  /** 여러 날짜를 눌러볼 수 있다 — 다시 누르면 선택 해제, 신청엔 마지막으로 고른 날짜만 쓴다. */
   function handlePickDate(option: DateOption) {
-    setPreferredDate(option.date);
-    setPreferredSlot(option.slot);
+    setSelectedOptions((prev) =>
+      prev.some((o) => o.date === option.date)
+        ? prev.filter((o) => o.date !== option.date)
+        : [...prev, option]
+    );
     setApplyError(null);
   }
+
+  const finalDate = selectedOptions[selectedOptions.length - 1] ?? null;
 
   async function handleApplySubmit() {
     setApplyError(null);
@@ -143,8 +147,8 @@ export default function ApplyForm() {
       setApplyError("매칭된 기관 정보가 없어요. 이전 단계로 돌아가주세요");
       return;
     }
-    if (!preferredDate) {
-      setApplyError("추천 날짜 중 하나를 선택해주세요");
+    if (!finalDate) {
+      setApplyError("추천 날짜 중 하나 이상 선택해주세요");
       return;
     }
     if (!place) {
@@ -164,8 +168,8 @@ export default function ApplyForm() {
         donationId: donation.id,
         needId: selectedNeed.id,
         quantity,
-        preferredDate,
-        preferredSlot,
+        preferredDate: finalDate.date,
+        preferredSlot: finalDate.slot,
         place,
         contact,
       }),
@@ -259,6 +263,7 @@ export default function ApplyForm() {
               setDonorSlot(e.target.value);
               setDateOptions([]);
               setSlotMessage(null);
+              setSelectedOptions([]);
             }}
             className={field}
           >
@@ -287,23 +292,35 @@ export default function ApplyForm() {
           </p>
         )}
 
-        {dateOptions.map((option) => (
-          <button
-            key={option.date}
-            onClick={() => handlePickDate(option)}
-            className={
-              "cursor-pointer rounded-xl px-4 py-3 text-left transition-colors " +
-              (preferredDate === option.date
-                ? "border-2 border-primary-500 bg-primary-50"
-                : "border border-neutral-200 bg-white hover:border-neutral-300")
-            }
-          >
-            <p className="text-[15px] font-bold">
-              {formatKoreanDate(option.date)} ({option.day}) · {option.slot}
-            </p>
-            <p className="mt-0.5 text-xs text-neutral-400">{option.reason}</p>
-          </button>
-        ))}
+        {dateOptions.length > 0 && (
+          <p className="text-xs text-neutral-400">
+            가능한 날짜를 여러 개 눌러볼 수 있어요. 신청할 땐 마지막으로 고른 날짜가 최종
+            반영돼요
+          </p>
+        )}
+
+        {dateOptions.map((option) => {
+          const isSelected = selectedOptions.some((o) => o.date === option.date);
+          const isFinal = finalDate?.date === option.date;
+          return (
+            <button
+              key={option.date}
+              onClick={() => handlePickDate(option)}
+              className={
+                "cursor-pointer rounded-xl px-4 py-3 text-left transition-colors " +
+                (isSelected
+                  ? "border-2 border-primary-500 bg-primary-50"
+                  : "border border-neutral-200 bg-white hover:border-neutral-300")
+              }
+            >
+              <p className="text-[15px] font-bold">
+                {formatKoreanDate(option.date)} ({option.day}) · {option.slot}
+                {isFinal && <span className="ml-1.5 text-xs text-primary-700">· 최종 선택</span>}
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-400">{option.reason}</p>
+            </button>
+          );
+        })}
 
         <div className="flex flex-col gap-1.5">
           <label className={label}>연락처</label>
