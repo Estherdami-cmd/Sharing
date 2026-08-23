@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { CATEGORIES, formatRelativeTime } from "@/lib/rules";
 import NeedProgress from "./NeedProgress";
@@ -65,10 +66,12 @@ function NeedCard({
   need,
   index,
   countUpResetKey,
+  onShare,
 }: {
   need: NeedView;
   index: number;
   countUpResetKey: unknown;
+  onShare: (need: NeedView) => void;
 }) {
   const displayedProgress = useCountUp(need.progress, 800, countUpResetKey);
 
@@ -92,6 +95,13 @@ function NeedCard({
         <span className="absolute left-2.5 top-2.5 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs font-bold text-white">
           {need.category}
         </span>
+        <button
+          onClick={() => onShare(need)}
+          aria-label="이 요청 공유하기"
+          className="absolute right-2.5 top-2.5 grid size-8 cursor-pointer place-items-center rounded-full bg-neutral-900/70 text-white transition-colors hover:bg-neutral-900"
+        >
+          🔗
+        </button>
       </div>
 
       <div className="flex items-center justify-between gap-2">
@@ -117,7 +127,7 @@ function NeedCard({
 
       {need.remainingQty > 0 && (
         <p className="text-[15px] font-semibold text-neutral-900">
-          {need.remainingQty}개만 더 모으면 목표를 채워요
+          {need.remainingQty.toLocaleString()}개만 더 모으면 목표를 채워요
         </p>
       )}
       {need.note && <p className={caption}>{need.note}</p>}
@@ -130,16 +140,79 @@ function NeedCard({
 }
 
 export default function NeedBoard() {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [categoryFilter, setCategoryFilter] = useState(FILTER_ALL);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortKey>("default");
+
+  // 필터·검색어·정렬을 URL 쿼리에도 반영한다 — 새로고침해도 유지되고, 이 상태
+  // 그대로 링크를 복사해서 공유할 수도 있다.
+  const [categoryFilter, setCategoryFilterState] = useState(() => {
+    const c = searchParams.get("category");
+    return c && CATEGORIES.includes(c) ? c : FILTER_ALL;
+  });
+  const [searchQuery, setSearchQueryState] = useState(() => searchParams.get("q") || "");
+  const [sortBy, setSortByState] = useState<SortKey>(() => {
+    const s = searchParams.get("sort");
+    return SORT_OPTIONS.some((opt) => opt.key === s) ? (s as SortKey) : "default";
+  });
+
+  function syncQuery(next: { category?: string; q?: string; sort?: SortKey }) {
+    const merged = {
+      category: next.category ?? categoryFilter,
+      q: next.q ?? searchQuery,
+      sort: next.sort ?? sortBy,
+    };
+    const params = new URLSearchParams();
+    if (merged.category !== FILTER_ALL) params.set("category", merged.category);
+    if (merged.q) params.set("q", merged.q);
+    if (merged.sort !== "default") params.set("sort", merged.sort);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
+  function setCategoryFilter(c: string) {
+    setCategoryFilterState(c);
+    syncQuery({ category: c });
+  }
+  function setSearchQuery(q: string) {
+    setSearchQueryState(q);
+    syncQuery({ q });
+  }
+  function setSortBy(s: SortKey) {
+    setSortByState(s);
+    syncQuery({ sort: s });
+  }
 
   const { toast, showToast } = useToast();
   // 새로고침을 직접 눌렀을 때만, 숫자들이 0부터 다시(느긋하게) 올라가는 걸 보여준다.
   const [countUpResetKey, setCountUpResetKey] = useState(0);
+
+  async function shareNeed(need: NeedView) {
+    const url = `${window.location.origin}/donate?needId=${need.id}`;
+    const shareData = {
+      title: `${need.foodBank.name} · ${need.itemName}`,
+      text: `${need.itemName} ${need.remainingQty}개만 더 있으면 목표를 채워요!`,
+      url,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        // 사용자가 공유를 취소한 경우 등 — 별도 처리 없음
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("링크가 복사됐어요");
+    } catch {
+      showToast("링크 복사에 실패했어요", "error");
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -219,10 +292,12 @@ export default function NeedBoard() {
           <div className="mx-auto mt-4 flex w-full max-w-lg flex-col items-center gap-1 rounded-2xl bg-primary-50 px-6 py-5">
             <p className="text-xs font-bold text-primary-700">지금까지의 나눔</p>
             <p className="tabular text-2xl font-extrabold text-neutral-900">
-              <span className="text-primary-700">{displayedTotalFilled}개</span>가 모였어요
+              <span className="text-primary-700">{displayedTotalFilled.toLocaleString()}개</span>가
+              모였어요
             </p>
             <p className="tabular text-[13px] font-semibold text-neutral-500">
-              전체 {totalFilled} / {totalTarget}개 · 요청 {needs.length}건
+              전체 {totalFilled.toLocaleString()} / {totalTarget.toLocaleString()}개 · 요청{" "}
+              {needs.length.toLocaleString()}건
             </p>
             {acceptedCount > 0 && (
               <p className="text-[13px] text-neutral-500">
@@ -264,7 +339,7 @@ export default function NeedBoard() {
             {/* 가로로 더 스크롤할 게 있다는 걸 은은하게 알려준다. */}
             <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-neutral-50 to-transparent" />
           </div>
-        ) : (
+        ) : loading ? null : (
           <p className="text-center text-[13px] text-neutral-400">
             아직 나눔 소식이 없어요. 첫 나눔의 주인공이 되어보세요!
           </p>
@@ -360,6 +435,12 @@ export default function NeedBoard() {
         </div>
       </div>
 
+      {isFiltered && sortedNeeds.length > 0 && (
+        <p className="-mt-4 text-center text-[13px] text-neutral-400">
+          검색 결과 {sortedNeeds.length.toLocaleString()}건
+        </p>
+      )}
+
       {/*
         새로고침·포커스 복귀로 다시 불러오는 동안엔 이미 보이던 카드를 그대로 두고
         조용히 갱신한다. loading만 보고 스켈레톤을 띄우면, 이미 떠 있는 실제 카드
@@ -399,7 +480,13 @@ export default function NeedBoard() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sortedNeeds.map((need, i) => (
-          <NeedCard key={need.id} need={need} index={i} countUpResetKey={countUpResetKey} />
+          <NeedCard
+            key={need.id}
+            need={need}
+            index={i}
+            countUpResetKey={countUpResetKey}
+            onShare={shareNeed}
+          />
         ))}
       </div>
 
@@ -423,7 +510,7 @@ export default function NeedBoard() {
                   </div>
                   <h3 className="text-[17px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
                   <p className="text-[13px] text-neutral-500">
-                    {need.targetQty}개 목표를 여럿이 나눠서 다 채웠어요
+                    {need.targetQty.toLocaleString()}개 목표를 여럿이 나눠서 다 채웠어요
                   </p>
                 </article>
               ))}

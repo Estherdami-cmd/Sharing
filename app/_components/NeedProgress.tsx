@@ -61,10 +61,10 @@ export default function NeedProgress({
       <div className="flex items-baseline justify-between">
         <p className="text-[13px] text-neutral-500">
           <span className="tabular text-2xl font-extrabold tracking-[-0.02em] text-neutral-900">
-            {displayedFilled}
+            {displayedFilled.toLocaleString()}
           </span>
           <span className="mx-1">/</span>
-          {targetQty}개 채워짐
+          {targetQty.toLocaleString()}개 채워짐
         </p>
         <span className={`tabular text-[17px] font-extrabold ${textClass(progress)}`}>
           {displayedProgress}%
@@ -91,7 +91,8 @@ export default function NeedProgress({
 
       {pendingQty > 0 && (
         <p className="text-xs text-neutral-400">
-          기관 확인 대기중 {pendingQty}개 포함 시 {Math.min(100, progress + pendingWidth)}%
+          기관 확인 대기중 {pendingQty.toLocaleString()}개 포함 시{" "}
+          {Math.min(100, progress + pendingWidth)}%
         </p>
       )}
     </div>
