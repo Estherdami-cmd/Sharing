@@ -58,6 +58,19 @@ export function isUrgent(progress: number): boolean {
   return progress < URGENT_PROGRESS_THRESHOLD;
 }
 
+/**
+ * 한 번에 내놓을 수 있는 개수 상한. 등록 화면에서는 아직 어느 요청에 낼지 모르니
+ * 넉넉하게 두고, 요청별 남은 목표라는 진짜 상한은 매칭·신청 화면에서 다시 좁힌다.
+ */
+export const MAX_DONATION_QUANTITY = 999;
+
+/** 개수는 사용자 입력·주소창·API 어디서든 들어오므로 받는 자리마다 이걸 통과시킨다. */
+export function clampQuantity(value: unknown): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(Math.max(n, 1), MAX_DONATION_QUANTITY);
+}
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** "YYYY-MM-DD" 형식인지 확인한다. API 경계에서 잘못된 날짜 문자열이 들어오는 걸 막는다. */

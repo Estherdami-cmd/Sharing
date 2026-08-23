@@ -8,8 +8,10 @@ import {
   type ExpiryStatus,
   ITEM_KIND_LABEL,
   type ItemKind,
+  MAX_DONATION_QUANTITY,
   type ShareVerdict,
   categoriesFor,
+  clampQuantity,
   evaluateShareable,
   formatKoreanDate,
   isValidISODate,
@@ -76,6 +78,13 @@ export default function RegisterFlow() {
   const [recognizeStatus, setRecognizeStatus] = useState<RecognizeStatus>("idle");
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState("");
+  /*
+    타이핑 중에는 빈 칸을 허용해야 한다. 매 키 입력마다 1로 되돌리면 필드를 지울 수 없고,
+    지운 자리에 강제로 들어간 1 뒤에 이어 쳐서 "12"가 "112"가 된다. 그래서 입력 중에는
+    ""를 그대로 두고, 포커스가 빠질 때와 서버로 보낼 때 정상 범위로 다듬는다.
+  */
+  const [quantity, setQuantity] = useState<number | "">(1);
+  const quantityValue = quantity === "" ? 1 : quantity;
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
   // 기한이 "없는 품목"인지 "아직 모르는 것"인지 구분한다. 날짜 하나로는 못 나타낸다.
   const [expiryKnown, setExpiryKnown] = useState<"has" | "none">("has");
@@ -104,7 +113,7 @@ export default function RegisterFlow() {
   const verdict: ShareVerdict | null =
     recognizeStatus === "done" ? evaluateShareable(expiryDate, expiryStatus) : null;
 
-  const canGoNext = Boolean(itemName && category && verdict?.shareable);
+  const canGoNext = Boolean(itemName && category && quantity !== "" && verdict?.shareable);
 
   function handleFileSelected(slot: PhotoSlotKey, selected: File | undefined) {
     if (!selected) return;
@@ -218,7 +227,13 @@ export default function RegisterFlow() {
     const res = await fetch("/api/donations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemName, category, expiryDate, region: DEFAULT_REGION }),
+      body: JSON.stringify({
+        itemName,
+        category,
+        quantity: quantityValue,
+        expiryDate,
+        region: DEFAULT_REGION,
+      }),
     });
     if (!res.ok) {
       setSubmittingDonation(false);
@@ -229,7 +244,9 @@ export default function RegisterFlow() {
 
     // 게시판에서 특정 요청을 보고 들어온 경우, 매칭 추천 화면을 건너뛰고 바로 그 신청 화면으로 간다.
     if (presetNeedId) {
-      router.push(`/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=1`);
+      router.push(
+        `/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=${created.quantity}`
+      );
       return;
     }
 
@@ -243,6 +260,7 @@ export default function RegisterFlow() {
     setRecognizeStatus("idle");
     setItemName("");
     setCategory("");
+    setQuantity(1);
     setExpiryDate(null);
     setExpiryKnown("has");
     setManufacturedOn(null);
@@ -385,6 +403,47 @@ export default function RegisterFlow() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/*
+            개수는 여기서 묻는다. 사진에 찍힌 물건이 몇 개인지는 기부자만 알고,
+            어느 기관에 낼지 고르기 전에 이미 정해져 있는 값이다. 요청별 남은 목표라는
+            진짜 상한은 이 화면에서 알 수 없어서 매칭·신청 화면에서 다시 좁힌다.
+          */}
+          <div className="flex flex-col gap-1.5">
+            <label className={label} htmlFor="donation-qty">
+              개수
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setQuantity(clampQuantity(quantityValue - 1))}
+                disabled={quantityValue <= 1}
+                aria-label="개수 줄이기"
+                className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
+              >
+                −
+              </button>
+              <input
+                id="donation-qty"
+                type="number"
+                min={1}
+                max={MAX_DONATION_QUANTITY}
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(e.target.value === "" ? "" : clampQuantity(e.target.value))
+                }
+                onBlur={() => setQuantity(quantityValue)}
+                className={`${field} text-center`}
+              />
+              <button
+                onClick={() => setQuantity(clampQuantity(quantityValue + 1))}
+                disabled={quantityValue >= MAX_DONATION_QUANTITY}
+                aria-label="개수 늘리기"
+                className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
+              >
+                +
+              </button>
+            </div>
           </div>
 
           {/* 먹는 물품이 아니면 유통기한 자체를 묻지 않는다. 기부자가 대분류에서 이미 답했다. */}

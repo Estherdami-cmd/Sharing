@@ -50,7 +50,7 @@ export default function ApplyForm() {
   const place = selectedNeed?.foodBank.name ?? "";
 
   /*
-    수량은 매칭 화면(/match/[id])에서 고른 값이 주소로 실려 온다.
+    수량은 등록 화면(/donate)에서 적은 값이 매칭 화면을 거쳐 주소로 실려 온다.
     주소는 사용자가 직접 고칠 수 있으니 그대로 믿지 않고 여기서 다시 다듬는다.
     남은 목표가 있으면 그 값으로 잠근다 — 목표보다 많이 내겠다는 신청은 만들지 않는다.
   */
@@ -223,9 +223,20 @@ export default function ApplyForm() {
           <p className={`${field} flex items-center bg-neutral-100 text-neutral-700`}>
             {quantity}개
           </p>
-          <p className="text-xs text-neutral-400">
-            수량은 앞 화면에서 고른 값이에요. 바꾸려면 매칭 결과로 돌아가주세요
-          </p>
+          {/*
+            남은 목표 때문에 줄어든 경우엔 그 사실을 먼저 말한다. 등록 화면에서 적은
+            숫자와 다른 값이 아무 설명 없이 떠 있으면 잘못 반영된 것처럼 보인다.
+          */}
+          {quantity < requestedQuantity ? (
+            <p className="text-xs text-warning-fg">
+              등록 화면에서는 {requestedQuantity}개로 적으셨지만, 이 요청에 남은 목표가{" "}
+              {quantity}개라 {quantity}개로 맞췄어요
+            </p>
+          ) : (
+            <p className="text-xs text-neutral-400">
+              수량은 물품 등록 화면에서 적은 값이에요. 바꾸려면 등록 화면으로 돌아가주세요
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">

@@ -2,6 +2,7 @@ import {
   DAY_NAMES,
   DEFAULT_REGION,
   addDays,
+  clampQuantity,
   distanceKm,
   evaluateShareable,
   getRegion,
@@ -41,6 +42,8 @@ export type Donation = {
   id: string;
   itemName: string;
   category: string;
+  /** 등록 화면에서 기부자가 적은 개수. 매칭·신청 화면의 기본값이 된다. */
+  quantity: number;
   expiryDate: string | null;
   shareable: boolean;
   shareReason: string;
@@ -403,6 +406,7 @@ export function recommendDates(
 export function createDonation(input: {
   itemName: string;
   category: string;
+  quantity?: number;
   expiryDate: string | null;
   region: string;
 }): Donation {
@@ -412,6 +416,8 @@ export function createDonation(input: {
     id: `d${store.donationSeq++}`,
     itemName: input.itemName,
     category: input.category,
+    // 나눔 가능 여부와 같은 이유로, 개수도 클라이언트가 보낸 값을 그대로 믿지 않는다.
+    quantity: clampQuantity(input.quantity ?? 1),
     expiryDate: input.expiryDate,
     shareable: verdict.shareable,
     shareReason: verdict.reason,
@@ -428,13 +434,14 @@ export function getDonation(id: string) {
 
 export function updateDonation(
   id: string,
-  patch: Partial<Pick<Donation, "itemName" | "category" | "expiryDate" | "region">>
+  patch: Partial<Pick<Donation, "itemName" | "category" | "quantity" | "expiryDate" | "region">>
 ) {
   const donation = donations.get(id);
   if (!donation) return undefined;
 
   if (patch.itemName !== undefined) donation.itemName = patch.itemName;
   if (patch.category !== undefined) donation.category = patch.category;
+  if (patch.quantity !== undefined) donation.quantity = clampQuantity(patch.quantity);
   if (patch.region !== undefined) donation.region = patch.region;
   if (patch.expiryDate !== undefined) {
     donation.expiryDate = patch.expiryDate;

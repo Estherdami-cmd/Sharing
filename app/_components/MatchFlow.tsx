@@ -86,7 +86,10 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
   }
 
   function getQuantity(need: MatchResult) {
-    return quantities[need.id] ?? 1;
+    // 카드에서 따로 고르지 않았으면 등록 화면에서 적은 개수를 쓴다.
+    // 남은 목표보다 많이 적어왔을 수 있으니 여기서도 상한을 씌운다.
+    if (quantities[need.id] !== undefined) return quantities[need.id];
+    return Math.min(donation?.quantity ?? 1, getMaxQuantity(need));
   }
 
   // 목표가 남아있으면 그만큼으로, 이미 다 찼으면(여유분 받기) 목표 수량만큼으로
@@ -94,6 +97,15 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
   // 값도 그대로 입력·전송되던 버그가 있었다.
   function getMaxQuantity(need: MatchResult) {
     return need.remainingQty > 0 ? need.remainingQty : need.targetQty;
+  }
+
+  /*
+    신청 화면으로 넘길 값은 여기서 자르지 않는다. 기부자가 등록 화면에서 적은 개수가
+    남은 목표보다 많으면 줄여야 하는데, 그 사실을 설명하는 자리가 신청 화면이다.
+    여기서 미리 잘라 보내면 신청 화면은 줄어든 줄도 모르고 "적은 값이에요"라고 말한다.
+  */
+  function getIntendedQuantity(need: MatchResult) {
+    return quantities[need.id] ?? donation?.quantity ?? 1;
   }
 
   function setQuantity(need: MatchResult, value: number) {
@@ -110,7 +122,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
   function handleSelectNeed(need: MatchResult) {
     if (!donation) return;
     router.push(
-      `/apply?donationId=${donation.id}&needId=${need.id}&quantity=${getQuantity(need)}`
+      `/apply?donationId=${donation.id}&needId=${need.id}&quantity=${getIntendedQuantity(need)}`
     );
   }
 
