@@ -88,7 +88,22 @@ function NeedCard({
             className="aspect-4/3 w-full rounded-t-2xl object-cover"
           />
         ) : (
-          <div className="flex aspect-4/3 w-full items-center justify-center rounded-t-2xl bg-neutral-100">
+          <div className="flex aspect-4/3 w-full flex-col items-center justify-center gap-1.5 rounded-t-2xl bg-neutral-100">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-8 text-neutral-300"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
             <span className="text-xs text-neutral-400">사진 없음</span>
           </div>
         )}
@@ -100,7 +115,21 @@ function NeedCard({
           aria-label="이 요청 공유하기"
           className="absolute right-2.5 top-2.5 grid size-8 cursor-pointer place-items-center rounded-full bg-neutral-900/70 text-white transition-colors hover:bg-neutral-900"
         >
-          🔗
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4"
+            aria-hidden="true"
+          >
+            <path d="M12 15V4" />
+            <path d="M8 8l4-4 4 4" />
+            <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+          </svg>
         </button>
       </div>
 
@@ -354,7 +383,12 @@ export default function NeedBoard() {
           </h2>
           {almostThereNeeds.length > 0 ? (
             <div className="relative">
-              <div className="flex gap-3 overflow-x-auto pb-1">
+              {/*
+                항목이 몇 개 안 될 땐 justify-center로 가운데 모아서, 넓은 화면에서
+                카드 하나가 왼쪽에 덩그러니 있고 오른쪽이 텅 비어 보이는 걸 막는다.
+                항목이 늘어나 줄을 넘치면 평소처럼 왼쪽부터 스크롤된다.
+              */}
+              <div className="flex justify-center gap-3 overflow-x-auto pb-1">
                 {almostThereNeeds.map((need) => (
                   <article
                     key={need.id}
