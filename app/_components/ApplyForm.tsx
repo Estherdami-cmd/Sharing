@@ -301,7 +301,6 @@ export default function ApplyForm() {
 
         {dateOptions.map((option) => {
           const isSelected = selectedOptions.some((o) => o.date === option.date);
-          const isFinal = finalDate?.date === option.date;
           return (
             <button
               key={option.date}
@@ -315,7 +314,6 @@ export default function ApplyForm() {
             >
               <p className="text-[15px] font-bold">
                 {formatKoreanDate(option.date)} ({option.day}) · {option.slot}
-                {isFinal && <span className="ml-1.5 text-xs text-primary-700">· 최종 선택</span>}
               </p>
               <p className="mt-0.5 text-xs text-neutral-400">{option.reason}</p>
             </button>
