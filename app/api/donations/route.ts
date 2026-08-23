@@ -17,10 +17,15 @@ export async function POST(request: Request) {
   if (body.expiryDate && !isValidISODate(body.expiryDate)) {
     return NextResponse.json({ error: "유통기한 형식이 올바르지 않습니다" }, { status: 400 });
   }
+  // 상한 밖의 값은 store가 잘라주지만, 숫자가 아닌 건 조용히 1로 바꾸지 않고 되돌려준다.
+  if (body.quantity !== undefined && !Number.isFinite(Number(body.quantity))) {
+    return NextResponse.json({ error: "수량 형식이 올바르지 않습니다" }, { status: 400 });
+  }
 
   const donation = createDonation({
     itemName,
     category,
+    quantity: body.quantity,
     // date 인풋은 빈 값을 ""로 준다. 판정 함수가 null만 받도록 여기서 정규화한다.
     expiryDate: body.expiryDate || null,
     region: body.region || DEFAULT_REGION,
