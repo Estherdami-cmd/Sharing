@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   CATEGORIES,
   DEFAULT_REGION,
-  SAMPLE_ITEMS,
   type ExpiryStatus,
   ITEM_KIND_LABEL,
   type ItemKind,
@@ -75,7 +74,6 @@ export default function RegisterFlow() {
   const [productPreview, setProductPreview] = useState<string | null>(null);
   const [expiryPreview, setExpiryPreview] = useState<string | null>(null);
   const [recognizeStatus, setRecognizeStatus] = useState<RecognizeStatus>("idle");
-  const [demoSample, setDemoSample] = useState("");
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState("");
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
@@ -83,7 +81,7 @@ export default function RegisterFlow() {
   const [expiryKnown, setExpiryKnown] = useState<"has" | "none">("has");
   const [manufacturedOn, setManufacturedOn] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
-  const [source, setSource] = useState<"demo" | "openai" | "mock" | null>(null);
+  const [source, setSource] = useState<"openai" | "mock" | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submittingDonation, setSubmittingDonation] = useState(false);
   const [loadingDemoPhoto, setLoadingDemoPhoto] = useState(false);
@@ -170,8 +168,6 @@ export default function RegisterFlow() {
         const blob = await res.blob();
         handleFileSelected(slot, new File([blob], fileName, { type: blob.type || "image/jpeg" }));
       }
-      // 예시 사진은 실제 AI가 읽는 걸 보여주는 용도라 데모 모드 지정은 풀어준다.
-      setDemoSample("");
     } catch {
       setRegisterError("예시 사진을 불러오지 못했어요");
     } finally {
@@ -191,7 +187,6 @@ export default function RegisterFlow() {
       formData.append("image", productFileRef.current);
       if (kind) formData.append("kind", kind);
       if (expiryFileRef.current) formData.append("expiryImage", expiryFileRef.current);
-      if (demoSample) formData.append("sample", demoSample);
 
       const res = await fetch("/api/recognize", { method: "POST", body: formData });
       if (!res.ok) {
@@ -246,7 +241,6 @@ export default function RegisterFlow() {
     handleClearSlot("product");
     handleClearSlot("expiry");
     setRecognizeStatus("idle");
-    setDemoSample("");
     setItemName("");
     setCategory("");
     setExpiryDate(null);
@@ -345,22 +339,6 @@ export default function RegisterFlow() {
               : "AI로 확인하기"}
         </button>
 
-        <div className="w-full">
-          <label className="mb-1.5 block text-xs font-bold text-neutral-400">데모 모드</label>
-          <select
-            value={demoSample}
-            onChange={(e) => setDemoSample(e.target.value)}
-            className={field}
-          >
-            <option value="">자동 인식 (사진 기준)</option>
-            {SAMPLE_ITEMS.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {registerError && <p className="text-center text-[13px] text-danger-fg">{registerError}</p>}
       </div>
 
@@ -458,7 +436,6 @@ export default function RegisterFlow() {
           {confidence !== null && (
             <p className="text-xs text-neutral-400">
               AI 신뢰도 {Math.round(confidence * 100)}%
-              {source === "demo" && " · 데모 모드로 지정한 결과예요"}
             </p>
           )}
 
