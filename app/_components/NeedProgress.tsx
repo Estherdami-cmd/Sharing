@@ -6,8 +6,12 @@
  * 보이지만, 빨강이면 "여기가 제일 급하다"로 읽힌다.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCountUp } from "./useCountUp";
+
+/** 새로고침으로 일부러 0부터 다시 채울 때는, 값이 슬쩍 바뀔 때보다 느긋하게 채운다. */
+const RESET_BAR_DURATION_MS = 1400;
+const DEFAULT_BAR_DURATION_MS = 700;
 
 function fillClass(progress: number) {
   if (progress >= 100) return "bg-success-fg";
@@ -41,17 +45,33 @@ export default function NeedProgress({
 
   // 바가 뜨자마자 최종 길이로 딱 나타나지 않고, 0에서 실제 값까지 채워지며 나타나게 한다.
   const [barWidth, setBarWidth] = useState(0);
+  const [barDuration, setBarDuration] = useState(DEFAULT_BAR_DURATION_MS);
   // progress가 정확히 0이면 barWidth도 계속 0이라, "barWidth가 채워진 뒤에 대기중
   // 줄무늬를 보여준다"는 신호를 barWidth 자체로 판단하면 대기중 줄무늬가 영원히 안
   // 뜬다. 애니메이션이 한 번 시작됐는지는 따로 표시한다.
   const [animationStarted, setAnimationStarted] = useState(false);
+  const prevResetKeyRef = useRef(resetKey);
+
   useEffect(() => {
+    // resetKey가 바뀌었을 때만(예: 새로고침 버튼) 바를 0으로 되돌려서 숫자
+    // 카운트업과 같은 속도로 다시 채운다 — 안 그러면 옆의 %는 0부터 올라가는데
+    // 바는 이미 그 자리에 있는 것처럼 보여서 두 표시가 서로 다른 값을 보여준다.
+    const isReset = resetKey !== undefined && resetKey !== prevResetKeyRef.current;
+    prevResetKeyRef.current = resetKey;
+
+    if (isReset) {
+      setBarWidth(0);
+      setBarDuration(RESET_BAR_DURATION_MS);
+    } else {
+      setBarDuration(DEFAULT_BAR_DURATION_MS);
+    }
+
     const id = requestAnimationFrame(() => {
       setBarWidth(progress);
       setAnimationStarted(true);
     });
     return () => cancelAnimationFrame(id);
-  }, [progress]);
+  }, [progress, resetKey]);
 
   const displayedFilled = useCountUp(filledQty, 800, resetKey);
   const displayedProgress = useCountUp(progress, 800, resetKey);
@@ -73,8 +93,8 @@ export default function NeedProgress({
 
       <div className="flex h-2.5 overflow-hidden rounded-full bg-neutral-100">
         <div
-          className={`${fillClass(progress)} rounded-full transition-[width] duration-700 ease-out`}
-          style={{ width: `${barWidth}%` }}
+          className={`${fillClass(progress)} rounded-full transition-[width] ease-out`}
+          style={{ width: `${barWidth}%`, transitionDuration: `${barDuration}ms` }}
         />
         {pendingWidth > 0 && (
           <div
