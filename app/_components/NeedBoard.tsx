@@ -303,14 +303,36 @@ export default function NeedBoard() {
   return (
     <div className="flex flex-col gap-8">
       <ToastViewport toast={toast} />
-      <header className="text-center">
+      <header className="flex flex-col items-center pb-2 pt-1 text-center">
         <h1 className={pageTitle}>지금 필요한 것들</h1>
         <p className={pageDesc}>기관이 올린 목표를 여럿이 나눠 채우고 있어요</p>
-        <button onClick={handleRefreshClick} className={`${btnGhost} mt-1`}>
-          새로고침
+        <button
+          onClick={handleRefreshClick}
+          aria-label="새로고침"
+          className={`${btnGhost} mt-1 inline-flex items-center justify-center`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4"
+          >
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M3 21v-5h5" />
+          </svg>
         </button>
 
         {/*
+          이 배너 + 아래 CTA가 "히어로"다. 나머지 섹션(최근 소식·필터·카드 목록)과
+          비슷한 무게로 두면 화면이 컴포넌트 나열처럼 복잡해 보인다. 눈에 띄게 크게
+          키워서 "일단 이것부터 보고, 나머진 스크롤해서 보는 것"이라는 위계를 준다.
+
           totalFilled(각 need.filledQty 합)와 acceptedCount(실제 접수된 신청 건수)는
           서로 다른 값이다. 시드 데이터의 filledQty는 신청 없이 박혀있는 값이라
           "N건이 모여 M개를 채웠다"처럼 두 수를 인과로 묶으면 "0건인데 136개"같은
@@ -318,26 +340,29 @@ export default function NeedBoard() {
           실제 신청 기록이 있을 때만 보조 문장으로 따로 보여준다.
         */}
         {totalTarget > 0 && (
-          <div className="mx-auto mt-4 flex w-full max-w-lg flex-col items-center gap-1 rounded-2xl bg-primary-50 px-6 py-5">
-            <p className="text-xs font-bold text-primary-700">지금까지의 나눔</p>
-            <p className="tabular text-2xl font-extrabold text-neutral-900">
+          <div className="mx-auto mt-6 flex w-full max-w-2xl flex-col items-center gap-2 rounded-[28px] bg-primary-50 px-8 py-10 shadow-sm sm:px-12">
+            <p className="text-sm font-bold text-primary-700">지금까지의 나눔</p>
+            <p className="tabular text-4xl font-extrabold text-neutral-900 sm:text-5xl">
               <span className="text-primary-700">{displayedTotalFilled.toLocaleString()}개</span>가
               모였어요
             </p>
-            <p className="tabular text-[13px] font-semibold text-neutral-500">
+            <p className="tabular text-sm font-semibold text-neutral-500 sm:text-[15px]">
               전체 {totalFilled.toLocaleString()} / {totalTarget.toLocaleString()}개 · 요청{" "}
               {needs.length.toLocaleString()}건
             </p>
             {acceptedCount > 0 && (
-              <p className="text-[13px] text-neutral-500">
+              <p className="text-sm text-neutral-500">
                 이 중 {acceptedCount}건은 이 서비스를 통해 오갔어요
               </p>
             )}
           </div>
         )}
 
-        <div className="mt-4 flex flex-col items-center gap-1">
-          <Link href="/donate" className={`${btnPrimary} max-w-xs`}>
+        <div className="mt-6 flex flex-col items-center gap-1">
+          <Link
+            href="/donate"
+            className="flex h-16 w-full max-w-sm items-center justify-center rounded-2xl bg-primary-700 px-8 text-[18px] font-extrabold text-white transition-all hover:bg-primary-800 active:scale-[0.98]"
+          >
             ＋ 나눔 추가하기
           </Link>
         </div>

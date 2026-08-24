@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 /** ui.ts의 btnPrimary는 폼용 풀사이즈 버튼이라 h-14/rounded-xl이 고정돼 있다.
@@ -20,6 +21,7 @@ const NAV_LINKS = [
 
 /** 로고(좌) · 메뉴 · 우측 CTA. 모바일은 햄버거로 접힘. 스크롤 시 하단 보더가 생긴다. */
 export default function Header() {
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -55,7 +57,12 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="cursor-pointer rounded-lg px-3 py-2 text-[14px] font-bold text-neutral-600 transition-colors hover:text-neutral-900"
+              className={
+                "cursor-pointer rounded-lg px-3 py-2 text-[14px] transition-colors " +
+                (pathname === link.href
+                  ? "font-extrabold text-neutral-900"
+                  : "font-bold text-neutral-600 hover:text-neutral-900")
+              }
             >
               {link.label}
             </Link>
@@ -83,7 +90,10 @@ export default function Header() {
               key={link.href}
               href={link.href}
               onClick={() => setMenuOpen(false)}
-              className="cursor-pointer rounded-lg px-3 py-2.5 text-[15px] font-bold text-neutral-700 hover:bg-neutral-100"
+              className={
+                "cursor-pointer rounded-lg px-3 py-2.5 text-[15px] hover:bg-neutral-100 " +
+                (pathname === link.href ? "font-extrabold text-neutral-900" : "font-bold text-neutral-700")
+              }
             >
               {link.label}
             </Link>
