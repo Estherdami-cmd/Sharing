@@ -249,45 +249,14 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
             {need.note && <p className={caption}>{need.note}</p>}
 
             {/*
-              수량은 카드 안에서 고른다. 목표가 기관마다 다르니 "몇 개 낼지"는
-              어느 기관을 고를지와 같이 판단하게 되는 값이다.
-              남은 목표보다 많이 내겠다고 할 수는 없어서 그 값으로 잠근다.
-
-              임시로 꺼둠 (요청에 의해). 되돌리려면 아래 블록의 주석만 해제하면 됨 —
-              getQuantity/setQuantity/getMaxQuantity 함수는 그대로 남겨뒀다.
+              기관별 수량 조절 UI는 임시로 꺼둔 상태(e5eb3e5, 요청에 의해)를 유지한다 —
+              개수는 이제 /donate 등록 화면에서 정해지고 여기서는 못 바꾼다.
+              다만 "이 개수를 내면 진행률이 몇 %가 되는지" 미리보기는 이 서비스의 핵심
+              개념(여럿이 나눠 채운다)을 보여주는 부분이라, 조절 UI 없이 미리보기만 남긴다.
+              getQuantity/setQuantity/getMaxQuantity 함수는 조절 UI를 되살릴 때 다시 쓸 수
+              있게 그대로 남겨뒀다.
             */}
-            {/*
             <div className="mt-auto flex flex-col gap-1.5">
-              <label className={label} htmlFor={`qty-${need.id}`}>
-                낼 수량
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setQuantity(need, getQuantity(need) - 1)}
-                  disabled={getQuantity(need) <= 1}
-                  aria-label="수량 줄이기"
-                  className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
-                >
-                  −
-                </button>
-                <input
-                  id={`qty-${need.id}`}
-                  type="number"
-                  min={1}
-                  max={getMaxQuantity(need)}
-                  value={getQuantity(need)}
-                  onChange={(e) => setQuantity(need, Number(e.target.value))}
-                  className={`${field} text-center`}
-                />
-                <button
-                  onClick={() => setQuantity(need, getQuantity(need) + 1)}
-                  disabled={getQuantity(need) >= getMaxQuantity(need)}
-                  aria-label="수량 늘리기"
-                  className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
-                >
-                  +
-                </button>
-              </div>
               {need.exactMatch ? (
                 <p className="text-xs text-neutral-500">
                   {getQuantity(need)}개를 내면 진행률이{" "}
@@ -307,7 +276,6 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
                 </p>
               )}
             </div>
-            */}
 
             <button onClick={() => handleSelectNeed(need)} className={btnPrimary}>
               여기에 나눔하기

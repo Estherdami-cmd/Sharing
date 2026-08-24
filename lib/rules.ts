@@ -71,6 +71,15 @@ export function clampQuantity(value: unknown): number {
   return Math.min(Math.max(n, 1), MAX_DONATION_QUANTITY);
 }
 
+/** 기관이 올리는 요청 하나의 목표 수량 상한. 기부자 개인이 들고 오는 양보다 커도 되니 더 넉넉하게 둔다. */
+export const MAX_NEED_TARGET_QTY = 9999;
+
+export function clampTargetQty(value: unknown): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(Math.max(n, 1), MAX_NEED_TARGET_QTY);
+}
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** "YYYY-MM-DD" 형식인지 확인한다. API 경계에서 잘못된 날짜 문자열이 들어오는 걸 막는다. */

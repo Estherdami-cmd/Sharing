@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { CATEGORIES } from "@/lib/rules";
+import { CATEGORIES, clampTargetQty } from "@/lib/rules";
 import { createNeed, getFoodBank, getFoodBanks, listNeeds } from "@/lib/store";
 
 /** data URL은 base64라 원본의 4/3배가 된다. 인메모리 저장소가 너무 커지지 않게 막아둔다. */
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     foodBankId,
     itemName,
     category,
-    targetQty: Math.max(1, Math.round(targetQtyNum)),
+    targetQty: clampTargetQty(targetQtyNum),
     note: body.note ?? "",
     imageUrl,
   });

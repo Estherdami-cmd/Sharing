@@ -274,7 +274,8 @@ export default function RegisterFlow() {
       <header className="text-center">
         <h1 className={pageTitle}>나눔할 물품을 등록해주세요</h1>
         <p className={pageDesc}>
-          제품 사진과 유통기한 사진을 각각 올려주세요. 한 면에 다 보이면 제품 사진만으로도 됩니다
+          제품 사진과 유통기한 사진을 각각 올려주세요.
+          <br />한 면에 다 보이면 제품 사진만으로도 됩니다
         </p>
       </header>
 

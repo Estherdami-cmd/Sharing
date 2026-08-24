@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CATEGORIES, formatKoreanDate } from "@/lib/rules";
+import { CATEGORIES, clampTargetQty, formatKoreanDate } from "@/lib/rules";
 import type { ApplicationDetail, FoodBank, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
@@ -37,7 +37,10 @@ export default function AdminPanel() {
   const [foodBankId, setFoodBankId] = useState("");
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
-  const [targetQty, setTargetQty] = useState(50);
+  // 타이핑 중에는 빈 칸을 허용해야 한다. 매 키 입력마다 1로 되돌리면 필드를 지울 수 없고,
+  // 지운 자리에 강제로 들어간 1 뒤에 이어 쳐서 "50"이 "150"이 된다. 포커스가 빠질 때 다듬는다.
+  const [targetQty, setTargetQty] = useState<number | "">(50);
+  const targetQtyValue = targetQty === "" ? 1 : targetQty;
   const [note, setNote] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -95,11 +98,21 @@ export default function AdminPanel() {
     const res = await fetch("/api/needs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ foodBankId, itemName, category, targetQty, note, imageUrl }),
+      body: JSON.stringify({
+        foodBankId,
+        itemName,
+        category,
+        targetQty: targetQtyValue,
+        note,
+        imageUrl,
+      }),
     });
     setSubmitting(false);
     if (!res.ok) {
-      setFormError("등록에 실패했어요. 다시 시도해주세요");
+      // 서버가 이유를 구체적으로 적어 보내면(카테고리 오류, 이미지 용량 초과 등)
+      // 그 문장을 그대로 쓴다 — 뭉뚱그린 안내로는 사용자가 원인을 짐작할 수 없다.
+      const body = await res.json().catch(() => null);
+      setFormError(body?.error ?? "등록에 실패했어요. 다시 시도해주세요");
       return;
     }
     setItemName("");
@@ -127,8 +140,22 @@ export default function AdminPanel() {
       <header className="text-center">
         <h1 className={pageTitle}>기관 관리</h1>
         <p className={pageDesc}>필요한 물품을 올리고, 들어온 신청을 확인해요</p>
-        <button onClick={load} className={`${btnGhost} mt-2`}>
-          새로고침
+        <button onClick={load} aria-label="새로고침" className={`${btnGhost} mt-2 inline-flex items-center justify-center`}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4"
+          >
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M3 21v-5h5" />
+          </svg>
         </button>
       </header>
 
@@ -182,7 +209,8 @@ export default function AdminPanel() {
                 type="number"
                 min={1}
                 value={targetQty}
-                onChange={(e) => setTargetQty(Math.max(1, Number(e.target.value)))}
+                onChange={(e) => setTargetQty(e.target.value === "" ? "" : clampTargetQty(e.target.value))}
+                onBlur={() => setTargetQty(targetQtyValue)}
                 className={field}
               />
             </div>
@@ -239,6 +267,7 @@ export default function AdminPanel() {
           <section className="flex flex-col gap-3">
             <h2 className={sectionTitle}>등록한 요청 · 진행률</h2>
             {loading && <p className="text-[15px] text-neutral-500">불러오는 중...</p>}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {needs.map((need) => (
               <article key={need.id} className={card}>
                 <div className="flex items-start justify-between gap-2">
@@ -269,6 +298,7 @@ export default function AdminPanel() {
                 {need.note && <p className={caption}>{need.note}</p>}
               </article>
             ))}
+            </div>
           </section>
         </div>
 
