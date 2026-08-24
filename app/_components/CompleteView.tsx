@@ -175,11 +175,27 @@ export default function CompleteView({ applicationId }: { applicationId: string 
 
         <div>
           <p className={label}>수량 / 전달</p>
-          <p className="mt-1 text-[15px]">
-            {application.quantity}개 · {formatKoreanDate(application.preferredDate)}
-            {application.preferredSlot && ` ${application.preferredSlot}`}
-          </p>
-          <p className="text-[13px] text-neutral-500">{application.place}</p>
+          <p className="mt-1 text-[15px]">{application.quantity}개</p>
+          {application.confirmedDate ? (
+            <p className="mt-1 text-[15px] font-semibold text-success-fg">
+              확정된 날짜: {formatKoreanDate(application.confirmedDate)}
+              {application.confirmedSlot && ` ${application.confirmedSlot}`}
+            </p>
+          ) : (
+            <div className="mt-1">
+              <p className="text-[13px] text-neutral-500">
+                제안한 날짜 후보 (기관이 확인 중이에요)
+              </p>
+              <ul className="mt-0.5 flex flex-col gap-0.5 text-[14px]">
+                {application.candidateDates.map((c) => (
+                  <li key={`${c.date}-${c.slot}`}>
+                    {formatKoreanDate(c.date)} {c.slot}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="mt-1 text-[13px] text-neutral-500">{application.place}</p>
         </div>
 
         <div>

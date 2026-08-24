@@ -51,14 +51,19 @@ export type Donation = {
   createdAt: string;
 };
 
+export type DateCandidate = { date: string; slot: string };
+
 export type Application = {
   id: string;
   donationId: string;
   needId: string;
   foodBankId: string;
   quantity: number;
-  preferredDate: string;
-  preferredSlot: string;
+  /** 기부자가 제안한 날짜 후보들. 기관이 이 중 하나를 골라 확정한다. */
+  candidateDates: DateCandidate[];
+  /** 기관이 확정한 날짜 — 아직 안 정했으면 null. */
+  confirmedDate: string | null;
+  confirmedSlot: string | null;
   place: string;
   contact: string;
   status: "pending" | "accepted" | "rejected";
@@ -453,16 +458,15 @@ export function updateDonation(
 }
 
 export function createApplication(
-  input: Pick<
-    Application,
-    "donationId" | "needId" | "quantity" | "preferredDate" | "preferredSlot" | "place" | "contact"
-  >
+  input: Pick<Application, "donationId" | "needId" | "quantity" | "candidateDates" | "place" | "contact">
 ): Application | undefined {
   const need = needs.get(input.needId);
   if (!need) return undefined;
 
   const application: Application = {
     ...input,
+    confirmedDate: null,
+    confirmedSlot: null,
     foodBankId: need.foodBankId,
     id: `a${store.applicationSeq++}`,
     status: "pending",
@@ -487,10 +491,24 @@ export function listApplications() {
  * 않지만(기관이 어차피 필요해서 받는 물건일 수 있으니), 그 요청의 진행률 숫자에는
  * 반영하지 않는다 — 안 그러면 "초콜릿을 받았는데 즉석밥 목표가 채워지는" 것처럼
  * 숫자가 실제와 안 맞게 된다.
+ *
+ * 수락(accepted)하려면 기부자가 제안한 날짜 후보 중 하나를 반드시 같이 골라야 한다
+ * — 날짜 없이는 "언제 전달할지" 자체가 정해지지 않으니 수락도 의미가 없다.
  */
-export function updateApplicationStatus(id: string, status: Application["status"]) {
+export function updateApplicationStatus(
+  id: string,
+  status: Application["status"],
+  confirmed?: DateCandidate
+) {
   const application = applications.get(id);
   if (!application) return undefined;
+
+  if (status === "accepted") {
+    const isValidCandidate = confirmed
+      ? application.candidateDates.some((c) => c.date === confirmed.date && c.slot === confirmed.slot)
+      : false;
+    if (!isValidCandidate) return undefined;
+  }
 
   const need = needs.get(application.needId);
   const donation = getDonation(application.donationId);
@@ -506,6 +524,10 @@ export function updateApplicationStatus(id: string, status: Application["status"
   }
 
   application.status = status;
+  if (status === "accepted" && confirmed) {
+    application.confirmedDate = confirmed.date;
+    application.confirmedSlot = confirmed.slot;
+  }
   return application;
 }
 

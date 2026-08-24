@@ -41,7 +41,7 @@ export default function ApplyForm() {
   const [dateOptions, setDateOptions] = useState<DateOption[]>([]);
   const [slotMessage, setSlotMessage] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  // 여러 날짜를 눌러볼 수 있게 배열로 들고 있는다. 실제 신청에는 마지막으로 고른 날짜 하나만 쓴다.
+  // 고른 날짜 후보를 전부 기관에 제안으로 보낸다. 기관이 이 중 하나를 골라 확정한다.
   const [selectedOptions, setSelectedOptions] = useState<DateOption[]>([]);
   const [contact, setContact] = useState("");
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -129,7 +129,10 @@ export default function ApplyForm() {
     setSelectedOptions([]);
   }
 
-  /** 여러 날짜를 눌러볼 수 있다 — 다시 누르면 선택 해제, 신청엔 마지막으로 고른 날짜만 쓴다. */
+  /**
+   * 여러 날짜를 골라서 전부 기관에 제안으로 보낸다 — 다시 누르면 선택 해제.
+   * 기관이 이 중 하나를 골라 확정하는 방식이라, 여기서 "최종 하나"를 미리 정하지 않는다.
+   */
   function handlePickDate(option: DateOption) {
     setSelectedOptions((prev) =>
       prev.some((o) => o.date === option.date)
@@ -139,15 +142,13 @@ export default function ApplyForm() {
     setApplyError(null);
   }
 
-  const finalDate = selectedOptions[selectedOptions.length - 1] ?? null;
-
   async function handleApplySubmit() {
     setApplyError(null);
     if (!donation || !selectedNeed) {
       setApplyError("매칭된 기관 정보가 없어요. 이전 단계로 돌아가주세요");
       return;
     }
-    if (!finalDate) {
+    if (selectedOptions.length === 0) {
       setApplyError("추천 날짜 중 하나 이상 선택해주세요");
       return;
     }
@@ -168,8 +169,7 @@ export default function ApplyForm() {
         donationId: donation.id,
         needId: selectedNeed.id,
         quantity,
-        preferredDate: finalDate.date,
-        preferredSlot: finalDate.slot,
+        candidateDates: selectedOptions.map((o) => ({ date: o.date, slot: o.slot })),
         place,
         contact,
       }),
@@ -305,8 +305,7 @@ export default function ApplyForm() {
 
         {dateOptions.length > 0 && (
           <p className="text-xs text-neutral-400">
-            가능한 날짜를 여러 개 눌러볼 수 있어요. 신청할 땐 마지막으로 고른 날짜가 최종
-            반영돼요
+            가능한 날짜를 여러 개 골라서 제안해보세요. 기관이 그중 하나를 골라 확정해줘요
           </p>
         )}
 

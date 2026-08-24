@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isValidISODate } from "@/lib/rules";
 import { createApplication, describeApplication, getNeed, listApplications } from "@/lib/store";
 
 export async function POST(request: Request) {
@@ -8,13 +9,32 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "요청 형식이 올바르지 않습니다" }, { status: 400 });
   }
-  const { donationId, needId, quantity, preferredDate, place, contact } = body;
+  const { donationId, needId, quantity, candidateDates, place, contact } = body;
 
-  if (!donationId || !needId || !quantity || !preferredDate || !place || !contact) {
+  if (
+    !donationId ||
+    !needId ||
+    !quantity ||
+    !Array.isArray(candidateDates) ||
+    candidateDates.length === 0 ||
+    !place ||
+    !contact
+  ) {
     return NextResponse.json(
-      { error: "수량·날짜·장소·연락처를 모두 입력해주세요" },
+      { error: "수량·날짜 후보·장소·연락처를 모두 입력해주세요" },
       { status: 400 }
     );
+  }
+
+  // 후보 날짜 중 형식이 올바른 것만 남긴다 — 클라이언트를 우회한 이상한 값이 그대로 저장되지 않게.
+  const normalizedCandidates = candidateDates
+    .filter(
+      (c: any) => c && typeof c.date === "string" && typeof c.slot === "string" && isValidISODate(c.date)
+    )
+    .map((c: any) => ({ date: c.date, slot: c.slot }));
+
+  if (normalizedCandidates.length === 0) {
+    return NextResponse.json({ error: "유효한 날짜 후보가 없어요" }, { status: 400 });
   }
 
   const need = getNeed(needId);
@@ -42,8 +62,7 @@ export async function POST(request: Request) {
     donationId,
     needId,
     quantity: Math.round(quantityNum),
-    preferredDate,
-    preferredSlot: body.preferredSlot ?? "",
+    candidateDates: normalizedCandidates,
     place,
     contact,
   });

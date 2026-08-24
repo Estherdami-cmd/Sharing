@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CATEGORIES } from "@/lib/rules";
+import { CATEGORIES, formatKoreanDate } from "@/lib/rules";
 import type { ApplicationDetail, FoodBank, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
@@ -109,11 +109,15 @@ export default function AdminPanel() {
     load();
   }
 
-  async function handleDecision(id: string, status: "accepted" | "rejected") {
+  async function handleDecision(
+    id: string,
+    status: "accepted" | "rejected",
+    confirmed?: { date: string; slot: string }
+  ) {
     await fetch(`/api/applications/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, confirmedDate: confirmed?.date, confirmedSlot: confirmed?.slot }),
     });
     load();
   }
@@ -300,9 +304,15 @@ export default function AdminPanel() {
                       유통기한: {app.donation.expiryDate}
                     </p>
                   )}
-                  <p className="text-[13px] text-neutral-500">
-                    희망일: {app.preferredDate} {app.preferredSlot}
-                  </p>
+                  {app.confirmedDate ? (
+                    <p className="text-[13px] font-semibold text-success-fg">
+                      확정된 날짜: {formatKoreanDate(app.confirmedDate)} {app.confirmedSlot}
+                    </p>
+                  ) : (
+                    <p className="text-[13px] text-neutral-500">
+                      제안 날짜: {app.candidateDates.map((c) => `${formatKoreanDate(c.date)} ${c.slot}`).join(" · ")}
+                    </p>
+                  )}
                   <p className="text-[13px] text-neutral-500">전달 장소: {app.place}</p>
                   <p className="text-[13px] text-neutral-500">연락처: {app.contact}</p>
                   {app.receiptRequested && (
@@ -323,19 +333,31 @@ export default function AdminPanel() {
               )}
 
               {app.status === "pending" && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleDecision(app.id, "accepted")}
-                    className={`${btnOutline} border-primary-500 text-primary-700 hover:border-primary-600`}
-                  >
-                    {(() => {
-                      if (!app.need || app.donation.category !== app.need.category) return "수락";
-                      // 다른 신청이 먼저 수락돼 이미 목표가 다 찼을 수 있다 — 그럴 땐
-                      // 이 신청을 수락해도 실제로는 0만큼만 반영된다.
-                      const gain = Math.min(app.quantity, app.need.remainingQty);
-                      return gain > 0 ? `수락 (진행률 +${gain})` : "수락 (이미 목표 달성됨)";
-                    })()}
-                  </button>
+                <div className="flex flex-col gap-2">
+                  {app.need && app.donation.category === app.need.category && (
+                    <p className="text-xs text-neutral-500">
+                      {(() => {
+                        // 다른 신청이 먼저 수락돼 이미 목표가 다 찼을 수 있다 — 그럴 땐
+                        // 이 신청을 수락해도 실제로는 0만큼만 반영된다.
+                        const gain = Math.min(app.quantity, app.need!.remainingQty);
+                        return gain > 0 ? `수락하면 진행률 +${gain}` : "이미 목표를 달성한 요청이에요";
+                      })()}
+                    </p>
+                  )}
+                  <p className="text-xs font-bold text-neutral-500">
+                    제안된 날짜 중 하나를 선택해 수락하세요
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {app.candidateDates.map((c) => (
+                      <button
+                        key={`${c.date}-${c.slot}`}
+                        onClick={() => handleDecision(app.id, "accepted", c)}
+                        className={`${btnOutline} border-primary-500 text-primary-700 hover:border-primary-600`}
+                      >
+                        {formatKoreanDate(c.date)} {c.slot}
+                      </button>
+                    ))}
+                  </div>
                   <button onClick={() => handleDecision(app.id, "rejected")} className={btnDanger}>
                     거절
                   </button>
