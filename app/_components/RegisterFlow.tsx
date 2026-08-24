@@ -75,6 +75,20 @@ export default function RegisterFlow() {
   const [kind, setKind] = useState<ItemKind | null>(null);
   const [productPreview, setProductPreview] = useState<string | null>(null);
   const [expiryPreview, setExpiryPreview] = useState<string | null>(null);
+
+  // 사진을 바꾸거나 지울 때는 handleFileSelected/handleClearSlot 안에서 이전 URL을
+  // 정리하지만, 등록을 마치고 이 페이지를 벗어날 때(unmount)는 그 코드가 안 불린다.
+  // 마지막으로 떠 있던 미리보기 URL을 여기서 마저 해제한다.
+  useEffect(() => {
+    return () => {
+      if (productPreview) URL.revokeObjectURL(productPreview);
+    };
+  }, [productPreview]);
+  useEffect(() => {
+    return () => {
+      if (expiryPreview) URL.revokeObjectURL(expiryPreview);
+    };
+  }, [expiryPreview]);
   const [recognizeStatus, setRecognizeStatus] = useState<RecognizeStatus>("idle");
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState("");
