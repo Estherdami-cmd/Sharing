@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isValidISODate } from "@/lib/rules";
+import { isValidISODate, isValidPhone } from "@/lib/rules";
 import { createApplication, describeApplication, getNeed, listApplications } from "@/lib/store";
 
 export async function POST(request: Request) {
@@ -22,6 +22,15 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { error: "수량·날짜 후보·장소·연락처를 모두 입력해주세요" },
+      { status: 400 }
+    );
+  }
+
+  // 기관이 기부자에게 닿는 유일한 통로라, 형식이 어긋난 번호는 여기서 막는다.
+  // 클라이언트에서도 같은 규칙으로 검사하지만 이 경로를 우회할 수 있다.
+  if (typeof contact !== "string" || !isValidPhone(contact)) {
+    return NextResponse.json(
+      { error: "연락처는 010으로 시작하는 10~11자리 숫자여야 해요" },
       { status: 400 }
     );
   }
