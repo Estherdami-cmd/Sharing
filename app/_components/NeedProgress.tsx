@@ -139,27 +139,33 @@ export default function NeedProgress({
             }}
           />
         )}
-        {/* 아직 대기중인 내 몫. 같은 빗금이되 브랜드 색이라 회색 빗금과 구별된다. */}
+        {/* 아직 대기중인 내 몫. 빗금 대신 같은 색의 옅은 톤을 쓴다 — 막대가 10px인데
+            줄무늬 간격이 4px이라 뭉개져 보이고, 빗금은 "공사중"에 가까워 내 몫으로 안 읽힌다.
+            진한 색 = 확정, 옅은 색 = 아직. 색 하나로 끝난다. */}
         {minePending > 0 && (
           <div
-            className="opacity-70 transition-[width] duration-700 ease-out"
-            style={{
-              width: `${animationStarted ? minePending : 0}%`,
-              backgroundImage: MINE_STRIPES,
-              color: "var(--color-primary-600)",
-            }}
+            className="bg-primary-300 transition-[width] duration-700 ease-out"
+            style={{ width: `${animationStarted ? minePending : 0}%` }}
           />
         )}
-        {othersWidth > 0 && (
-          <div
-            className="opacity-30 transition-[width] duration-700 ease-out"
-            style={{
-              width: `${animationStarted ? othersWidth : 0}%`,
-              backgroundImage: MINE_STRIPES,
-              color: "var(--color-neutral-900)",
-            }}
-          />
-        )}
+        {othersWidth > 0 &&
+          (mineQty == null ? (
+            // 내 몫 표시를 안 쓰는 화면(게시판·기관)은 기존 빗금 그대로 둔다.
+            // DESIGN_GUIDE 3.2가 빗금으로 명시하고 있어 이 PR에서 전체를 바꾸지는 않는다.
+            <div
+              className="opacity-30 transition-[width] duration-700 ease-out"
+              style={{
+                width: `${animationStarted ? othersWidth : 0}%`,
+                backgroundImage: MINE_STRIPES,
+                color: "var(--color-neutral-900)",
+              }}
+            />
+          ) : (
+            <div
+              className="bg-neutral-200 transition-[width] duration-700 ease-out"
+              style={{ width: `${animationStarted ? othersWidth : 0}%` }}
+            />
+          ))}
       </div>
 
       {/* 색만 갈라놓으면 그게 내 것인 줄 알 방법이 없다. 이름을 붙여준다. */}
@@ -168,13 +174,8 @@ export default function NeedProgress({
           <span className="flex items-center gap-1.5">
             <span
               className={`h-2.5 w-2.5 shrink-0 rounded-[3px] ${
-                mineCounted ? "bg-primary-700" : "opacity-70"
+                mineCounted ? "bg-primary-700" : "bg-primary-300"
               }`}
-              style={
-                mineCounted
-                  ? undefined
-                  : { backgroundImage: MINE_STRIPES, color: "var(--color-primary-600)" }
-              }
             />
             내 신청 <strong className="text-neutral-900">{mineQty.toLocaleString()}개</strong>
             {mineCounted ? " (반영됨)" : ""}
@@ -182,10 +183,7 @@ export default function NeedProgress({
           {othersQty > 0 && (
             // "다른 대기"라고만 하면 누가 무엇을 기다리는 건지 알 수 없다. 주어를 밝힌다.
             <span className="flex items-center gap-1.5 text-neutral-400">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-[3px] opacity-30"
-                style={{ backgroundImage: MINE_STRIPES, color: "var(--color-neutral-900)" }}
-              />
+              <span className="h-2.5 w-2.5 shrink-0 rounded-[3px] bg-neutral-200" />
               다른 기부자 {othersQty.toLocaleString()}개
             </span>
           )}
@@ -199,25 +197,28 @@ export default function NeedProgress({
               {Math.min(100, progress + pendingWidth)}%
             </p>
           )
-        : // 빗금이 "아직 기관이 확인 안 한 몫"이라는 뜻임을 글로도 한 번 말해준다.
-          (minePending > 0 || othersWidth > 0) && (
+        : // 퍼센트 하나만 던지는 것보다 "얼마에서 얼마로"가 훨씬 빨리 읽힌다.
+          // 수락된 뒤에는 내가 실제로 밀어올린 구간을 과거형으로 말해준다.
+          (mineCounted ? mineFilled > 0 : minePending > 0 || othersWidth > 0) && (
             <p className="text-xs text-neutral-500">
-              빗금은 기관 확인 대기중이에요 ·{" "}
-              {minePending > 0 ? (
+              {mineCounted ? (
                 <>
-                  내 신청이 수락되면{" "}
-                  <strong className="text-primary-700">
-                    {Math.min(100, progress + minePending)}%
-                  </strong>
-                  {othersWidth > 0 &&
-                    `, 다른 기부자 것까지 ${Math.min(100, progress + pendingWidth)}%`}
+                  회원님 덕분에{" "}
+                  <span className="tabular text-neutral-400">{progress - mineFilled}%</span>
+                  <span className="mx-1 text-neutral-300">→</span>
+                  <strong className="tabular text-primary-700">{progress}%</strong>
+                  {progress >= 100 && " · 목표를 다 채웠어요"}
                 </>
               ) : (
                 <>
-                  다른 기부자 것까지 수락되면{" "}
-                  <strong className="text-primary-700">
-                    {Math.min(100, progress + pendingWidth)}%
+                  내 신청이 수락되면{" "}
+                  <span className="tabular text-neutral-400">{progress}%</span>
+                  <span className="mx-1 text-neutral-300">→</span>
+                  <strong className="tabular text-primary-700">
+                    {Math.min(100, progress + minePending)}%
                   </strong>
+                  {othersWidth > 0 &&
+                    ` · 다른 기부자 것까지 ${Math.min(100, progress + pendingWidth)}%`}
                 </>
               )}
             </p>

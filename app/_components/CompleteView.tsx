@@ -7,7 +7,6 @@ import type { ApplicationDetail } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import {
   btnGhost,
-  btnPrimary,
   btnSecondary,
   caption,
   card,
@@ -53,8 +52,6 @@ export default function CompleteView({ applicationId }: { applicationId: string 
   const [application, setApplication] = useState<ApplicationDetail | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [refreshingStatus, setRefreshingStatus] = useState(false);
-  const [requestingReceipt, setRequestingReceipt] = useState(false);
-  const [receiptError, setReceiptError] = useState<string | null>(null);
   // 연결 실패 화면의 '다시 시도'가 아래 최초 로드 effect를 한 번 더 돌리는 손잡이.
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -132,27 +129,6 @@ export default function CompleteView({ applicationId }: { applicationId: string 
       // 직접 누른 새로고침이 실패해도 화면은 그대로 두고 버튼만 되살린다.
     }
     setRefreshingStatus(false);
-  }
-
-  async function handleReceiptRequest() {
-    setRequestingReceipt(true);
-    setReceiptError(null);
-    try {
-      // PATCH가 갱신된 신청 상세를 그대로 돌려주므로 다시 GET하지 않는다.
-      const res = await fetch(`/api/applications/${applicationId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receiptRequested: true }),
-      });
-      if (res.ok) {
-        setApplication(await res.json());
-      } else {
-        setReceiptError("영수증 요청에 실패했어요. 다시 시도해주세요");
-      }
-    } catch {
-      setReceiptError("연결에 문제가 있어요. 다시 시도해주세요");
-    }
-    setRequestingReceipt(false);
   }
 
   if (loadState === "loading") {
@@ -348,27 +324,7 @@ export default function CompleteView({ applicationId }: { applicationId: string 
             </div>
           )}
 
-          <div className="col-span-2">
-            <p className={label}>기부금 신청서</p>
-            <p
-              className={`mt-1 text-[15px] font-semibold ${
-                application.receiptRequested ? "text-success-fg" : "text-neutral-400"
-              }`}
-            >
-              {application.receiptRequested ? "작성 완료" : "미작성"}
-            </p>
-          </div>
         </div>
-
-        {/* 실패를 조용히 넘기면 화면이 계속 '미작성'이라 사용자가 뭘 잘못했는지 모른다.
-            토스트 대신 눌린 버튼 자리에서 말한다(DESIGN_GUIDE 5.4). */}
-        {receiptError && <p className="text-[13px] text-danger-fg">{receiptError}</p>}
-
-        {application.status === "accepted" && !application.receiptRequested && (
-          <button onClick={handleReceiptRequest} disabled={requestingReceipt} className={btnPrimary}>
-            {requestingReceipt ? "요청 중..." : "기부금 영수증 요청"}
-          </button>
-        )}
       </div>
 
       {/* 예전에는 여기서 "이 주소를 저장해두세요"라고 안내하고 복사 버튼까지 뒀는데 뺐다.
