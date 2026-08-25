@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toneBadge } from "@/app/ui";
 import styles from "./Hero.module.css";
 
 type PreviewNeed = {
@@ -225,9 +226,7 @@ export default function Home() {
                   {need.category} · {need.foodBank.name}
                 </span>
                 {need.urgent && (
-                  <span className="shrink-0 rounded-full bg-danger-fg px-2 py-0.5 text-[10px] font-extrabold text-white">
-                    긴급
-                  </span>
+                  <span className={`shrink-0 ${toneBadge("caution")}`}>도움이 필요해요</span>
                 )}
               </div>
               <div className="text-[16px] font-bold text-neutral-900">{need.itemName}</div>
