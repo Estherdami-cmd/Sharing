@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatKoreanDate } from "@/lib/rules";
+import { formatKoreanDate, isSameItem } from "@/lib/rules";
 import type { ApplicationDetail } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import {
@@ -206,6 +206,9 @@ export default function CompleteView({ applicationId }: { applicationId: string 
   // 카테고리가 요청과 다르면 수락돼도 진행률에 반영되지 않는다 — 그런 경우엔
   // 미리보기 숫자를 보여주지 않는다(실제로 그 값이 되지 않으니까).
   const categoryMatches = need ? application.donation.category === need.category : false;
+  // 분류는 같은데 물건이 다른 경우. 기관이 판단하는 중이라는 사실만 담담히 알린다 —
+  // "받을 수 있는지 확인 중"처럼 쓰면 이미 신청을 마친 사람을 불안하게 만든다.
+  const sameItem = need ? isSameItem(application.donation.itemName, need.itemName) : true;
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
@@ -302,8 +305,13 @@ export default function CompleteView({ applicationId }: { applicationId: string 
               mineCounted={application.status === "accepted"}
             />
             {application.status === "pending" && !categoryMatches && (
-              <p className="text-xs text-warning-fg">
-                카테고리가 달라 수락돼도 이 요청의 진행률에는 반영되지 않아요
+              <p className="text-xs text-neutral-500">
+                이 요청 수치에는 안 들어가지만, 기관에 직접 전달돼요
+              </p>
+            )}
+            {application.status === "pending" && categoryMatches && !sameItem && (
+              <p className="text-xs text-neutral-500">
+                &apos;{need.itemName}&apos; 요청이라, 기관이 확인하고 있어요
               </p>
             )}
           </div>

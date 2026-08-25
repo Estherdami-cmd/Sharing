@@ -287,6 +287,38 @@ export function startOfToday(): Date {
 }
 
 /** 받침 유무에 따라 을/를, 이/가 등을 고른다. "통조림를" 같은 어색함 방지. */
+/**
+ * 기관 요청과 기부 물품이 얼마나 맞는지.
+ *
+ * 이 값은 정렬과 안내 문구를 고르는 데만 쓴다. 기부자 화면에 "비슷한 품목" 같은
+ * 라벨로 띄우지 않는다 — 선의로 물건을 내놓는 사람에게 등급을 매기는 것으로 읽힌다.
+ */
+export type MatchGrade = "exact" | "similar" | "different";
+
+/** 용량·규격 표기. "즉석밥 210g"의 뒷부분처럼 물건 이름 뒤에 붙는 것들. */
+const ITEM_SIZE_SUFFIX = /\d+\s*(kg|g|ml|l|리터|롤|개|매|입|호|팩|봉|포|장)/gi;
+
+/** "즉석밥 210g" → "즉석밥". 물건 이름만 남겨 서로 비교할 수 있게 만든다. */
+export function normalizeItemName(name: string): string {
+  return name.toLowerCase().replace(ITEM_SIZE_SUFFIX, "").replace(/\s+/g, "");
+}
+
+/**
+ * 두 품목명이 같은 물건을 가리키는지.
+ *
+ * 한쪽이 다른 쪽을 포함하면 같다고 본다 — "즉석밥 210g"과 "즉석밥",
+ * "백미 5kg"과 "백미 10kg"은 같은 물건이고 용량만 다르다.
+ *
+ * 자연어 매칭이 아니라 실용적 근사다. "햇반"과 "즉석밥"은 못 잡는다.
+ * 틀려도 안내 문구가 달라질 뿐 진행률 규칙은 안 바뀌므로 손해가 작다.
+ */
+export function isSameItem(a: string, b: string): boolean {
+  const x = normalizeItemName(a);
+  const y = normalizeItemName(b);
+  if (!x || !y) return false;
+  return x.includes(y) || y.includes(x);
+}
+
 export function withJosa(word: string, withFinal: string, withoutFinal: string) {
   const last = word.charCodeAt(word.length - 1);
   const hasFinal = last >= 0xac00 && last <= 0xd7a3 && (last - 0xac00) % 28 !== 0;

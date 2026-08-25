@@ -256,24 +256,37 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
               getQuantity/setQuantity/getMaxQuantity 함수는 조절 UI를 되살릴 때 다시 쓸 수
               있게 그대로 남겨뒀다.
             */}
+            {/*
+              등급 뱃지를 붙이지 않는 건 의도적이다. "비슷한 품목" 같은 라벨은 선의로
+              물건을 내놓는 사람에게 등급을 매기는 것으로 읽힌다. 사실은 문장으로 푼다.
+            */}
             <div className="mt-auto flex flex-col gap-1.5">
-              {need.exactMatch ? (
+              {need.matchGrade === "different" ? (
                 <p className="text-xs text-neutral-500">
-                  {getQuantity(need)}개를 내면 진행률이{" "}
-                  <strong className="text-primary-700">
-                    {Math.min(
-                      100,
-                      Math.round(((need.filledQty + getQuantity(need)) / need.targetQty) * 100)
-                    )}
-                    %
-                  </strong>
-                  가 돼요
-                  {need.remainingQty > 0 && ` · 남은 목표 ${need.remainingQty}개`}
+                  이 요청 수치에는 안 들어가지만, 기관에 직접 전달할 수 있어요
                 </p>
               ) : (
-                <p className="text-xs text-warning-fg">
-                  카테고리가 달라 이 요청의 진행률에는 반영되지 않아요
-                </p>
+                <>
+                  <p className="text-xs text-neutral-500">
+                    {getQuantity(need)}개를 내면 진행률이{" "}
+                    <strong className="text-primary-700">
+                      {Math.min(
+                        100,
+                        Math.round(((need.filledQty + getQuantity(need)) / need.targetQty) * 100)
+                      )}
+                      %
+                    </strong>
+                    가 돼요
+                    {need.remainingQty > 0 && ` · 남은 목표 ${need.remainingQty}개`}
+                  </p>
+                  {/* 미리보기를 similar에도 남긴다 — 기관이 수락하면 실제로 반영되므로
+                      숨기면 그게 거짓말이 된다. */}
+                  {need.matchGrade === "similar" && (
+                    <p className="text-xs text-neutral-400">
+                      기관에서 확인하고 받아요
+                    </p>
+                  )}
+                </>
               )}
             </div>
 

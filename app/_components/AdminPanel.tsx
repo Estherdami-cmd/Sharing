@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CATEGORIES, clampTargetQty, formatKoreanDate } from "@/lib/rules";
+import { CATEGORIES, clampTargetQty, formatKoreanDate, isSameItem } from "@/lib/rules";
 import type { ApplicationDetail, FoodBank, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
@@ -361,6 +361,21 @@ export default function AdminPanel() {
                   카테고리가 달라 수락해도 이 요청의 진행률에는 반영되지 않아요
                 </p>
               )}
+
+              {/*
+                카테고리는 같은데 물건이 다른 경우. 지금까지는 기관이 모른 채 수락하고
+                진행률만 올랐다. 받을 수 있는 물건인지는 기관만 판단할 수 있으니
+                여기서는 돌려 말하지 않는다 — 기부자는 이 화면을 보지 않는다.
+              */}
+              {app.status === "pending" &&
+                app.need &&
+                app.donation.category === app.need.category &&
+                !isSameItem(app.donation.itemName, app.need.itemName) && (
+                  <p className="text-xs text-warning-fg">
+                    &apos;{app.need.itemName}&apos; 요청과 다른 물품이에요. 받으실 수 있는지
+                    확인해주세요
+                  </p>
+                )}
 
               {app.status === "pending" && (
                 <div className="flex flex-col gap-2">
