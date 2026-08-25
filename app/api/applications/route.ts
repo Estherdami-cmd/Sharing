@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   // 클라이언트에서도 같은 규칙으로 검사하지만 이 경로를 우회할 수 있다.
   if (typeof contact !== "string" || !isValidPhone(contact)) {
     return NextResponse.json(
-      { error: "연락처는 010으로 시작하는 10~11자리 숫자여야 해요" },
+      { error: "연락처 형식을 다시 확인해주세요 (휴대폰 또는 지역번호 포함 유선 번호)" },
       { status: 400 }
     );
   }

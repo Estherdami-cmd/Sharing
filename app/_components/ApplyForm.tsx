@@ -36,8 +36,10 @@ export default function ApplyForm() {
   const [donation, setDonation] = useState<Donation | null>(null);
   const [selectedNeed, setSelectedNeed] = useState<NeedView | null>(null);
 
-  const [donorDays, setDonorDays] = useState<string[]>([]);
-  const [donorSlot, setDonorSlot] = useState("상관없음");
+  // 요일마다 다른 시간대를 가질 수 있다(월요일은 오전만, 화요일은 오후만 등).
+  // 키로 들어있는 요일만 "가능한 요일"이다. 빈 객체 = 아무 요일이나 시간대나 괜찮음.
+  const [donorAvailability, setDonorAvailability] = useState<Record<string, string>>({});
+  const donorDays = Object.keys(donorAvailability);
   const [dateOptions, setDateOptions] = useState<DateOption[]>([]);
   const [slotMessage, setSlotMessage] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -64,12 +66,19 @@ export default function ApplyForm() {
   const requestedQuantity = Number.isFinite(parsedQuantity) ? Math.max(1, parsedQuantity) : 1;
   // 목표가 남아있으면 그만큼으로, 이미 다 찼으면(여유분 받기) 목표 수량만큼으로
   // 상한을 둔다 — 주소창에 quantity=9999처럼 직접 써넣어도 그대로 통과하던 버그가 있었다.
-  const quantity = selectedNeed
-    ? Math.min(
-        requestedQuantity,
-        selectedNeed.remainingQty > 0 ? selectedNeed.remainingQty : selectedNeed.targetQty
-      )
+  const maxQuantity = selectedNeed
+    ? selectedNeed.remainingQty > 0
+      ? selectedNeed.remainingQty
+      : selectedNeed.targetQty
     : requestedQuantity;
+  const initialQuantity = Math.min(requestedQuantity, maxQuantity);
+  // 이 화면에서도 직접 조정할 수 있게 한다 — 안 건드리면 등록 화면에서 정한(캡 적용된) 값을 쓴다.
+  const [quantityOverride, setQuantityOverride] = useState<number | "">("");
+  const quantity = quantityOverride === "" ? initialQuantity : quantityOverride;
+
+  function setQuantity(value: number) {
+    setQuantityOverride(Math.min(Math.max(1, Math.floor(value) || 1), maxQuantity));
+  }
 
   // 별도 주소라 새로고침·직접 접속에도 대응해야 하므로 앞 단계의 state에 의존하지 않는다.
   //
@@ -111,7 +120,20 @@ export default function ApplyForm() {
   }, [donationId, needId]);
 
   function toggleDonorDay(day: string) {
-    setDonorDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
+    setDonorAvailability((prev) => {
+      if (day in prev) {
+        const { [day]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [day]: "상관없음" };
+    });
+    setDateOptions([]);
+    setSlotMessage(null);
+    setSelectedOptions([]);
+  }
+
+  function setDaySlot(day: string, slot: string) {
+    setDonorAvailability((prev) => ({ ...prev, [day]: slot }));
     setDateOptions([]);
     setSlotMessage(null);
     setSelectedOptions([]);
@@ -125,7 +147,10 @@ export default function ApplyForm() {
     setLoadingSlots(true);
     setSlotMessage(null);
 
-    const query = new URLSearchParams({ days: donorDays.join(","), slot: donorSlot });
+    const avail = Object.entries(donorAvailability)
+      .map(([day, slot]) => `${day}:${slot}`)
+      .join(",");
+    const query = new URLSearchParams({ avail });
     if (expiryDate) query.set("maxDate", expiryDate);
 
     try {
@@ -146,7 +171,7 @@ export default function ApplyForm() {
     } finally {
       setLoadingSlots(false);
     }
-  }, [foodBankId, donorDays, donorSlot, expiryDate]);
+  }, [foodBankId, donorAvailability, expiryDate]);
 
   // 요일 미선택·시간대 "상관없음"이 이미 유효한 기본값이다. 버튼을 눌러야만 목록이
   // 뜨면, 안 누른 사용자는 "날짜를 고르라"는 오류만 보고 고를 목록은 못 본다.
@@ -183,7 +208,7 @@ export default function ApplyForm() {
     }
     if (!isValidPhone(contact)) {
       setContactTouched(true);
-      setApplyError("연락처를 다시 확인해주세요 (010으로 시작하는 10~11자리)");
+      setApplyError("연락처를 다시 확인해주세요 (휴대폰 또는 지역번호 포함 유선 번호)");
       return;
     }
 
@@ -269,25 +294,46 @@ export default function ApplyForm() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className={label}>수량</label>
-          <p className={`${field} flex items-center bg-neutral-100 text-neutral-700`}>
-            {quantity}개
-          </p>
+          <label className={label} htmlFor="apply-qty">
+            수량
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setQuantity(quantity - 1)}
+              disabled={quantity <= 1}
+              aria-label="개수 줄이기"
+              className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
+            >
+              −
+            </button>
+            <input
+              id="apply-qty"
+              type="number"
+              min={1}
+              max={maxQuantity}
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+              className={`${field} text-center`}
+            />
+            <button
+              onClick={() => setQuantity(quantity + 1)}
+              disabled={quantity >= maxQuantity}
+              aria-label="개수 늘리기"
+              className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
+            >
+              +
+            </button>
+          </div>
           {/*
-            남은 목표 때문에 줄어든 경우엔 그 사실을 먼저 말한다. 등록 화면에서 적은
-            숫자와 다른 값이 아무 설명 없이 떠 있으면 잘못 반영된 것처럼 보인다.
+            등록 화면에서 적은 값이 남은 목표 때문에 줄어들어서 시작한 경우엔 그 사실을
+            먼저 말한다 — 화면에 뜬 숫자가 등록 때 적은 것과 다르면 설명 없이는
+            잘못 반영된 것처럼 보인다. 그 뒤로 직접 조절했으면 더 이상 그 안내는 안 맞다.
           */}
-          {quantity < requestedQuantity ? (
-            <p className="text-xs text-warning-fg">
-              등록 화면에서는 {requestedQuantity}개로 적으셨지만, 이 요청에 남은 목표가{" "}
-              {quantity}개라 {quantity}개로 맞췄어요
-            </p>
-          ) : (
-            <p className="text-xs text-neutral-400">
-              수량은 매칭 화면에서 정한 값이에요. 바꾸려면 아래 &apos;매칭 결과로 돌아가기&apos;를
-              눌러주세요
-            </p>
-          )}
+          <p className="text-xs text-neutral-400">
+            {quantityOverride === "" && initialQuantity < requestedQuantity
+              ? `등록 화면에서는 ${requestedQuantity}개로 적으셨지만, 이 요청에 남은 목표가 ${maxQuantity}개라 ${maxQuantity}개로 맞췄어요`
+              : `최대 ${maxQuantity.toLocaleString()}개까지 낼 수 있어요`}
+          </p>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -298,7 +344,7 @@ export default function ApplyForm() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className={label}>내가 가능한 요일</label>
+          <label className={label}>내가 가능한 요일 · 시간대</label>
           <div className="flex gap-1">
             {DAY_NAMES.map((day) => (
               <button
@@ -310,31 +356,34 @@ export default function ApplyForm() {
               </button>
             ))}
           </div>
-          <p className="text-xs text-neutral-400">
-            {donorDays.length === 0
-              ? "선택 안 하면 아무 요일이나 가능한 걸로 봐요"
-              : `${donorDays.join(", ")}요일`}
-          </p>
-        </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className={label}>내가 가능한 시간대</label>
-          <select
-            value={donorSlot}
-            onChange={(e) => {
-              setDonorSlot(e.target.value);
-              setDateOptions([]);
-              setSlotMessage(null);
-              setSelectedOptions([]);
-            }}
-            className={field}
-          >
-            {SLOT_CHOICES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          {donorDays.length === 0 ? (
+            <p className="text-xs text-neutral-400">선택 안 하면 아무 요일이나 시간대나 가능한 걸로 봐요</p>
+          ) : (
+            <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 p-3">
+              {/* 월요일은 오전만, 화요일은 오후만처럼 요일마다 다른 시간대를 가질 수 있다. */}
+              <p className="text-xs text-neutral-400">요일마다 다른 시간대를 고를 수 있어요</p>
+              {donorDays.map((day) => (
+                <div key={day} className="flex items-center gap-2">
+                  <span className="w-9 shrink-0 text-[13px] font-bold text-neutral-700">
+                    {day}요일
+                  </span>
+                  <div className="flex flex-1 gap-1">
+                    {SLOT_CHOICES.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setDaySlot(day, s)}
+                        className={chip(donorAvailability[day] === s)}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <p className="text-xs text-neutral-400">
             {selectedNeed.foodBank.name} 수거 시간: {selectedNeed.foodBank.pickupSlots.join(", ")}
           </p>
@@ -406,7 +455,7 @@ export default function ApplyForm() {
             className={field}
           />
           {contactTouched && contact && !isValidPhone(contact) ? (
-            <p className="text-xs text-danger-fg">010으로 시작하는 10~11자리로 적어주세요</p>
+            <p className="text-xs text-danger-fg">휴대폰 또는 지역번호를 포함한 유선 번호로 적어주세요</p>
           ) : (
             <p className="text-xs text-neutral-400">
               기관이 전달 일정을 확인할 때 이 번호로 연락해요

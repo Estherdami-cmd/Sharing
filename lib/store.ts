@@ -374,17 +374,21 @@ export type DateRecommendation = {
 /**
  * 기관 운영일 ∩ 기부자 가능 요일 ∩ 시간대 교집합.
  * "양쪽 모두 가능한 시간대만 걸러서 날짜 추천"의 실제 구현.
+ *
+ * donorAvailability는 요일마다 다른 시간대를 가질 수 있다(예: 월요일은 오전만,
+ * 화요일은 오후만 가능). 키로 들어있는 요일만 "가능한 요일"이고, 값은 그 요일의
+ * 시간대("상관없음"|"오전"|"오후")다. 빈 객체는 "아무 요일이나 시간대나 괜찮다"는 뜻이다.
  */
 export function recommendDates(
   foodBankId: string,
-  donorDays: string[],
-  donorSlot: string,
+  donorAvailability: Record<string, string>,
   maxDateISO?: string | null,
   limit = 3
 ): DateRecommendation {
   const fb = getFoodBank(foodBankId);
   if (!fb) return { ok: false, message: "기관 정보를 찾을 수 없어요", options: [] };
 
+  const hasRestriction = Object.keys(donorAvailability).length > 0;
   const today = startOfToday();
   const limitDate = maxDateISO ? parseLocalDate(maxDateISO) : null;
   const options: DateOption[] = [];
@@ -396,24 +400,23 @@ export function recommendDates(
     const day = DAY_NAMES[date.getDay()];
 
     if (!fb.operatingDays.includes(day)) continue;
-    if (donorDays.length > 0 && !donorDays.includes(day)) continue;
+    if (hasRestriction && !(day in donorAvailability)) continue;
 
     if (limitDate && date.getTime() > limitDate.getTime()) {
       blockedByExpiry = true;
       continue;
     }
 
+    const daySlot = hasRestriction ? donorAvailability[day] : "상관없음";
     const slot =
-      donorSlot === "상관없음"
-        ? fb.pickupSlots[0]
-        : fb.pickupSlots.find((s) => s.startsWith(donorSlot));
+      daySlot === "상관없음" ? fb.pickupSlots[0] : fb.pickupSlots.find((s) => s.startsWith(daySlot));
     if (!slot) continue;
 
     options.push({
       date: toISODate(date),
       day,
       slot,
-      reason: `기관 운영일(${day}) · 회원님 가능 요일 · ${slot}`,
+      reason: `기관 운영일(${day}) · 회원님 가능 요일${daySlot !== "상관없음" ? `(${daySlot})` : ""} · ${slot}`,
     });
   }
 
