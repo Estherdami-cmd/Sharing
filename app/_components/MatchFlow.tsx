@@ -187,7 +187,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
         이름으로 바로 찾을 수 있게 검색을 둔다 (카테고리와 안 맞아도 전체 목록에서 찾을 수 있음).
       */}
       {!matchLoading && matches.length > 0 && (
-        <div className="mx-auto w-full max-w-lg">
+        <div className="mx-auto flex w-full max-w-lg flex-col gap-1.5">
           <input
             type="text"
             value={searchQuery}
@@ -195,6 +195,9 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
             placeholder="기관명으로 검색 (예: 사랑의 열매)"
             className={field}
           />
+          <p className="text-xs text-neutral-400">
+            정확히 일치하지 않아도, 비슷한 물건에 가까운 순으로 함께 보여드려요
+          </p>
         </div>
       )}
 
@@ -245,7 +248,20 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
                 {need.needScore} · {need.needLabel}
               </span>
             </div>
-            <p className="text-[14px] text-neutral-900">{need.needReason}</p>
+            {/*
+              exact 등급은 진행 상황을 설명하는 문장(needReason)을 그대로 보여준다.
+              similar/different는 카드마다 문장으로 풀면 장황해서, 같은 설명을 검색창
+              바로 아래 안내 문구로 한 번만 하고 카드에는 짧은 배지만 남긴다. 배지는
+              기부자 개인이 아니라 "이 요청과의 관계"를 가리키므로 선의를 채점하는
+              것으로 읽히지 않는다.
+            */}
+            {need.matchGrade === "exact" ? (
+              <p className="text-[14px] text-neutral-900">{need.needReason}</p>
+            ) : (
+              <span className="inline-flex w-fit items-center rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-bold text-neutral-500">
+                {need.matchGrade === "similar" ? "비슷한 분류" : "다른 분류"}
+              </span>
+            )}
             {need.note && <p className={caption}>{need.note}</p>}
 
             {/*
@@ -255,10 +271,6 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
               개념(여럿이 나눠 채운다)을 보여주는 부분이라, 조절 UI 없이 미리보기만 남긴다.
               getQuantity/setQuantity/getMaxQuantity 함수는 조절 UI를 되살릴 때 다시 쓸 수
               있게 그대로 남겨뒀다.
-            */}
-            {/*
-              등급 뱃지를 붙이지 않는 건 의도적이다. "비슷한 품목" 같은 라벨은 선의로
-              물건을 내놓는 사람에게 등급을 매기는 것으로 읽힌다. 사실은 문장으로 푼다.
             */}
             <div className="mt-auto flex flex-col gap-1.5">
               {need.matchGrade === "different" ? (
