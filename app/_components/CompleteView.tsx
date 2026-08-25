@@ -293,11 +293,13 @@ export default function CompleteView({ applicationId }: { applicationId: string 
               targetQty={need.targetQty}
               progress={need.progress}
               pendingQty={need.pendingQty}
+              // 거절된 신청은 이 요청에 아무 영향이 없으므로 내 몫을 그리지 않는다.
               mineQty={
-                application.status === "pending" && categoryMatches
+                categoryMatches && application.status !== "rejected"
                   ? application.quantity
                   : undefined
               }
+              mineCounted={application.status === "accepted"}
             />
             {application.status === "pending" && !categoryMatches && (
               <p className="text-xs text-warning-fg">
