@@ -7,6 +7,7 @@ import type { ApplicationDetail } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import {
   btnGhost,
+  btnOutline,
   btnSecondary,
   caption,
   card,
@@ -52,6 +53,7 @@ export default function CompleteView({ applicationId }: { applicationId: string 
   const [application, setApplication] = useState<ApplicationDetail | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [refreshingStatus, setRefreshingStatus] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
   // 연결 실패 화면의 '다시 시도'가 아래 최초 로드 effect를 한 번 더 돌리는 손잡이.
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -119,6 +121,26 @@ export default function CompleteView({ applicationId }: { applicationId: string 
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [applicationId, application?.status]);
+
+  function handleAddToCalendar() {
+    setCalendarError(null);
+    if (!application?.confirmedDate) return;
+    try {
+      const ics = buildCalendarFile(application);
+      const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `여러시-전달-${application.confirmedDate}.ics`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // 즉시 해제하면 브라우저가 파일을 다 읽기 전에 사라지는 경우가 있다.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      setCalendarError("달력 파일을 만들지 못했어요. 날짜를 직접 저장해주세요");
+    }
+  }
 
   async function handleRefreshStatus() {
     setRefreshingStatus(true);
@@ -235,6 +257,14 @@ export default function CompleteView({ applicationId }: { applicationId: string 
               <br />
               {application.foodBank.address}
             </p>
+            {/* 날짜를 화면에 적어두는 것과 잊지 않는 것은 다른 문제다.
+                약속이 정해진 이 자리에서 바로 달력으로 옮길 수 있게 한다. */}
+            <div className="mt-3 flex">
+              <button onClick={handleAddToCalendar} className={btnOutline}>
+                달력에 추가
+              </button>
+            </div>
+            {calendarError && <p className="mt-2 text-[13px] text-danger-fg">{calendarError}</p>}
           </div>
         ) : (
           <div
@@ -360,3 +390,67 @@ function formatExpiry(iso: string) {
   return `${y}년 ${Number(m)}월 ${Number(d)}일`;
 }
 
+/** "오전 9-12시", "오후 2-6시" 같은 수거 시간대를 24시간 기준 시각으로 바꾼다.
+ * 못 읽으면 null을 돌려주고, 그때는 하루 종일 일정으로 만든다 — 시간을 틀리게 넣느니 없는 게 낫다. */
+function parseSlotHours(slot: string | null) {
+  if (!slot) return null;
+  const nums = slot.match(/\d+/g);
+  if (!nums || nums.length < 2) return null;
+  const isAfternoon = slot.includes("오후");
+  const to24 = (h: number) => (isAfternoon && h < 12 ? h + 12 : h);
+  const start = to24(Number(nums[0]));
+  const end = to24(Number(nums[1]));
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  if (start < 0 || start > 23 || end <= start || end > 24) return null;
+  return { start, end };
+}
+
+/** ics 값에는 쉼표·세미콜론·역슬래시·줄바꿈이 그대로 들어가면 안 된다. */
+function escapeIcsText(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+/** 전달 약속 한 건을 달력 파일(.ics)로 만든다.
+ * 시각은 TZID 없이 지역 시간 그대로 적는다 — 기부자와 기관이 같은 지역에 있고,
+ * VTIMEZONE 블록을 붙이는 것보다 이쪽이 어느 달력 앱에서나 덜 어긋난다. */
+function buildCalendarFile(application: ApplicationDetail) {
+  const date = application.confirmedDate!;
+  const compactDate = date.replace(/-/g, "");
+  const hours = parseSlotHours(application.confirmedSlot);
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+  const when = hours
+    ? [
+        `DTSTART:${compactDate}T${pad(hours.start)}0000`,
+        `DTEND:${compactDate}T${pad(hours.end)}0000`,
+      ]
+    : [`DTSTART;VALUE=DATE:${compactDate}`, `DTEND;VALUE=DATE:${compactDate}`];
+
+  const title = `${application.donation.itemName} ${application.quantity}개 전달`;
+  const detail = [
+    `${application.foodBank.name}에 나눔 물품을 전달하는 날이에요.`,
+    application.confirmedSlot ? `수거 시간: ${application.confirmedSlot}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//여러시//나눔 신청//KO",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${application.id}@yeoreosi`,
+    `DTSTAMP:${stamp}`,
+    ...when,
+    `SUMMARY:${escapeIcsText(title)}`,
+    `LOCATION:${escapeIcsText(application.foodBank.address)}`,
+    `DESCRIPTION:${escapeIcsText(detail)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+}
