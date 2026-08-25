@@ -180,12 +180,13 @@ export default function NeedProgress({
             {mineCounted ? " (반영됨)" : ""}
           </span>
           {othersQty > 0 && (
+            // "다른 대기"라고만 하면 누가 무엇을 기다리는 건지 알 수 없다. 주어를 밝힌다.
             <span className="flex items-center gap-1.5 text-neutral-400">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-[3px] opacity-30"
                 style={{ backgroundImage: MINE_STRIPES, color: "var(--color-neutral-900)" }}
               />
-              다른 대기 {othersQty.toLocaleString()}개
+              다른 기부자 {othersQty.toLocaleString()}개
             </span>
           )}
         </div>
@@ -198,13 +199,27 @@ export default function NeedProgress({
               {Math.min(100, progress + pendingWidth)}%
             </p>
           )
-        : !mineCounted && (
+        : // 빗금이 "아직 기관이 확인 안 한 몫"이라는 뜻임을 글로도 한 번 말해준다.
+          (minePending > 0 || othersWidth > 0) && (
             <p className="text-xs text-neutral-500">
-              내 신청이 수락되면{" "}
-              <strong className="text-primary-700">
-                {Math.min(100, progress + minePending)}%
-              </strong>
-              {othersWidth > 0 && ` · 다른 대기까지 ${Math.min(100, progress + pendingWidth)}%`}
+              빗금은 기관 확인 대기중이에요 ·{" "}
+              {minePending > 0 ? (
+                <>
+                  내 신청이 수락되면{" "}
+                  <strong className="text-primary-700">
+                    {Math.min(100, progress + minePending)}%
+                  </strong>
+                  {othersWidth > 0 &&
+                    `, 다른 기부자 것까지 ${Math.min(100, progress + pendingWidth)}%`}
+                </>
+              ) : (
+                <>
+                  다른 기부자 것까지 수락되면{" "}
+                  <strong className="text-primary-700">
+                    {Math.min(100, progress + pendingWidth)}%
+                  </strong>
+                </>
+              )}
             </p>
           )}
     </div>
