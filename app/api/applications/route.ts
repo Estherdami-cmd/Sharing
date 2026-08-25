@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isValidISODate, isValidPhone } from "@/lib/rules";
-import { createApplication, describeApplication, getNeed, listApplications } from "@/lib/store";
+import { createApplication, describeApplication, getDonation, getNeed, listApplications } from "@/lib/store";
 
 export async function POST(request: Request) {
   let body: any;
@@ -49,6 +49,18 @@ export async function POST(request: Request) {
   const need = getNeed(needId);
   if (!need) {
     return NextResponse.json({ error: "요청을 찾을 수 없습니다" }, { status: 404 });
+  }
+
+  // needId는 항상 씨드 데이터라 재배포돼도 그대로 있지만, donationId는 사용자가
+  // 방금 등록한 값이라 이 자리에 없을 수 있다(예: 서버리스 인스턴스가 바뀌어 그
+  // 인스턴스 메모리엔 없는 경우). 검증 없이 넘어가면 존재하지 않는 물품을 참조하는
+  // 신청이 그대로 저장되고, 나중에 그 신청을 보여주려는 화면(기관 관리 등)이
+  // donation이 undefined인 채로 필드를 읽다가 그대로 죽는다.
+  if (!getDonation(donationId)) {
+    return NextResponse.json(
+      { error: "등록한 물품 정보를 찾을 수 없어요. 물품 등록부터 다시 시도해주세요" },
+      { status: 404 }
+    );
   }
 
   const quantityNum = Number(quantity);
