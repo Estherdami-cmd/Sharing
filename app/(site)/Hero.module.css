@@ -36,64 +36,82 @@
 }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
 
-@keyframes iconInUp {
-  from { opacity: 0; transform: translateY(16px) scale(0.82); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+/* 실제 나눔 요청 칩들이 둥둥 떠다니다 사라진다. 바깥(floatFade)은 등장·소멸 주기,
+   안쪽(floatBob)은 계속되는 위아래 흔들림 — 둘을 겹쳐서 "떠다니는" 느낌을 만든다. */
+@keyframes floatFade {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  70%  { opacity: 1; }
+  85%  { opacity: 0; }
+  100% { opacity: 0; }
 }
-@keyframes iconInDown {
-  from { opacity: 0; transform: translateY(-16px) scale(0.82); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+.floatFade { animation: floatFade ease-in-out infinite both; }
+
+@keyframes floatBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
 }
-.iconEnter > path, .iconEnter > g { transform-box: fill-box; transform-origin: center; }
-.iconEnter > path:nth-child(1)  { animation: iconInUp .6s ease-out both;   animation-delay: 0ms; }
-.iconEnter > path:nth-child(2)  { animation: iconInDown .6s ease-out both; animation-delay: 70ms; }
-.iconEnter > path:nth-child(3)  { animation: iconInUp .6s ease-out both;   animation-delay: 140ms; }
-.iconEnter > path:nth-child(4)  { animation: iconInDown .6s ease-out both; animation-delay: 210ms; }
-.iconEnter > path:nth-child(5)  { animation: iconInUp .6s ease-out both;   animation-delay: 280ms; }
-.iconEnter > path:nth-child(6)  { animation: iconInDown .6s ease-out both; animation-delay: 350ms; }
-.iconEnter > path:nth-child(7)  { animation: iconInUp .6s ease-out both;   animation-delay: 420ms; }
-.iconEnter > path:nth-child(8)  { animation: iconInDown .6s ease-out both; animation-delay: 490ms; }
-.iconEnter > path:nth-child(9)  { animation: iconInUp .6s ease-out both;   animation-delay: 560ms; }
-.iconEnter > path:nth-child(10) { animation: iconInDown .6s ease-out both; animation-delay: 630ms; }
-.iconEnter > path:nth-child(11) { animation: iconInUp .6s ease-out both;   animation-delay: 700ms; }
-.iconEnter > path:nth-child(12) { animation: iconInDown .6s ease-out both; animation-delay: 770ms; }
-.iconEnter > g:nth-child(13)    { animation: iconInUp .6s ease-out both;   animation-delay: 840ms; }
+.floatBob { animation: floatBob ease-in-out infinite both; }
 
 @keyframes letterIn {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .letterEnter > path { transform-box: fill-box; transform-origin: center; }
-.letterEnter > path:nth-child(1)  { animation: letterIn .5s ease-out both; animation-delay: 900ms; }
-.letterEnter > path:nth-child(2)  { animation: letterIn .5s ease-out both; animation-delay: 990ms; }
-.letterEnter > path:nth-child(3)  { animation: letterIn .5s ease-out both; animation-delay: 1080ms; }
-.letterEnter > path:nth-child(4)  { animation: letterIn .5s ease-out both; animation-delay: 1170ms; }
-.letterEnter > path:nth-child(5)  { animation: letterIn .5s ease-out both; animation-delay: 1260ms; }
-.letterEnter > path:nth-child(6)  { animation: letterIn .5s ease-out both; animation-delay: 1350ms; }
-.letterEnter > path:nth-child(7)  { animation: letterIn .5s ease-out both; animation-delay: 1440ms; }
-.letterEnter > path:nth-child(8)  { animation: letterIn .5s ease-out both; animation-delay: 1560ms; }
-.letterEnter > path:nth-child(9)  { animation: letterIn .5s ease-out both; animation-delay: 1620ms; }
-.letterEnter > path:nth-child(10) { animation: letterIn .5s ease-out both; animation-delay: 1680ms; }
-.letterEnter > path:nth-child(11) { animation: letterIn .5s ease-out both; animation-delay: 1740ms; }
-.letterEnter > path:nth-child(12) { animation: letterIn .5s ease-out both; animation-delay: 1800ms; }
-.letterEnter > path:nth-child(13) { animation: letterIn .5s ease-out both; animation-delay: 1860ms; }
+.letterEnter > path:nth-child(1)  { animation: letterIn .6s ease-out both; animation-delay: 1000ms; }
+.letterEnter > path:nth-child(2)  { animation: letterIn .6s ease-out both; animation-delay: 1110ms; }
+.letterEnter > path:nth-child(3)  { animation: letterIn .6s ease-out both; animation-delay: 1220ms; }
+.letterEnter > path:nth-child(4)  { animation: letterIn .6s ease-out both; animation-delay: 1330ms; }
+.letterEnter > path:nth-child(5)  { animation: letterIn .6s ease-out both; animation-delay: 1440ms; }
+.letterEnter > path:nth-child(6)  { animation: letterIn .6s ease-out both; animation-delay: 1550ms; }
+.letterEnter > path:nth-child(7)  { animation: letterIn .6s ease-out both; animation-delay: 1660ms; }
+.letterEnter > path:nth-child(8)  { animation: letterIn .6s ease-out both; animation-delay: 1770ms; }
+.letterEnter > path:nth-child(9)  { animation: letterIn .6s ease-out both; animation-delay: 1880ms; }
+.letterEnter > path:nth-child(10) { animation: letterIn .6s ease-out both; animation-delay: 1990ms; }
+.letterEnter > path:nth-child(11) { animation: letterIn .6s ease-out both; animation-delay: 2100ms; }
+.letterEnter > path:nth-child(12) { animation: letterIn .6s ease-out both; animation-delay: 2210ms; }
+.letterEnter > path:nth-child(13) { animation: letterIn .6s ease-out both; animation-delay: 2320ms; }
 
-@keyframes wordmarkShrink {
-  from { width: min(92vw, 560px); margin-top: 4vh; }
-  to   { width: min(52vw, 300px); margin-top: 1.2vh; }
+/* 워드마크는 무대(stage)의 정중앙에 고정한다. width가 줄어도 translate(-50%,-50%)가
+   그때그때의 크기를 기준으로 다시 계산되어 항상 중심이 유지된다. 축소(wordmarkShrink)와
+   소멸(typeSlotFadeOut)을 한 요소에 같이 걸 때는 반드시 하나의 animation 속성에
+   콤마로 나열해야 한다 — 클래스를 따로 둬서 각자 animation을 선언하면 나중 규칙이
+   앞 규칙을 통째로 덮어써서 하나만 실행된다. */
+.typeSlot {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  animation:
+    wordmarkShrink .7s cubic-bezier(.3,0,.2,1) forwards,
+    typeSlotFadeOut .5s ease-in forwards;
+  animation-delay: 3400ms, 4700ms;
 }
-.typeSlot { animation: wordmarkShrink .7s cubic-bezier(.3,0,.2,1) forwards; animation-delay: 3000ms; }
+@keyframes wordmarkShrink {
+  from { width: min(92vw, 560px); }
+  to   { width: min(58vw, 320px); }
+}
+@keyframes typeSlotFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* 워드마크가 완전히 사라진 다음에야 기부 버튼이 나타난다 — 겹쳐 보이지 않게
+   두 애니메이션의 시간대를 아예 분리한다(워드마크 종료 5200ms, 버튼 시작 5300ms). */
+.ctaReveal { opacity: 0; animation: ctaReveal .6s ease-out forwards; animation-delay: 5300ms; }
+@keyframes ctaReveal {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 
 @keyframes taglineFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.taglineFade { opacity: 0; animation: taglineFadeIn .7s ease-out forwards; animation-delay: 3300ms; }
+.taglineFade { opacity: 0; animation: taglineFadeIn .8s ease-out forwards; animation-delay: 4200ms; }
 
 /* 모션을 줄이도록 설정한 사용자에게는 입장 애니메이션을 끄고 바로 최종 상태로 보여준다.
    자동 스크롤은 아예 걸지 않는다(별도로 page.tsx에서 처리). */
 @media (prefers-reduced-motion: reduce) {
   .bgDrift { animation: none; }
   .scrollBtn { animation: none; }
-  .iconEnter > path, .iconEnter > g { animation: none; opacity: 1; transform: none; }
+  .floatFade { animation: none; opacity: 1; }
+  .floatBob { animation: none; transform: none; }
   .letterEnter > path { animation: none; opacity: 1; transform: none; }
-  .typeSlot { animation: none; width: min(52vw, 300px); margin-top: 1.2vh; }
+  .typeSlot { animation: none; width: min(58vw, 320px); opacity: 0; }
+  .ctaReveal { animation: none; opacity: 1; transform: translate(-50%, -50%); }
   .taglineFade { animation: none; opacity: 1; transform: none; }
 }
