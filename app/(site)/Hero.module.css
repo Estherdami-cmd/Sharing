@@ -1,0 +1,99 @@
+/* 여러시 랜딩 히어로 전용 애니메이션. 다른 화면과 겹치지 않게 CSS 모듈로 분리했다. */
+
+.bgDrift {
+  position: absolute;
+  inset: -35%;
+  z-index: 0;
+  filter: blur(32px);
+  background-color: #849268;
+  background-image:
+    radial-gradient(ellipse 100% 95% at 50% 45%, transparent 52%, rgba(40, 48, 28, 0.18) 100%),
+    radial-gradient(circle at 68% 64%, rgba(198, 169, 76, 0.55) 0%, rgba(198, 169, 76, 0) 55%),
+    radial-gradient(circle at 30% 60%, rgba(183, 166, 97, 0.5) 0%, rgba(183, 166, 97, 0) 55%),
+    radial-gradient(circle at 82% 80%, rgba(130, 156, 115, 0.6) 0%, rgba(130, 156, 115, 0) 58%),
+    radial-gradient(circle at 16% 76%, rgba(114, 128, 104, 0.6) 0%, rgba(114, 128, 104, 0) 58%),
+    radial-gradient(circle at 78% 18%, rgba(138, 154, 103, 0.6) 0%, rgba(138, 154, 103, 0) 60%),
+    radial-gradient(circle at 24% 24%, rgba(140, 144, 87, 0.6) 0%, rgba(140, 144, 87, 0) 60%),
+    radial-gradient(circle at 50% 75%, rgba(154, 160, 113, 0.55) 0%, rgba(154, 160, 113, 0) 56%),
+    radial-gradient(circle at 55% 25%, rgba(99, 105, 119, 0.4) 0%, rgba(99, 105, 119, 0) 50%),
+    radial-gradient(circle at 8% 46%, rgba(137, 160, 128, 0.55) 0%, rgba(137, 160, 128, 0) 55%),
+    radial-gradient(circle at 92% 46%, rgba(114, 130, 94, 0.55) 0%, rgba(114, 130, 94, 0) 55%);
+  animation: drift 15s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes drift {
+  0%   { transform: translate(0%, 0%) scale(1) rotate(0deg); }
+  25%  { transform: translate(-2.5%, 1.5%) scale(1.05) rotate(1.2deg); }
+  50%  { transform: translate(1.5%, -2%) scale(1.02) rotate(-1deg); }
+  75%  { transform: translate(2%, 2.2%) scale(1.06) rotate(0.6deg); }
+  100% { transform: translate(0%, 0%) scale(1) rotate(0deg); }
+}
+
+.scrollBtn {
+  cursor: pointer; border: none; background: transparent; padding: 10px;
+  display: flex; align-items: center; justify-content: center;
+  animation: bob 2.4s ease-in-out infinite;
+}
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
+
+@keyframes iconInUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.82); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes iconInDown {
+  from { opacity: 0; transform: translateY(-16px) scale(0.82); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.iconEnter > path, .iconEnter > g { transform-box: fill-box; transform-origin: center; }
+.iconEnter > path:nth-child(1)  { animation: iconInUp .6s ease-out both;   animation-delay: 0ms; }
+.iconEnter > path:nth-child(2)  { animation: iconInDown .6s ease-out both; animation-delay: 70ms; }
+.iconEnter > path:nth-child(3)  { animation: iconInUp .6s ease-out both;   animation-delay: 140ms; }
+.iconEnter > path:nth-child(4)  { animation: iconInDown .6s ease-out both; animation-delay: 210ms; }
+.iconEnter > path:nth-child(5)  { animation: iconInUp .6s ease-out both;   animation-delay: 280ms; }
+.iconEnter > path:nth-child(6)  { animation: iconInDown .6s ease-out both; animation-delay: 350ms; }
+.iconEnter > path:nth-child(7)  { animation: iconInUp .6s ease-out both;   animation-delay: 420ms; }
+.iconEnter > path:nth-child(8)  { animation: iconInDown .6s ease-out both; animation-delay: 490ms; }
+.iconEnter > path:nth-child(9)  { animation: iconInUp .6s ease-out both;   animation-delay: 560ms; }
+.iconEnter > path:nth-child(10) { animation: iconInDown .6s ease-out both; animation-delay: 630ms; }
+.iconEnter > path:nth-child(11) { animation: iconInUp .6s ease-out both;   animation-delay: 700ms; }
+.iconEnter > path:nth-child(12) { animation: iconInDown .6s ease-out both; animation-delay: 770ms; }
+.iconEnter > g:nth-child(13)    { animation: iconInUp .6s ease-out both;   animation-delay: 840ms; }
+
+@keyframes letterIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.letterEnter > path { transform-box: fill-box; transform-origin: center; }
+.letterEnter > path:nth-child(1)  { animation: letterIn .5s ease-out both; animation-delay: 900ms; }
+.letterEnter > path:nth-child(2)  { animation: letterIn .5s ease-out both; animation-delay: 990ms; }
+.letterEnter > path:nth-child(3)  { animation: letterIn .5s ease-out both; animation-delay: 1080ms; }
+.letterEnter > path:nth-child(4)  { animation: letterIn .5s ease-out both; animation-delay: 1170ms; }
+.letterEnter > path:nth-child(5)  { animation: letterIn .5s ease-out both; animation-delay: 1260ms; }
+.letterEnter > path:nth-child(6)  { animation: letterIn .5s ease-out both; animation-delay: 1350ms; }
+.letterEnter > path:nth-child(7)  { animation: letterIn .5s ease-out both; animation-delay: 1440ms; }
+.letterEnter > path:nth-child(8)  { animation: letterIn .5s ease-out both; animation-delay: 1560ms; }
+.letterEnter > path:nth-child(9)  { animation: letterIn .5s ease-out both; animation-delay: 1620ms; }
+.letterEnter > path:nth-child(10) { animation: letterIn .5s ease-out both; animation-delay: 1680ms; }
+.letterEnter > path:nth-child(11) { animation: letterIn .5s ease-out both; animation-delay: 1740ms; }
+.letterEnter > path:nth-child(12) { animation: letterIn .5s ease-out both; animation-delay: 1800ms; }
+.letterEnter > path:nth-child(13) { animation: letterIn .5s ease-out both; animation-delay: 1860ms; }
+
+@keyframes wordmarkShrink {
+  from { width: min(92vw, 560px); margin-top: 4vh; }
+  to   { width: min(52vw, 300px); margin-top: 1.2vh; }
+}
+.typeSlot { animation: wordmarkShrink .7s cubic-bezier(.3,0,.2,1) forwards; animation-delay: 3000ms; }
+
+@keyframes taglineFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.taglineFade { opacity: 0; animation: taglineFadeIn .7s ease-out forwards; animation-delay: 3300ms; }
+
+/* 모션을 줄이도록 설정한 사용자에게는 입장 애니메이션을 끄고 바로 최종 상태로 보여준다.
+   자동 스크롤은 아예 걸지 않는다(별도로 page.tsx에서 처리). */
+@media (prefers-reduced-motion: reduce) {
+  .bgDrift { animation: none; }
+  .scrollBtn { animation: none; }
+  .iconEnter > path, .iconEnter > g { animation: none; opacity: 1; transform: none; }
+  .letterEnter > path { animation: none; opacity: 1; transform: none; }
+  .typeSlot { animation: none; width: min(52vw, 300px); margin-top: 1.2vh; }
+  .taglineFade { animation: none; opacity: 1; transform: none; }
+}
