@@ -87,6 +87,18 @@ export function isValidISODate(value: string): boolean {
   return ISO_DATE.test(value);
 }
 
+/** 하이픈을 뺀 휴대폰 번호. 010-1234-5678과 011-123-4567 같은 옛 번호를 모두 받는다. */
+const PHONE_DIGITS = /^01[016789]\d{7,8}$/;
+
+/**
+ * 계정이 없는 서비스라 이 번호가 기관이 기부자에게 닿는 유일한 통로다.
+ * 한 자리만 적어도 신청이 만들어지면 기관은 물품을 기다리다 못 받는다.
+ * 입력 단계에서 이미 숫자만 남기므로 여기서는 자릿수와 앞자리만 본다.
+ */
+export function isValidPhone(value: string): boolean {
+  return PHONE_DIGITS.test(value);
+}
+
 /** "YYYY-MM-DD"를 로컬 자정으로 파싱한다. new Date(문자열)은 UTC로 읽혀 KST에서 하루 밀린다. */
 export function parseLocalDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { DAY_NAMES, formatKoreanDate, isSameItem } from "@/lib/rules";
+import { useCallback, useEffect, useState } from "react";
+import { DAY_NAMES, formatKoreanDate, isSameItem, isValidPhone } from "@/lib/rules";
 import type { DateOption, Donation, NeedView } from "@/lib/store";
 import {
   btnGhost,
@@ -44,10 +44,16 @@ export default function ApplyForm() {
   // 고른 날짜 후보를 전부 기관에 제안으로 보낸다. 기관이 이 중 하나를 골라 확정한다.
   const [selectedOptions, setSelectedOptions] = useState<DateOption[]>([]);
   const [contact, setContact] = useState("");
+  // 입력하는 동안 빨간 글씨를 띄우면 다 적기도 전에 틀렸다고 하는 꼴이라,
+  // 입력란을 벗어난 뒤부터 형식을 지적한다.
+  const [contactTouched, setContactTouched] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [submittingApplication, setSubmittingApplication] = useState(false);
 
   const place = selectedNeed?.foodBank.name ?? "";
+
+  // 제출 조건. 전달 장소는 매칭된 기관명이 자동으로 들어가므로 검사 대상이 아니다.
+  const canSubmit = selectedOptions.length > 0 && isValidPhone(contact);
 
   /*
     수량은 등록 화면(/donate)에서 적은 값이 매칭 화면을 거쳐 주소로 실려 온다.
@@ -111,23 +117,46 @@ export default function ApplyForm() {
     setSelectedOptions([]);
   }
 
-  async function handleRecommendDates() {
-    if (!selectedNeed) return;
+  const foodBankId = selectedNeed?.foodBank.id;
+  const expiryDate = donation?.expiryDate;
+
+  const loadDateOptions = useCallback(async () => {
+    if (!foodBankId) return;
     setLoadingSlots(true);
     setSlotMessage(null);
 
     const query = new URLSearchParams({ days: donorDays.join(","), slot: donorSlot });
-    if (donation?.expiryDate) query.set("maxDate", donation.expiryDate);
+    if (expiryDate) query.set("maxDate", expiryDate);
 
-    const res = await fetch(`/api/slots/${selectedNeed.foodBank.id}?${query}`);
-    setLoadingSlots(false);
-    if (!res.ok) return;
+    try {
+      const res = await fetch(`/api/slots/${foodBankId}?${query}`);
+      if (!res.ok) {
+        // 조용히 끝내면 로딩만 멈추고 화면이 그대로라, 버튼이 고장난 것처럼 보인다.
+        setDateOptions([]);
+        setSlotMessage("가능한 날짜를 불러오지 못했어요. 잠시 후 다시 시도해주세요");
+        return;
+      }
+      const data = await res.json();
+      setDateOptions(data.options);
+      setSlotMessage(data.message);
+      setSelectedOptions([]);
+    } catch {
+      setDateOptions([]);
+      setSlotMessage("연결에 문제가 있어요. 잠시 후 다시 시도해주세요");
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [foodBankId, donorDays, donorSlot, expiryDate]);
 
-    const data = await res.json();
-    setDateOptions(data.options);
-    setSlotMessage(data.message);
-    setSelectedOptions([]);
-  }
+  // 요일 미선택·시간대 "상관없음"이 이미 유효한 기본값이다. 버튼을 눌러야만 목록이
+  // 뜨면, 안 누른 사용자는 "날짜를 고르라"는 오류만 보고 고를 목록은 못 본다.
+  // 화면이 준비되는 즉시 기본 조건으로 한 번 불러온다. 이후 조건 변경은 버튼으로 한다.
+  const [autoLoaded, setAutoLoaded] = useState(false);
+  useEffect(() => {
+    if (loadState !== "ready" || autoLoaded) return;
+    setAutoLoaded(true);
+    loadDateOptions();
+  }, [loadState, autoLoaded, loadDateOptions]);
 
   /**
    * 여러 날짜를 골라서 전부 기관에 제안으로 보낸다 — 다시 누르면 선택 해제.
@@ -152,12 +181,9 @@ export default function ApplyForm() {
       setApplyError("추천 날짜 중 하나 이상 선택해주세요");
       return;
     }
-    if (!place) {
-      setApplyError("전달 장소를 입력해주세요");
-      return;
-    }
-    if (!contact) {
-      setApplyError("연락처를 입력해주세요");
+    if (!isValidPhone(contact)) {
+      setContactTouched(true);
+      setApplyError("연락처를 다시 확인해주세요 (010으로 시작하는 10~11자리)");
       return;
     }
 
@@ -255,7 +281,8 @@ export default function ApplyForm() {
             </p>
           ) : (
             <p className="text-xs text-neutral-400">
-              수량은 물품 등록 화면에서 적은 값이에요. 바꾸려면 등록 화면으로 돌아가주세요
+              수량은 매칭 화면에서 정한 값이에요. 바꾸려면 아래 &apos;매칭 결과로 돌아가기&apos;를
+              눌러주세요
             </p>
           )}
         </div>
@@ -310,8 +337,13 @@ export default function ApplyForm() {
           </p>
         </div>
 
-        <button onClick={handleRecommendDates} disabled={loadingSlots} className={btnSecondary}>
-          {loadingSlots ? "가능한 날짜를 찾는 중..." : "AI 추천 날짜 받기"}
+        {/* 자동으로 한 번 불러온 뒤에는 이 버튼의 역할이 '조건을 바꿔 다시 찾기'로 바뀐다. */}
+        <button onClick={loadDateOptions} disabled={loadingSlots} className={btnSecondary}>
+          {loadingSlots
+            ? "가능한 날짜를 찾는 중..."
+            : autoLoaded
+              ? "조건 바꿔서 다시 찾기"
+              : "AI 추천 날짜 받기"}
         </button>
 
         {slotMessage && (
@@ -327,6 +359,10 @@ export default function ApplyForm() {
         {dateOptions.length > 0 && (
           <p className="text-xs text-neutral-400">
             가능한 날짜를 여러 개 골라서 제안해보세요. 기관이 그중 하나를 골라 확정해줘요
+            {/* 목록이 길면 몇 개 골랐는지 잊는다. 기관에 무엇을 보내는지가 이 화면의 결과물이다. */}
+            {selectedOptions.length > 0 && (
+              <strong className="ml-1 text-primary-700">· {selectedOptions.length}개 선택됨</strong>
+            )}
           </p>
         )}
 
@@ -359,15 +395,36 @@ export default function ApplyForm() {
             pattern="[0-9]*"
             placeholder="01000000000"
             value={contact}
-            onChange={(e) => setContact(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => {
+              setContact(e.target.value.replace(/\D/g, ""));
+              setApplyError(null);
+            }}
+            onBlur={() => setContactTouched(true)}
             className={field}
           />
+          {contactTouched && contact && !isValidPhone(contact) ? (
+            <p className="text-xs text-danger-fg">010으로 시작하는 10~11자리로 적어주세요</p>
+          ) : (
+            <p className="text-xs text-neutral-400">
+              기관이 전달 일정을 확인할 때 이 번호로 연락해요
+            </p>
+          )}
         </div>
 
         {applyError && <p className="text-[13px] text-danger-fg">{applyError}</p>}
 
-        <button onClick={handleApplySubmit} disabled={submittingApplication} className={btnPrimary}>
-          {submittingApplication ? "신청 중..." : "나눔 신청하기"}
+        {/* 눌러본 뒤에 틀렸다고 하지 않는다 — 조건이 안 맞으면 아예 못 누르게 한다
+            (DESIGN_GUIDE 1.1 "실패를 미리 막는다", RegisterFlow의 canGoNext와 같은 방식). */}
+        <button
+          onClick={handleApplySubmit}
+          disabled={!canSubmit || submittingApplication}
+          className={btnPrimary}
+        >
+          {submittingApplication
+            ? "신청 중..."
+            : selectedOptions.length > 0
+              ? `${selectedOptions.length}개 날짜로 신청하기`
+              : "나눔 신청하기"}
         </button>
       </div>
 
