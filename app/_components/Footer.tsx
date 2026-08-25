@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BrandMark from "./BrandMark";
 
 const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -29,10 +30,8 @@ export default function Footer() {
         <div className="flex flex-col gap-6 sm:flex-row sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span className="grid size-7 place-items-center rounded-lg bg-primary-500 text-sm font-extrabold text-neutral-900">
-                나
-              </span>
-              <span className="text-[17px] font-extrabold tracking-[-0.03em]">나눔곳간</span>
+              <BrandMark />
+              <span className="text-[17px] font-extrabold tracking-[-0.03em]">여러시</span>
             </div>
             <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-neutral-500">
               기관이 먼저 필요를 밝히면, 여럿이 나눠서 채우는 나눔 서비스예요.
@@ -58,7 +57,7 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-col gap-2 border-t border-neutral-200/70 pt-6 text-xs text-neutral-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 나눔곳간. All rights reserved.</p>
+          <p>© 2026 여러시. All rights reserved.</p>
           <div className="flex gap-3">
             <Link href="/terms" className="hover:text-neutral-600">
               이용약관

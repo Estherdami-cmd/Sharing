@@ -6,6 +6,7 @@ import Header from "@/app/_components/Header";
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+      <div className="bg-drift-page" aria-hidden />
       <Header />
       {children}
       <Footer />

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import BrandMark from "./BrandMark";
 
 /** ui.ts의 btnPrimary는 폼용 풀사이즈 버튼이라 h-14/rounded-xl이 고정돼 있다.
  * 헤더 CTA는 히어로의 알약형 버튼과 같은 크기라 직접 스타일링한다.
@@ -46,10 +47,8 @@ export default function Header() {
     >
       <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5 md:px-6 lg:px-8">
         <Link href="/" className="flex cursor-pointer items-center gap-2" onClick={() => setMenuOpen(false)}>
-          <span className="grid size-7 place-items-center rounded-lg bg-primary-500 text-sm font-extrabold text-neutral-900">
-            나
-          </span>
-          <span className="text-[17px] font-extrabold tracking-[-0.03em]">나눔곳간</span>
+          <BrandMark />
+          <span className="text-[17px] font-extrabold tracking-[-0.03em]">여러시</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">

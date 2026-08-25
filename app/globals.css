@@ -1,44 +1,79 @@
 @import "tailwindcss";
 
-/* 디자인 토큰. 자세한 근거는 DESIGN_GUIDE.md 참고. */
+/* 디자인 토큰 — 여러시(YEORESI) 브랜드. 올리브그린 손그림 무드를 실제 화면(폼·리스트·버튼)에
+   맞게 옮긴 값. 브랜드 포스터의 손그림 텍스처는 로고에만 쓰고, 화면 본문은 이 토큰으로 절제한다. */
 @theme {
-  /* Primary — 라임그린(#9ccf48). 밝은 색이라 500은 '면'에만 쓰고,
-     글자·아이콘은 700 이상을 쓴다. 700은 흰 글씨 대비 4.6:1로 AA를 넘긴다. */
-  --color-primary-50: #f6fbee;
-  --color-primary-100: #eaf6d8;
-  --color-primary-200: #d6edb5;
-  --color-primary-300: #bce287;
-  --color-primary-400: #a9d862;
-  --color-primary-500: #9ccf48;
-  --color-primary-600: #7fb02f;
-  --color-primary-700: #628a26;
-  --color-primary-800: #4e6d23;
-  --color-primary-900: #415b20;
-  --color-primary-950: #21330c;
+  /* Primary — 올리브그린. 밝은 색이라 500은 '면'에만 쓰고,
+     글자·아이콘은 700 이상을 쓴다. 700은 흰 글씨 대비 AA를 넘긴다. */
+  --color-primary-50: #f5f7ec;
+  --color-primary-100: #e8edd3;
+  --color-primary-200: #d3ddae;
+  --color-primary-300: #b7c687;
+  --color-primary-400: #a0bc72;
+  --color-primary-500: #8fa85c;
+  --color-primary-600: #74923f;
+  --color-primary-700: #5d7a2f;
+  --color-primary-800: #4a6226;
+  --color-primary-900: #3a4e1e;
+  --color-primary-950: #2a3816;
 
-  /* Neutral — 살짝 푸른 기가 도는 회색. 라임과 나란히 놓아도 탁해지지 않는다. */
-  --color-neutral-50: #f9fafb;
-  --color-neutral-100: #f2f4f6;
-  --color-neutral-200: #e5e8eb;
-  --color-neutral-300: #d1d6db;
-  --color-neutral-400: #b0b8c1;
-  --color-neutral-500: #8b95a1;
-  --color-neutral-600: #6b7684;
-  --color-neutral-700: #4e5968;
-  --color-neutral-800: #333d4b;
-  --color-neutral-900: #191f28;
-  --color-neutral-950: #0d1117;
+  /* Neutral — 살짝 따뜻한 크림톤. 손그림 브랜드와 같이 놓아도 차갑게 뜨지 않는다. */
+  --color-neutral-50: #faf8f2;
+  --color-neutral-100: #f2eee1;
+  --color-neutral-200: #e4dfcb;
+  --color-neutral-300: #d3cbae;
+  --color-neutral-400: #b3a98a;
+  --color-neutral-500: #8c8368;
+  --color-neutral-600: #6b6450;
+  --color-neutral-700: #4f4a3b;
+  --color-neutral-800: #38352a;
+  --color-neutral-900: #211f19;
+  --color-neutral-950: #161409;
 
-  /* Semantic — 상태 전달 전용. 채도를 낮춰 라임보다 튀지 않게 했다.
-     success는 라임과 헷갈리지 않도록 청록 쪽으로 밀었다. */
-  --color-success-bg: #e4f5f0;
-  --color-success-fg: #0a8f6f;
-  --color-warning-bg: #fff6e5;
-  --color-warning-fg: #b26a00;
-  --color-danger-bg: #fdeced;
-  --color-danger-fg: #d13c40;
+  /* Semantic — 상태 전달 전용. success는 브랜드 올리브와 헷갈리지 않도록 청록 쪽으로 밀었다. */
+  --color-success-bg: #e1f0ec;
+  --color-success-fg: #1b7a63;
+  --color-warning-bg: #fbf0dc;
+  --color-warning-fg: #9c6b14;
+  --color-danger-bg: #fbeae7;
+  --color-danger-fg: #b23a2e;
 
-  --font-sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-sans: "Gowun Batang", "Apple SD Gothic Neo", "Malgun Gothic", serif;
+}
+
+/* 브랜드 배경 — 은은하게 섞여 아주 천천히 움직이는 컬러 레이어.
+   본문 가독성을 해치지 않도록 알파를 낮게 잡았다. app/(site)/layout.tsx가 모든 화면에 얹는다. */
+.bg-drift-page {
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  filter: blur(40px);
+  background-color: var(--color-neutral-50);
+  background-image:
+    radial-gradient(circle at 70% 65%, rgb(217 169 63 / 0.16) 0%, rgb(217 169 63 / 0) 55%),
+    radial-gradient(circle at 25% 70%, rgb(143 168 92 / 0.2) 0%, rgb(143 168 92 / 0) 55%),
+    radial-gradient(circle at 80% 20%, rgb(93 122 47 / 0.14) 0%, rgb(93 122 47 / 0) 58%),
+    radial-gradient(circle at 15% 20%, rgb(179 169 138 / 0.18) 0%, rgb(179 169 138 / 0) 55%);
+  animation: page-drift 26s ease-in-out infinite;
+}
+
+@keyframes page-drift {
+  0%,
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  33% {
+    transform: translate(-2%, 1.5%) scale(1.03);
+  }
+  66% {
+    transform: translate(2%, -1.5%) scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-drift-page {
+    animation: none;
+  }
 }
 
 /* Tailwind preflight이 이미 리셋을 포함한다.

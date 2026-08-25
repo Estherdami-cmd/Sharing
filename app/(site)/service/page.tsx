@@ -6,7 +6,7 @@ export default function ServicePage() {
     <PageShell>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <header className="text-center">
-          <h1 className={pageTitle}>나눔곳간은 이렇게 동작해요</h1>
+          <h1 className={pageTitle}>여러시는 이렇게 동작해요</h1>
           <p className={pageDesc}>
             기관이 먼저 "이 물건이 이만큼 필요해요"를 올리고, 개인이 사진 한 장으로 그 목표를
             나눠 채우는 서비스예요.

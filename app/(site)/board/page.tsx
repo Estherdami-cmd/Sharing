@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import NeedBoard from "@/app/_components/NeedBoard";
 import PageShell from "@/app/_components/PageShell";
 
-const TITLE = "지금 필요한 것들 — 나눔곳간";
+const TITLE = "지금 필요한 것들 — 여러시";
 const DESCRIPTION = "기관이 올린 목표를 여럿이 나눠 채우고 있어요. 지금 진행 중인 나눔 현황을 확인해보세요.";
 
 export const metadata: Metadata = {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    siteName: "나눔곳간",
+    siteName: "여러시",
     locale: "ko_KR",
     type: "website",
   },
