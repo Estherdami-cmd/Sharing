@@ -16,7 +16,7 @@ export default function TermsPage() {
           <section>
             <h2 className={sectionTitle}>1. 서비스 소개</h2>
             <p className={`${caption} mt-1`}>
-              나눔곳간은 기관의 필요 물품 등록과 개인의 나눔 신청을 연결하는 데모 서비스예요.
+              여러시는 기관의 필요 물품 등록과 개인의 나눔 신청을 연결하는 데모 서비스예요.
               실제 결제·배송·법적 책임이 발생하지 않아요.
             </p>
           </section>
