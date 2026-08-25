@@ -202,7 +202,10 @@ export default function ApplyForm() {
     });
     if (!res.ok) {
       setSubmittingApplication(false);
-      setApplyError("신청에 실패했어요. 다시 시도해주세요");
+      // 서버가 구체적 사유를 알려줄 때가 많다(수량 초과, 존재하지 않는 물품 등) —
+      // 뭉뚱그린 메시지로 덮으면 사용자가 뭘 고쳐야 할지 알 방법이 없다.
+      const body = await res.json().catch(() => null);
+      setApplyError(body?.error ?? "신청에 실패했어요. 다시 시도해주세요");
       return;
     }
     const created = await res.json();
