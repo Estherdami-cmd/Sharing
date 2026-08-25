@@ -7,7 +7,6 @@ import type { ApplicationDetail } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import {
   btnGhost,
-  btnOutline,
   btnPrimary,
   btnSecondary,
   caption,
@@ -56,17 +55,8 @@ export default function CompleteView({ applicationId }: { applicationId: string 
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [requestingReceipt, setRequestingReceipt] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
-  const [copyError, setCopyError] = useState<string | null>(null);
   // 연결 실패 화면의 '다시 시도'가 아래 최초 로드 effect를 한 번 더 돌리는 손잡이.
   const [reloadKey, setReloadKey] = useState(0);
-
-  // '복사했어요'를 되돌리는 타이머. 되돌리기 전에 화면을 떠나면 정리해야 한다.
-  useEffect(() => {
-    if (!linkCopied) return;
-    const timer = setTimeout(() => setLinkCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [linkCopied]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,30 +155,6 @@ export default function CompleteView({ applicationId }: { applicationId: string 
     setRequestingReceipt(false);
   }
 
-  async function handleCopyLink() {
-    setCopyError(null);
-    const url = window.location.href;
-
-    // clipboard API는 https·localhost에서만 있다. 발표 때 http://192.168.x.x:3000처럼
-    // LAN 주소로 띄우면 아예 없고, 문서가 포커스를 잃은 상태면 거부된다.
-    // 이 주소가 유일한 재방문 수단이라 한 번 실패로 포기하지 않고 execCommand로 한 번 더 시도한다.
-    if (navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(url);
-        setLinkCopied(true);
-        return;
-      } catch {
-        // 아래 폴백으로 넘어간다
-      }
-    }
-
-    if (copyViaTextarea(url)) {
-      setLinkCopied(true);
-      return;
-    }
-    setCopyError("복사에 실패했어요 — 주소창의 주소를 저장해주세요");
-  }
-
   if (loadState === "loading") {
     return <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>;
   }
@@ -240,15 +206,6 @@ export default function CompleteView({ applicationId }: { applicationId: string 
   // 카테고리가 요청과 다르면 수락돼도 진행률에 반영되지 않는다 — 그런 경우엔
   // 미리보기 숫자를 보여주지 않는다(실제로 그 값이 되지 않으니까).
   const categoryMatches = need ? application.donation.category === need.category : false;
-  // 신청은 아직 pending이라 filledQty가 안 움직였다. 내 몫이 반영되면 어떻게 되는지 미리 보여준다.
-  const projected =
-    need && categoryMatches
-      ? Math.min(100, Math.round(((need.filledQty + application.quantity) / need.targetQty) * 100))
-      : null;
-  // NeedProgress가 pendingQty > 0이면 '기관 확인 대기중 N개 포함 시 X%' 캡션을 이미 띄운다.
-  // 그 pendingQty에는 내 신청도 들어 있어서(store.ts toView), 대기중인 게 내 것뿐이면
-  // 두 줄이 같은 숫자를 반복한다. 다른 사람 신청까지 섞였을 때만 내 몫을 따로 말한다.
-  const othersPending = need ? need.pendingQty !== application.quantity : false;
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
@@ -284,99 +241,113 @@ export default function CompleteView({ applicationId }: { applicationId: string 
           )}
         </div>
 
-        {/* 수락된 뒤 이 화면에 다시 들어오는 이유는 하나다 — "언제 가야 하지?".
-            카드 중간에 묻어두지 않고 맨 위에서 먼저 답한다. */}
-        {application.status === "accepted" && application.confirmedDate && (
-          <div className="rounded-xl bg-success-bg px-4 py-3">
+        {/* 이 화면에 다시 들어오는 이유는 "내 약속이 어떻게 됐지?" 하나다.
+            상태에 따라 답이 달라지므로, 그 답 하나만 큰 글씨로 맨 위에 둔다.
+            나머지 항목은 아래 표로 밀어 대비를 만든다 — 전부 같은 크기면 아무것도 안 읽힌다. */}
+        {application.confirmedDate ? (
+          <div className="rounded-xl bg-success-bg px-4 py-3.5">
             <p className={label}>전달 약속</p>
-            <p className="mt-1 text-[17px] font-extrabold tracking-[-0.02em] text-success-fg">
+            <p className="mt-1 text-[22px] font-extrabold leading-tight tracking-[-0.03em] text-success-fg">
               {formatKoreanDate(application.confirmedDate)}
               {application.confirmedSlot && ` ${application.confirmedSlot}`}
             </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-neutral-600">
+              {application.foodBank.name}
+              <br />
+              {application.foodBank.address}
+            </p>
           </div>
-        )}
-
-        <div>
-          <p className={label}>나눔 품목</p>
-          <p className="mt-1 text-[15px]">
-            {application.donation.itemName} ({application.donation.category})
-          </p>
-          {application.donation.expiryDate && (
-            // 화면의 다른 날짜는 전부 "8월 25일"인데 여기만 2027-03-09이면 눈에 걸린다.
-            <p className={caption}>유통기한 {formatExpiry(application.donation.expiryDate)}</p>
-          )}
-        </div>
-
-        <div>
-          <p className={label}>기관 · 채우는 목표</p>
-          <p className="mt-1 text-[15px]">
-            {application.foodBank.name} · {need?.itemName}
-          </p>
-          {/* "약속한 날짜에 전달해주세요"라고 하면서 갈 곳을 안 알려주면 화면이 반만 일한다.
-              전달일에 이 주소로 다시 들어올 사람이 가장 먼저 찾는 정보다. */}
-          <p className={caption}>{application.foodBank.address}</p>
-        </div>
-
-        {/* 내 몫이 수락되면 몇 %가 되는지는 NeedProgress가 이미 캡션으로 말한다.
-            내 신청뿐이면 같은 숫자를 두 줄로 반복하게 되어, 다를 때만 따로 말한다. */}
-        {need && (
-          <>
-            <NeedProgress
-              filledQty={need.filledQty}
-              targetQty={need.targetQty}
-              progress={need.progress}
-              pendingQty={need.pendingQty}
-            />
-            {application.status === "pending" && projected !== null && othersPending && (
-              <p className="text-xs text-neutral-500">
-                회원님의 {application.quantity}개가 수락되면 진행률이{" "}
-                <strong className="text-primary-700">{projected}%</strong>가 돼요
-              </p>
-            )}
-            {application.status === "pending" && !categoryMatches && (
-              <p className="text-xs text-warning-fg">
-                카테고리가 달라 수락돼도 이 요청의 진행률에는 반영되지 않아요
-              </p>
-            )}
-          </>
-        )}
-
-        {/* place에는 매칭된 기관명이 자동으로 들어가므로(ApplyForm) 위 '기관 · 채우는 목표'와
-            같은 문자열이다. 고르는 값이던 시절의 잔재라 따로 보여주지 않는다. */}
-        <div>
-          <p className={label}>수량</p>
-          <p className="mt-1 text-[15px]">{application.quantity}개</p>
-        </div>
-
-        {/* 확정된 날짜는 위 '전달 약속'이 이미 말한다. 여기서는 아직 확정 안 된 경우만 다룬다. */}
-        {!application.confirmedDate && (
-          <div>
+        ) : (
+          <div
+            className={`rounded-xl px-4 py-3.5 ${
+              application.status === "rejected" ? "bg-neutral-50" : "bg-warning-bg"
+            }`}
+          >
             <p className={label}>제안한 날짜</p>
-            <p className={caption}>
+            <ul className="mt-1 flex flex-col gap-1">
+              {application.candidateDates.map((c) => (
+                <li
+                  key={`${c.date}-${c.slot}`}
+                  className="text-[17px] font-bold leading-tight tracking-[-0.02em]"
+                >
+                  {formatKoreanDate(c.date)} {c.slot}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1.5 text-[13px] text-neutral-600">
               {application.status === "pending"
                 ? "기관이 이 중 하나를 골라 확정해요"
                 : // 거절된 신청에까지 "확인 중"이라고 하면 화면이 거짓말을 한다.
                   "이번에는 확정되지 않았어요"}
             </p>
-            <ul className="mt-1 flex flex-col gap-0.5 text-[15px]">
-              {application.candidateDates.map((c) => (
-                <li key={`${c.date}-${c.slot}`}>
-                  {formatKoreanDate(c.date)} {c.slot}
-                </li>
-              ))}
-            </ul>
           </div>
         )}
 
-        <div>
-          <p className={label}>기부금 신청서 작성 여부</p>
-          <p
-            className={`mt-1 text-[15px] font-semibold ${
-              application.receiptRequested ? "text-success-fg" : "text-neutral-400"
-            }`}
-          >
-            {application.receiptRequested ? "작성 완료" : "미작성"}
-          </p>
+        {/* 크라우드펀딩식 서비스라 "내가 얼마나 채우는가"가 이 화면의 두 번째 주인공이다.
+            막대에서 내 몫을 색으로 갈라 보여준다(NeedProgress mineQty). */}
+        {need && (
+          <div className="flex flex-col gap-1.5">
+            <p className={label}>이 요청 진행률</p>
+            <NeedProgress
+              filledQty={need.filledQty}
+              targetQty={need.targetQty}
+              progress={need.progress}
+              pendingQty={need.pendingQty}
+              mineQty={
+                application.status === "pending" && categoryMatches
+                  ? application.quantity
+                  : undefined
+              }
+            />
+            {application.status === "pending" && !categoryMatches && (
+              <p className="text-xs text-warning-fg">
+                카테고리가 달라 수락돼도 이 요청의 진행률에는 반영되지 않아요
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 부가 정보는 라벨-값 한 쌍씩 세로로 늘어놓으면 화면만 길어지고 눈이 미끄러진다.
+            두 칸으로 접어 한눈에 훑게 한다. place는 매칭 기관명이 자동으로 들어가(ApplyForm)
+            위 '받는 곳'과 같은 문자열이라 따로 보여주지 않는다. */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 border-t border-neutral-100 pt-4">
+          <div>
+            <p className={label}>나눔 품목</p>
+            <p className="mt-1 text-[15px] leading-snug">{application.donation.itemName}</p>
+            <p className={caption}>{application.donation.category}</p>
+          </div>
+
+          <div>
+            <p className={label}>수량</p>
+            <p className="mt-1 text-[15px]">{application.quantity}개</p>
+            {application.donation.expiryDate && (
+              // 화면의 다른 날짜는 전부 "8월 25일"인데 여기만 2027-03-09이면 눈에 걸린다.
+              <p className={caption}>~{formatExpiry(application.donation.expiryDate)}</p>
+            )}
+          </div>
+
+          {/* 확정된 경우엔 위 '전달 약속'이 기관과 주소를 이미 말했다. 두 번 쓰지 않는다. */}
+          {!application.confirmedDate && (
+            <div className="col-span-2">
+              <p className={label}>받는 곳</p>
+              <p className="mt-1 text-[15px] leading-snug">
+                {application.foodBank.name}
+                {need && ` · ${need.itemName}`}
+              </p>
+              <p className={caption}>{application.foodBank.address}</p>
+            </div>
+          )}
+
+          <div className="col-span-2">
+            <p className={label}>기부금 신청서</p>
+            <p
+              className={`mt-1 text-[15px] font-semibold ${
+                application.receiptRequested ? "text-success-fg" : "text-neutral-400"
+              }`}
+            >
+              {application.receiptRequested ? "작성 완료" : "미작성"}
+            </p>
+          </div>
         </div>
 
         {/* 실패를 조용히 넘기면 화면이 계속 '미작성'이라 사용자가 뭘 잘못했는지 모른다.
@@ -390,20 +361,9 @@ export default function CompleteView({ applicationId }: { applicationId: string 
         )}
       </div>
 
-      {/* 로그인이 없으므로 이 주소가 유일한 재방문 수단이다. 저장하라고만 하고 방법을
-          안 주면 안내가 아니라 부담이 된다 — 한 번 눌러 복사되게 한다. */}
-      <div className="flex flex-col gap-2">
-        <p className="text-center text-xs leading-relaxed text-neutral-400">
-          이 페이지 주소를 저장해두면 나중에 진행 상태를 다시 확인할 수 있어요
-        </p>
-        <div className="flex">
-          <button onClick={handleCopyLink} className={btnOutline}>
-            {linkCopied ? "복사했어요" : "이 페이지 주소 복사"}
-          </button>
-        </div>
-        {copyError && <p className="text-center text-[13px] text-danger-fg">{copyError}</p>}
-      </div>
-
+      {/* 예전에는 여기서 "이 주소를 저장해두세요"라고 안내하고 복사 버튼까지 뒀는데 뺐다.
+          신청 id가 a1·a2처럼 순번이라 주소를 조금만 바꿔도 남의 신청이 열리고, 응답에는
+          연락처까지 실려 나간다. 인증이 붙기 전까지 그 주소를 널리 퍼뜨리라고 권할 수 없다. */}
       <div className="flex flex-col gap-3">
         {/* 거절은 끝이 아니다. 같은 물품으로 다른 기관을 찾는 게 다음 행동인데
             그 길(/match/[donationId])이 화면에 없었다. */}
@@ -434,22 +394,3 @@ function formatExpiry(iso: string) {
   return `${y}년 ${Number(m)}월 ${Number(d)}일`;
 }
 
-/** clipboard API를 못 쓸 때의 폴백. 화면 밖 textarea에 값을 넣고 복사 명령을 쓴다.
- * 오래된 방식이지만 보안 컨텍스트를 요구하지 않아, http로 띄운 발표 환경에서도 동작한다. */
-function copyViaTextarea(text: string) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  // display:none은 쓰지 않는다 — 숨겨진 요소는 선택이 안 돼서 복사도 안 된다.
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.top = "-9999px";
-  document.body.appendChild(textarea);
-  try {
-    textarea.select();
-    return document.execCommand("copy");
-  } catch {
-    return false;
-  } finally {
-    document.body.removeChild(textarea);
-  }
-}

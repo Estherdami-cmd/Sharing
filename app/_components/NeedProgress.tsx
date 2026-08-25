@@ -32,16 +32,25 @@ export default function NeedProgress({
   targetQty,
   progress,
   pendingQty = 0,
+  mineQty,
   resetKey,
 }: {
   filledQty: number;
   targetQty: number;
   progress: number;
   pendingQty?: number;
+  /** 대기중 물량 가운데 "이 사람 몫". 넘기면 대기 구간을 내 몫과 남의 몫으로 나눠 칠하고
+   * 캡션도 내 기여 중심으로 바뀐다. 안 넘기면 기존과 똑같이 대기 전체를 한 덩어리로 본다.
+   * (완료 화면처럼 "내가 얼마나 채우는가"가 주인공인 곳에서만 쓴다) */
+  mineQty?: number;
   /** 값이 바뀔 때만 카운트업을 0부터 다시(느리게) 재생하고 싶을 때(예: 새로고침) 넘긴다. */
   resetKey?: unknown;
 }) {
   const pendingWidth = Math.min(100 - progress, Math.round((pendingQty / targetQty) * 100));
+  // 내 몫을 대기 구간의 앞쪽에 붙인다 — 채워진 막대에 바로 이어져야 "내가 여기까지 민다"로 읽힌다.
+  const mineWidth =
+    mineQty == null ? 0 : Math.min(pendingWidth, Math.round((mineQty / targetQty) * 100));
+  const othersWidth = mineQty == null ? pendingWidth : pendingWidth - mineWidth;
 
   // 바가 뜨자마자 최종 길이로 딱 나타나지 않고, 0에서 실제 값까지 채워지며 나타나게 한다.
   const [barWidth, setBarWidth] = useState(0);
@@ -96,11 +105,24 @@ export default function NeedProgress({
           className={`${fillClass(progress)} rounded-full transition-[width] ease-out`}
           style={{ width: `${barWidth}%`, transitionDuration: `${barDuration}ms` }}
         />
-        {pendingWidth > 0 && (
+        {/* 내 몫은 같은 빗금이되 브랜드 색으로 칠한다 — 회색 빗금과 나란히 놓으면
+            "어디까지가 내가 민 부분인지"가 색 하나로 읽힌다. */}
+        {mineWidth > 0 && (
+          <div
+            className="opacity-70 transition-[width] duration-700 ease-out"
+            style={{
+              width: `${animationStarted ? mineWidth : 0}%`,
+              backgroundImage:
+                "repeating-linear-gradient(45deg, currentColor 0 4px, transparent 4px 8px)",
+              color: "var(--color-primary-600)",
+            }}
+          />
+        )}
+        {othersWidth > 0 && (
           <div
             className="opacity-30 transition-[width] duration-700 ease-out"
             style={{
-              width: `${animationStarted ? pendingWidth : 0}%`,
+              width: `${animationStarted ? othersWidth : 0}%`,
               backgroundImage:
                 "repeating-linear-gradient(45deg, currentColor 0 4px, transparent 4px 8px)",
               color: "var(--color-neutral-900)",
@@ -109,12 +131,20 @@ export default function NeedProgress({
         )}
       </div>
 
-      {pendingQty > 0 && (
-        <p className="text-xs text-neutral-400">
-          기관 확인 대기중 {pendingQty.toLocaleString()}개 포함 시{" "}
-          {Math.min(100, progress + pendingWidth)}%
-        </p>
-      )}
+      {pendingQty > 0 &&
+        (mineQty == null ? (
+          <p className="text-xs text-neutral-400">
+            기관 확인 대기중 {pendingQty.toLocaleString()}개 포함 시{" "}
+            {Math.min(100, progress + pendingWidth)}%
+          </p>
+        ) : (
+          <p className="text-xs text-neutral-500">
+            내 신청 {mineQty.toLocaleString()}개가 더해지면{" "}
+            <strong className="text-primary-700">{Math.min(100, progress + mineWidth)}%</strong>
+            {othersWidth > 0 &&
+              ` · 다른 대기까지 ${Math.min(100, progress + pendingWidth)}%`}
+          </p>
+        ))}
     </div>
   );
 }
