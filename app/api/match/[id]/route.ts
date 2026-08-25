@@ -14,6 +14,6 @@ export async function GET(
   return NextResponse.json({
     donation,
     regions: REGIONS.map((r) => r.name),
-    matches: matchNeeds(donation.category, donation.region),
+    matches: matchNeeds(donation.category, donation.itemName, donation.region),
   });
 }

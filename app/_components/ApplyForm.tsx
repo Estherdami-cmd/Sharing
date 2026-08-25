@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { DAY_NAMES, formatKoreanDate } from "@/lib/rules";
+import { DAY_NAMES, formatKoreanDate, isSameItem } from "@/lib/rules";
 import type { DateOption, Donation, NeedView } from "@/lib/store";
 import {
   btnGhost,
@@ -217,6 +217,27 @@ export default function ApplyForm() {
           progress={selectedNeed.progress}
           pendingQty={selectedNeed.pendingQty}
         />
+
+        {/*
+          내가 낼 물품명이 화면에 없어서, 요청 품목만 보고 "즉석밥을 내는구나"로
+          읽히던 자리다. 무엇을 내는지 먼저 보여주고, 요청과 다르면 그 사실을 말한다.
+        */}
+        <div className="flex flex-col gap-1.5">
+          <label className={label}>나눔할 물품</label>
+          <p className="flex h-12 w-full items-center rounded-xl border border-neutral-200 bg-neutral-50 px-4 text-[15px] text-neutral-700">
+            {donation?.itemName}
+            {donation?.category && ` (${donation.category})`}
+          </p>
+          {donation && donation.category !== selectedNeed.category ? (
+            <p className="text-xs text-neutral-500">
+              이 요청 수치에는 안 들어가지만, 기관에 직접 전달돼요
+            </p>
+          ) : donation && !isSameItem(donation.itemName, selectedNeed.itemName) ? (
+            <p className="text-xs text-neutral-500">
+              &apos;{selectedNeed.itemName}&apos; 요청이지만, 기관에서 확인하고 받아요
+            </p>
+          ) : null}
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <label className={label}>수량</label>

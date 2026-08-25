@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatKoreanDate } from "@/lib/rules";
+import { formatKoreanDate, isSameItem } from "@/lib/rules";
 import type { ApplicationDetail } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import { btnGhost, btnPrimary, btnSecondary, card, label, pageDesc, pageTitle } from "../ui";
@@ -110,6 +110,9 @@ export default function CompleteView({ applicationId }: { applicationId: string 
     need && categoryMatches
       ? Math.min(100, Math.round(((need.filledQty + application.quantity) / need.targetQty) * 100))
       : null;
+  // 분류는 같은데 물건이 다른 경우. 기관이 판단하는 중이라는 사실만 담담히 알린다 —
+  // "받을 수 있는지 확인 중"처럼 쓰면 이미 신청을 마친 사람을 불안하게 만든다.
+  const sameItem = need ? isSameItem(application.donation.itemName, need.itemName) : true;
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
@@ -166,8 +169,13 @@ export default function CompleteView({ applicationId }: { applicationId: string 
               </p>
             )}
             {application.status === "pending" && !categoryMatches && (
-              <p className="text-xs text-warning-fg">
-                카테고리가 달라 수락돼도 이 요청의 진행률에는 반영되지 않아요
+              <p className="text-xs text-neutral-500">
+                이 요청 수치에는 안 들어가지만, 기관에 직접 전달돼요
+              </p>
+            )}
+            {application.status === "pending" && categoryMatches && !sameItem && (
+              <p className="text-xs text-neutral-500">
+                &apos;{need.itemName}&apos; 요청이라, 기관이 확인하고 있어요
               </p>
             )}
           </>

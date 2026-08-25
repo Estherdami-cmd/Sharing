@@ -1,11 +1,13 @@
 import {
   DAY_NAMES,
   DEFAULT_REGION,
+  type MatchGrade,
   addDays,
   clampQuantity,
   distanceKm,
   evaluateShareable,
   getRegion,
+  isSameItem,
   isUrgent,
   parseLocalDate,
   startOfToday,
@@ -276,8 +278,14 @@ export type NeedMatch = NeedView & {
   needReason: string;
   distanceKm: number;
   rank: number;
+  /** 카테고리가 맞는지. 진행률 반영 여부와 같은 조건이라 그대로 둔다. */
   exactMatch: boolean;
+  /** 품목명까지 따진 3단계. 정렬과 안내 문구 선택에만 쓴다. */
+  matchGrade: MatchGrade;
 };
+
+/** 정렬용. 요청한 바로 그 물건 → 같은 분류의 다른 물건 → 분류가 다른 물건 순. */
+const GRADE_ORDER: Record<MatchGrade, number> = { exact: 0, similar: 1, different: 2 };
 
 function needLabelOf(score: number) {
   if (score >= 70) return "매우 필요";
@@ -291,13 +299,20 @@ function needLabelOf(score: number) {
  * 나눔하고 싶을 수도 있으니, 항상 전체를 보여주되 우선순위만 다르게 준다.
  * 부족분이 클수록, 진행률이 낮아 도움이 필요할수록, 가까울수록 위로 온다.
  */
-export function matchNeeds(category: string, regionName: string): NeedMatch[] {
+export function matchNeeds(category: string, itemName: string, regionName: string): NeedMatch[] {
   const origin = getRegion(regionName || DEFAULT_REGION);
   const all = listNeeds();
 
   return all
     .map((need) => {
       const isExact = need.category === category;
+      // 카테고리가 맞아도 물건이 다를 수 있다 — 즉석밥 요청에 라면을 내는 경우다.
+      // 이걸 구분해야 "같은 분류라 함께 받는다"는 사실을 화면에서 말할 수 있다.
+      const matchGrade: MatchGrade = !isExact
+        ? "different"
+        : isSameItem(itemName, need.itemName)
+          ? "exact"
+          : "similar";
       const distance = distanceKm(origin, need.foodBank);
       const shortage = need.remainingQty / need.targetQty;
 
@@ -307,13 +322,19 @@ export function matchNeeds(category: string, regionName: string): NeedMatch[] {
       const raw = isExact ? base + urgentBonus + proximity : Math.round((base + proximity) * 0.5);
       const needScore = Math.max(0, Math.min(100, raw));
 
-      const needReason = !isExact
-        ? `${category} 요청은 아니지만 ${need.foodBank.name}에서 다른 물품을 기다려요`
-        : need.remainingQty === 0
-          ? "목표를 이미 채웠어요. 여유분으로 받아요"
-          : need.urgent
-            ? `${withJosa(need.itemName, "이", "가")} ${need.remainingQty}개 더 필요해요. 도움이 필요해요`
-            : `${need.remainingQty}개만 더 모으면 목표를 채워요`;
+      const needReason =
+        matchGrade === "different"
+          ? `${category} 요청은 아니지만 ${need.foodBank.name}에서 다른 물품을 기다려요`
+          : matchGrade === "similar"
+            ? // 품목명이 "즉석밥 210g"처럼 한글로 안 끝나면 withJosa가 받침을 못 읽는다.
+              // 단위마다 읽는 법이 달라(그램→을, 리터→를) 규칙으로 풀기 어려우니
+              // 조사가 필요 없는 문장으로 쓴다.
+              `${need.itemName} 요청이지만, 같은 분류라 함께 받아요`
+            : need.remainingQty === 0
+              ? "목표를 이미 채웠어요. 여유분으로 받아요"
+              : need.urgent
+                ? `${withJosa(need.itemName, "이", "가")} ${need.remainingQty}개 더 필요해요. 도움이 필요해요`
+                : `${need.remainingQty}개만 더 모으면 목표를 채워요`;
 
       return {
         ...need,
@@ -323,13 +344,14 @@ export function matchNeeds(category: string, regionName: string): NeedMatch[] {
         distanceKm: distance,
         rank: 0,
         exactMatch: isExact,
+        matchGrade,
       };
     })
-    // 카테고리가 맞는 요청을 항상 먼저 보여준다 — 점수만으로 정렬하면 카테고리가
-    // 다른데 아주 급한 요청이 카테고리가 맞는 요청보다 위로 올 수 있어서다.
+    // 요청한 바로 그 물건을 먼저 보여준다. 점수만으로 정렬하면 분류가 다른데
+    // 아주 급한 요청이 딱 맞는 요청보다 위로 올 수 있다.
     .sort(
       (a, b) =>
-        Number(b.exactMatch) - Number(a.exactMatch) ||
+        GRADE_ORDER[a.matchGrade] - GRADE_ORDER[b.matchGrade] ||
         b.needScore - a.needScore ||
         a.distanceKm - b.distanceKm
     )
