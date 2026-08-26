@@ -133,7 +133,7 @@ export default function Home() {
                 left: `${50 + rx * Math.cos(angle)}%`,
                 top: `${50 + ry * Math.sin(angle)}%`,
                 transform: "translate(-50%, -50%)",
-                animationDelay: `${i * 1.1}s`,
+                animationDelay: `${i * 0.35}s`,
                 animationDuration: `${9 + (i % 4) * 1.6}s`,
               }}
             >
