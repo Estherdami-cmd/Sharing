@@ -12,7 +12,7 @@ import { writeFileSync } from "node:fs";
 
 // tsc가 뱉은 .js를 node가 CommonJS로 읽으려다 경고를 낸다. ESM이라고 알려준다.
 writeFileSync(new URL("../.tmp-check/package.json", import.meta.url), '{"type":"module"}');
-const { isSameItem, canonicalItemName } = await import("../.tmp-check/rules.js");
+const { isSameItem, isSameItemBy, canonicalItemName } = await import("../.tmp-check/rules.js");
 
 /** [기부 품목, 요청 품목, 같은 물건인가] */
 const CASES = [
@@ -39,6 +39,37 @@ const CASES = [
   ["공책 10권 세트", "색연필 24색 세트", false],
   ["아동용 겨울 점퍼 (110-130)", "성인용 내복 세트", false],
   ["된장 500g", "고추장 500g", false],
+  // 동의어 표가 만든 실제 오탐 — 물티슈를 "물수건"으로 바꾸자 "수건"에 걸렸다
+  ["물티슈 10팩", "수건", false],
+  ["물티슈 10팩", "물티슈 5팩", true],
+];
+
+/**
+ * 일반명은 품목명을 "대신"하지 않고 "더한다". 모델이 같은 물건에 다른 일반명을
+ * 줘도(참치캔 / 참치통조림) 품목명 쪽으로 잡혀야 한다.
+ * [기부, 요청, 같은 물건인가]
+ */
+const GENERIC_CASES = [
+  // 일반명이 어긋나도 품목명이 구해준다
+  [
+    { itemName: "참치 통조림 200g", genericName: "참치통조림" },
+    { itemName: "참치 통조림 150g", genericName: "참치캔" },
+    true,
+  ],
+  // 품목명으로는 못 잡는 걸 일반명이 잡는다
+  [
+    { itemName: "스팸 200g", genericName: "햄" },
+    { itemName: "런천미트 340g", genericName: "햄" },
+    true,
+  ],
+  // 둘 다 아니라고 하면 아니다
+  [
+    { itemName: "두유 190mL", genericName: "두유" },
+    { itemName: "흰 우유 1L", genericName: "우유" },
+    false,
+  ],
+  // 일반명이 없으면 품목명으로 떨어진다
+  [{ itemName: "백미 5kg" }, { itemName: "쌀 20kg", genericName: "쌀" }, true],
 ];
 
 let failed = 0;
@@ -53,8 +84,20 @@ for (const [a, b, want] of CASES) {
   }
 }
 
+for (const [a, b, want] of GENERIC_CASES) {
+  const got = isSameItemBy(a, b);
+  if (got !== want) {
+    failed++;
+    console.error(
+      `  ✗ ${JSON.stringify(a)} vs ${JSON.stringify(b)} → ${got} (기대 ${want})`
+    );
+  }
+}
+
+const total = CASES.length + GENERIC_CASES.length;
+
 if (failed > 0) {
-  console.error(`\n품목 매칭 검사 실패: ${failed}/${CASES.length}`);
+  console.error(`\n품목 매칭 검사 실패: ${failed}/${total}`);
   process.exit(1);
 }
-console.log(`품목 매칭 검사 통과: ${CASES.length}/${CASES.length}`);
+console.log(`품목 매칭 검사 통과: ${total}/${total}`);

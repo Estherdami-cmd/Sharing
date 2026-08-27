@@ -375,6 +375,10 @@ export function normalizeItemName(name: string): string {
  *
  * 여기 없는 말은 그대로 남아 "비슷한 분류"로 처리된다. 표를 늘리지 않아도
  * 매칭이 깨지지 않고, 정확도만 조금 낮아진다.
+ *
+ * 표를 늘릴 때 조심할 것: 바꾼 결과가 **다른 물건의 이름을 포함하면 안 된다.**
+ * 예전에 `물티슈 → 물수건`을 넣었더니 "물수건"이 "수건"을 포함해서, 물티슈 기부가
+ * 수건 요청과 같은 물건으로 잡혔다. 짧은 일반명일수록 위험하다.
  */
 const ITEM_ALIASES: Record<string, string> = {
   // 상표명 → 일반명
@@ -391,7 +395,6 @@ const ITEM_ALIASES: Record<string, string> = {
   빨래세제: "세탁세제",
   세탁세재: "세탁세제",
   위생대: "생리대",
-  물티슈: "물수건",
   종이기저귀: "기저귀",
 };
 
@@ -442,7 +445,16 @@ export function isSameItemBy(
   a: { itemName: string; genericName?: string | null },
   b: { itemName: string; genericName?: string | null }
 ): boolean {
-  if (a.genericName && b.genericName) return isSameItem(a.genericName, b.genericName);
+  /*
+   * 둘 중 하나라도 같다고 하면 같은 물건으로 본다. 일반명을 "대신" 쓰지 않고
+   * "더해서" 쓰는 게 중요하다.
+   *
+   * 모델이 같은 물건에 매번 같은 일반명을 준다는 보장이 없다. 실제로 요청 쪽
+   * "참치 통조림 200g"에는 "참치캔"을 줬는데, 기부 쪽에서 "참치통조림"이 나오면
+   * 일반명끼리는 어긋난다. 그때 품목명 문자열로는 멀쩡히 잡히는 exact를 놓치면
+   * 일반명을 붙인 게 오히려 손해가 된다. 그래서 둘 다 본다.
+   */
+  if (a.genericName && b.genericName && isSameItem(a.genericName, b.genericName)) return true;
   return isSameItem(a.itemName, b.itemName);
 }
 
