@@ -20,5 +20,5 @@ export async function GET(
   }
   const maxDate = url.searchParams.get("maxDate");
 
-  return NextResponse.json(recommendDates(id, donorAvailability, maxDate));
+  return NextResponse.json(await recommendDates(id, donorAvailability, maxDate));
 }

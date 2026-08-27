@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   query,
   where,
@@ -91,8 +92,9 @@ export type Application = {
 };
 
 // 목업 데이터: 실제 포항 지역 푸드뱅크 데이터로 나중에 교체.
-// 기관은 자주 안 바뀌는 기준 정보라 Firestore 왕복 없이 코드에 그대로 둔다.
-const FOOD_BANKS: FoodBank[] = [
+// id는 고정 문자열을 그대로 쓴다 — SEED_NEEDS와 이미 만들어진 신청들이
+// 이 id를 foodBankId로 참조하고 있어서, 자동 생성 id로 바꾸면 다 끊어진다.
+const SEED_FOOD_BANKS: FoodBank[] = [
   {
     id: "fb1",
     name: "포항 나눔 푸드뱅크",
@@ -500,6 +502,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
 const needsCol = collection(db, "needs");
 const donationsCol = collection(db, "donations");
 const applicationsCol = collection(db, "applications");
+const foodBanksCol = collection(db, "foodBanks");
 
 /**
  * Firestore가 비어 있으면(새로 만든 프로젝트) 씨드 데이터를 한 번 채운다.
@@ -518,12 +521,30 @@ async function ensureSeeded() {
   );
 }
 
-export function getFoodBanks() {
-  return FOOD_BANKS;
+/**
+ * 기관은 자주 안 바뀌는 기준 정보라, 한 번 불러오면 이 서버 인스턴스가 살아있는
+ * 동안은 다시 안 묻는다 — needs처럼 요청마다 바뀌는 데이터가 아니다.
+ * id는 SEED_FOOD_BANKS에 박힌 고정값(fb1 등)을 그대로 문서 id로 쓴다.
+ */
+let foodBanksCache: FoodBank[] | null = null;
+async function ensureFoodBanksLoaded(): Promise<FoodBank[]> {
+  if (foodBanksCache) return foodBanksCache;
+  let snap = await getDocs(foodBanksCol);
+  if (snap.empty) {
+    await Promise.all(SEED_FOOD_BANKS.map((fb) => setDoc(doc(foodBanksCol, fb.id), fb)));
+    snap = await getDocs(foodBanksCol);
+  }
+  foodBanksCache = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<FoodBank, "id">) }));
+  return foodBanksCache;
 }
 
-export function getFoodBank(id: string) {
-  return FOOD_BANKS.find((fb) => fb.id === id);
+export async function getFoodBanks(): Promise<FoodBank[]> {
+  return ensureFoodBanksLoaded();
+}
+
+export async function getFoodBank(id: string): Promise<FoodBank | undefined> {
+  const banks = await ensureFoodBanksLoaded();
+  return banks.find((fb) => fb.id === id);
 }
 
 function needFromDoc(id: string, data: Record<string, unknown>): Need {
@@ -602,8 +623,8 @@ export type NeedView = Need & {
   urgent: boolean;
 };
 
-/** need 하나와, 이미 불러온 관련 데이터를 순수하게 조합만 한다 — Firestore를 모른다. */
-function computeNeedView(need: Need, pendingQty: number): NeedView {
+/** need 하나와, 이미 불러온 관련 데이터를 조합한다. foodBank만 Firestore(캐시)를 본다. */
+async function computeNeedView(need: Need, pendingQty: number): Promise<NeedView> {
   // Math.round는 99.5%도 100%로 올려버려서, 1개가 남았는데도 "목표 달성"으로
   // 보이는 경우가 생긴다. 실제로 다 채워졌을 때(filledQty >= targetQty)만 100%를 준다.
   const progress =
@@ -613,7 +634,7 @@ function computeNeedView(need: Need, pendingQty: number): NeedView {
 
   return {
     ...need,
-    foodBank: getFoodBank(need.foodBankId)!,
+    foodBank: (await getFoodBank(need.foodBankId))!,
     progress,
     remainingQty: Math.max(0, need.targetQty - need.filledQty),
     pendingQty,
@@ -655,9 +676,10 @@ export async function listNeeds(): Promise<NeedView[]> {
   const needsList = snap.docs.map((d) => needFromDoc(d.id, d.data()));
   const pendingByNeed = await pendingQtyByNeed(needsList);
 
-  return needsList
-    .map((need) => computeNeedView(need, pendingByNeed.get(need.id) ?? 0))
-    .sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.progress - b.progress);
+  const views = await Promise.all(
+    needsList.map((need) => computeNeedView(need, pendingByNeed.get(need.id) ?? 0))
+  );
+  return views.sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.progress - b.progress);
 }
 
 /** 신청 상세(describeApplication)처럼 need 하나만 필요한 자리용. */
@@ -774,19 +796,19 @@ export type DateRecommendation = {
 /**
  * 기관 운영일 ∩ 기부자 가능 요일 ∩ 시간대 교집합.
  * "양쪽 모두 가능한 시간대만 걸러서 날짜 추천"의 실제 구현.
- * FoodBank 기준 정보만 쓰고 Firestore는 건드리지 않아 동기 함수로 남는다.
+ * FoodBank를 조회하는 부분만 Firestore(캐시)를 본다. 나머지는 순수 계산.
  *
  * donorAvailability는 요일마다 다른 시간대를 가질 수 있다(예: 월요일은 오전만,
  * 화요일은 오후만 가능). 키로 들어있는 요일만 "가능한 요일"이고, 값은 그 요일의
  * 시간대("상관없음"|"오전"|"오후")다. 빈 객체는 "아무 요일이나 시간대나 괜찮다"는 뜻이다.
  */
-export function recommendDates(
+export async function recommendDates(
   foodBankId: string,
   donorAvailability: Record<string, string>,
   maxDateISO?: string | null,
   limit = 3
-): DateRecommendation {
-  const fb = getFoodBank(foodBankId);
+): Promise<DateRecommendation> {
+  const fb = await getFoodBank(foodBankId);
   if (!fb) return { ok: false, message: "기관 정보를 찾을 수 없어요", options: [] };
 
   const hasRestriction = Object.keys(donorAvailability).length > 0;
@@ -991,16 +1013,17 @@ export async function requestReceipt(id: string): Promise<Application | undefine
 }
 
 export async function describeApplication(application: Application) {
-  const [donation, needView] = await Promise.all([
+  const [donation, needView, foodBank] = await Promise.all([
     getDonation(application.donationId),
     getNeedView(application.needId),
+    getFoodBank(application.foodBankId),
   ]);
   return {
     ...application,
     // 삭제 기능이 없어 신청이 참조하는 donation/foodBank는 항상 존재한다는 가정.
     // 나중에 삭제 경로가 생기면 이 단언이 깨진다.
     donation: donation!,
-    foodBank: getFoodBank(application.foodBankId)!,
+    foodBank: foodBank!,
     need: needView,
   };
 }

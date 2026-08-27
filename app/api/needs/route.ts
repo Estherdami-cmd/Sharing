@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { CATEGORIES, clampTargetQty } from "@/lib/rules";
 import { createNeed, getFoodBank, getFoodBanks, listNeeds } from "@/lib/store";
 
-/** data URL은 base64라 원본의 4/3배가 된다. 인메모리 저장소가 너무 커지지 않게 막아둔다. */
+/** data URL은 base64라 원본의 4/3배가 된다. Firestore 문서 하나가 너무 커지지 않게 막아둔다. */
 const MAX_IMAGE_DATA_URL_LENGTH = 3 * 1024 * 1024;
 const IMAGE_DATA_URL = /^data:image\/(png|jpe?g|webp|gif);base64,/;
 
 export async function GET() {
-  return NextResponse.json({ needs: await listNeeds(), foodBanks: getFoodBanks() });
+  return NextResponse.json({ needs: await listNeeds(), foodBanks: await getFoodBanks() });
 }
 
 export async function POST(request: Request) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (!getFoodBank(foodBankId)) {
+  if (!(await getFoodBank(foodBankId))) {
     return NextResponse.json({ error: "기관을 찾을 수 없습니다" }, { status: 404 });
   }
   if (!CATEGORIES.includes(category)) {
