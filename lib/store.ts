@@ -91,45 +91,72 @@ export type Application = {
   createdAt: string;
 };
 
-// 목업 데이터: 실제 포항 지역 푸드뱅크 데이터로 나중에 교체.
-// id는 고정 문자열을 그대로 쓴다 — SEED_NEEDS와 이미 만들어진 신청들이
-// 이 id를 foodBankId로 참조하고 있어서, 자동 생성 id로 바꾸면 다 끊어진다.
+/*
+ * 실제 기관 5곳(이름·주소·유형). 출처: 공공데이터포털
+ * "경상북도_푸드뱅크 현황"(data.go.kr/data/15063077, 로그인·API 키 불필요, 25행 중 포항 5행).
+ * 위경도는 공공데이터에 없어서 주소를 OpenStreetMap Nominatim으로 지오코딩해 채웠다
+ * (fb3만 상세 주소가 안 잡혀 흥해읍 중심 좌표로 대체 — 정확도가 나머지보다 낮음).
+ * 운영요일·수거시간대는 공공데이터에 아예 없는 항목이라 임시값이다 — 실제 운영시간이 아니다.
+ *
+ * id는 고정 문자열을 그대로 쓴다 — SEED_NEEDS와 이미 만들어진 신청들이
+ * 이 id를 foodBankId로 참조하고 있어서, 자동 생성 id로 바꾸면 다 끊어진다.
+ */
 const SEED_FOOD_BANKS: FoodBank[] = [
   {
     id: "fb1",
-    name: "포항 나눔 푸드뱅크",
-    address: "포항시 남구 오천읍",
-    region: "남구 오천읍",
-    lat: 35.966,
-    lng: 129.414,
+    name: "한기장내일을여는집",
+    address: "포항시 북구 삼흥로74번길 7-7",
+    region: "북구 두호동",
+    lat: 36.0686,
+    lng: 129.3813,
     operatingDays: ["월", "수", "금"],
     pickupSlots: ["오전 10-12시", "오후 2-4시"],
   },
   {
     id: "fb2",
-    name: "포항 생활지원센터",
-    address: "포항시 북구 죽도동",
-    region: "북구 죽도동",
-    lat: 36.038,
-    lng: 129.365,
+    name: "경동교회",
+    address: "포항시 남구 오천읍 해병로347번길 34",
+    region: "남구 오천읍",
+    lat: 35.964,
+    lng: 129.4121,
     operatingDays: ["화", "목"],
     pickupSlots: ["오후 1-5시"],
   },
   {
     id: "fb3",
-    name: "포항 사랑의 열매",
-    address: "포항시 남구 효자동",
-    region: "남구 효자동",
-    lat: 36.008,
-    lng: 129.33,
+    name: "흥해제일교회",
+    address: "포항시 북구 흥해읍 한동로43",
+    region: "북구 흥해읍",
+    lat: 36.1126,
+    lng: 129.3540,
     operatingDays: ["월", "화", "수", "목", "금"],
     pickupSlots: ["오전 9-12시", "오후 2-6시"],
+  },
+  {
+    id: "fb4",
+    name: "선한 이웃",
+    address: "포항시 북구 중앙로298번길 3-1",
+    region: "북구 중앙동",
+    lat: 36.0393,
+    lng: 129.3679,
+    operatingDays: ["화", "목"],
+    pickupSlots: ["오전 10-12시"],
+  },
+  {
+    id: "fb5",
+    name: "포항모자원 (푸드마켓)",
+    address: "포항시 남구 송도로 51",
+    region: "남구 송도동",
+    lat: 36.0345,
+    lng: 129.3802,
+    operatingDays: ["월", "수", "금"],
+    pickupSlots: ["오후 1-4시"],
   },
 ];
 
 const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
   {
-    foodBankId: "fb3",
+    foodBankId: "fb1",
     itemName: "성인용 기저귀 대형",
     category: "위생용품",
     targetQty: 50,
@@ -138,7 +165,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb2",
     itemName: "참치 통조림 200g",
     category: "통조림",
     targetQty: 100,
@@ -147,7 +174,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb3",
     itemName: "백미 5kg",
     category: "쌀/곡물",
     targetQty: 30,
@@ -156,7 +183,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb4",
     itemName: "액체 세탁세제 2L",
     category: "세제",
     targetQty: 40,
@@ -165,7 +192,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb5",
     itemName: "3겹 화장지 30롤",
     category: "화장지",
     targetQty: 20,
@@ -174,7 +201,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb1",
     itemName: "즉석밥 210g",
     category: "기타",
     targetQty: 20,
@@ -183,7 +210,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb2",
     itemName: "스팸 200g",
     category: "통조림",
     targetQty: 60,
@@ -192,7 +219,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb3",
     itemName: "찹쌀 3kg",
     category: "쌀/곡물",
     targetQty: 25,
@@ -201,7 +228,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb4",
     itemName: "현미 2kg",
     category: "쌀/곡물",
     targetQty: 40,
@@ -210,7 +237,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb5",
     itemName: "라면 멀티팩 5개입",
     category: "라면/면류",
     targetQty: 80,
@@ -219,7 +246,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb1",
     itemName: "컵라면 모음 6개입",
     category: "라면/면류",
     targetQty: 50,
@@ -237,7 +264,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb3",
     itemName: "생수 2L 6병",
     category: "음료",
     targetQty: 100,
@@ -246,7 +273,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb4",
     itemName: "흰 우유 1L",
     category: "유제품",
     targetQty: 45,
@@ -255,7 +282,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb5",
     itemName: "떠먹는 요구르트 8개입",
     category: "유제품",
     targetQty: 35,
@@ -273,7 +300,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb2",
     itemName: "섬유유연제 1L",
     category: "세제",
     targetQty: 30,
@@ -291,7 +318,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb4",
     itemName: "물티슈 10팩",
     category: "위생용품",
     targetQty: 60,
@@ -300,7 +327,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb5",
     itemName: "생리대 대형 20개입",
     category: "생리용품",
     targetQty: 40,
@@ -309,7 +336,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb1",
     itemName: "팬티라이너 40개입",
     category: "생리용품",
     targetQty: 25,
@@ -318,7 +345,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb2",
     itemName: "스테인리스 밀폐용기 세트",
     category: "주방용품",
     targetQty: 20,
@@ -327,7 +354,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb3",
     itemName: "후라이팬 26cm",
     category: "주방용품",
     targetQty: 15,
@@ -336,7 +363,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb4",
     itemName: "겨울 이불 세트 (1인용)",
     category: "의류/침구",
     targetQty: 30,
@@ -345,7 +372,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb5",
     itemName: "아동용 겨울 점퍼 (110-130)",
     category: "의류/침구",
     targetQty: 25,
@@ -354,7 +381,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb1",
     itemName: "성인용 내복 세트",
     category: "의류/침구",
     targetQty: 40,
@@ -372,7 +399,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb3",
     itemName: "색연필 24색 세트",
     category: "학용품",
     targetQty: 30,
@@ -381,7 +408,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb4",
     itemName: "소금 1kg",
     category: "기타",
     targetQty: 20,
@@ -390,7 +417,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb5",
     itemName: "미역 100g",
     category: "기타",
     targetQty: 35,
@@ -399,7 +426,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb1",
     itemName: "선풍기",
     category: "기타",
     targetQty: 15,
@@ -408,7 +435,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb2",
     itemName: "시리얼",
     category: "기타",
     targetQty: 40,
@@ -426,7 +453,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
+    foodBankId: "fb4",
     itemName: "수건",
     category: "위생용품",
     targetQty: 50,
@@ -435,7 +462,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb5",
     itemName: "충전기",
     category: "기타",
     targetQty: 20,
@@ -444,7 +471,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb1",
     itemName: "동화책",
     category: "학용품",
     targetQty: 30,
@@ -462,7 +489,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb3",
     itemName: "문제집",
     category: "학용품",
     targetQty: 40,
@@ -471,7 +498,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb4",
     itemName: "보드게임",
     category: "기타",
     targetQty: 20,
@@ -480,7 +507,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
+    foodBankId: "fb5",
     itemName: "비엔나 소시지",
     category: "통조림",
     targetQty: 70,
@@ -489,7 +516,7 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
+    foodBankId: "fb1",
     itemName: "생수 500mL 20팩",
     category: "음료",
     targetQty: 60,
