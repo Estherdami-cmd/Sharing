@@ -41,6 +41,23 @@ export type FoodBank = {
   pickupSlots: string[];
 };
 
+/**
+ * need/application이 가리키는 foodBankId가 실제로는 없을 때(예: 직접 데이터를 옮기다가
+ * 순간적으로 어긋난 경우) 화면 전체가 죽는 대신 이걸 대신 보여준다.
+ * NeedView·ApplicationDetail 어디서든 foodBank는 항상 있다고 가정하고 .name 등을
+ * 바로 읽는 코드가 많아서, undefined를 그대로 넘기는 대신 여기서 안전한 값으로 막는다.
+ */
+const UNKNOWN_FOOD_BANK: FoodBank = {
+  id: "unknown",
+  name: "정보를 찾을 수 없는 기관",
+  address: "",
+  region: "",
+  lat: 0,
+  lng: 0,
+  operatingDays: [],
+  pickupSlots: [],
+};
+
 /** 기관이 직접 올리는 "이 물건이 이만큼 필요해요" 한 건. 여럿이 나눠 채운다. */
 export type Need = {
   id: string;
@@ -661,7 +678,7 @@ async function computeNeedView(need: Need, pendingQty: number): Promise<NeedView
 
   return {
     ...need,
-    foodBank: (await getFoodBank(need.foodBankId))!,
+    foodBank: (await getFoodBank(need.foodBankId)) ?? UNKNOWN_FOOD_BANK,
     progress,
     remainingQty: Math.max(0, need.targetQty - need.filledQty),
     pendingQty,
@@ -1050,7 +1067,7 @@ export async function describeApplication(application: Application) {
     // 삭제 기능이 없어 신청이 참조하는 donation/foodBank는 항상 존재한다는 가정.
     // 나중에 삭제 경로가 생기면 이 단언이 깨진다.
     donation: donation!,
-    foodBank: foodBank!,
+    foodBank: foodBank ?? UNKNOWN_FOOD_BANK,
     need: needView,
   };
 }
