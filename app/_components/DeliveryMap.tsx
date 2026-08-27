@@ -12,8 +12,8 @@ import type { FoodBank } from "@/lib/store";
  * NCP 콘솔에 도메인이 등록돼 있지 않으면 인증이 실패한다. 그때는 OpenStreetMap
  * 임베드로 떨어진다 — 지도가 아예 사라지는 것보다는 낫다.
  *
- * 길찾기는 카카오맵 링크로 넘긴다 — 실제로 물건을 들고 찾아가는 사람은 익숙한
- * 앱에서 길찾기를 하고, 이 링크는 키가 필요 없다.
+ * 길찾기는 네이버 지도로 넘긴다 — 지도와 같은 서비스로 이어지는 게 자연스럽고,
+ * 이 링크는 키가 필요 없다.
  */
 
 /**
@@ -144,9 +144,14 @@ export default function DeliveryMap({ foodBank }: { foodBank: FoodBank }) {
   // 지도가 대서양 한복판을 가리키는 것보다 아예 안 보이는 게 낫다.
   if (!lat || !lng) return null;
 
-  // 오병이어의 집처럼 카카오맵에 등록되지 않은 장소도 있다(검색으로는 안 나온다).
-  // 그래서 이름과 좌표를 직접 넘긴다 — 이러면 이름표 붙은 핀이 뜬다.
-  const kakaoTo = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+  /*
+   * 네이버 지도 길찾기. 도착지에 이름과 좌표를 직접 넘긴다.
+   *
+   * 무료급식소 같은 기관은 지도 서비스에 장소로 등록돼 있지 않다 — 이름으로
+   * 검색하면 안 나온다. 그래서 장소 ID가 아니라 좌표를 실어 보낸다.
+   * 좌표 순서가 경도,위도인 것에 주의(지도 API의 위도,경도와 반대다).
+   */
+  const naverDirections = `https://map.naver.com/p/directions/-/${lng},${lat},${encodeURIComponent(name)}`;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -157,13 +162,49 @@ export default function DeliveryMap({ foodBank }: { foodBank: FoodBank }) {
           <NaverMap lat={lat} lng={lng} name={name} onFail={() => setNaverFailed(true)} />
         )}
       </div>
+      {/*
+        밑줄 친 글자 링크는 지도 아래에서 눈에 안 띄고 누를 곳도 좁았다.
+        아이콘을 붙인 버튼으로 만든다 — 왼쪽 길찾기 아이콘으로 무슨 동작인지 보이고,
+        오른쪽 화살표로 바깥으로 나간다는 걸 알린다.
+      */}
       <a
-        href={kakaoTo}
+        href={naverDirections}
         target="_blank"
         rel="noreferrer"
-        className="self-start text-[13px] font-bold text-primary-700 underline decoration-primary-700/30 underline-offset-2 hover:text-primary-800"
+        className="flex h-11 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 font-bold text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
       >
-        카카오맵으로 길찾기
+        <span
+          aria-hidden
+          className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary-50 text-primary-700"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4"
+          >
+            {/* 길찾기 화살표 */}
+            <path d="M3 11l19-9-9 19-2-8-8-2z" />
+          </svg>
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[14px]">네이버 지도로 길찾기</span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="size-4 shrink-0 text-neutral-400"
+          aria-hidden
+        >
+          <path d="M9 18l6-6-6-6" />
+        </svg>
       </a>
     </div>
   );
