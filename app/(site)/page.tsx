@@ -67,15 +67,17 @@ export default function Home() {
   const [needs, setNeeds] = useState<PreviewNeed[]>([]);
   const [floatItems, setFloatItems] = useState<PreviewNeed[]>([]);
 
-  // 아래 섹션의 미리보기 카드 3장, 히어로에 둥둥 떠다니는 칩 최대 8개 모두 같은
+  // 아래 섹션의 미리보기 카드 3장, 히어로에 둥둥 떠다니는 칩 최대 6개 모두 같은
   // 실제 데이터에서 가져온다 — /api/needs가 이미 긴급도·진행률 순으로 정렬해서 내려준다.
+  // 6개(60도 간격)로 고정하는 이유: 8개(45도 간격)일 때는 0°/180°(정좌우)가 각도에
+  // 포함되어 그 위치의 칩이 정중앙 기부 버튼과 정면으로 겹쳤다. 6개는 그 각도를 피해간다.
   useEffect(() => {
     fetch("/api/needs")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.needs) {
           setNeeds(d.needs.slice(0, 3));
-          setFloatItems(d.needs.slice(0, 8));
+          setFloatItems(d.needs.slice(0, 6));
         }
       })
       .catch(() => {});
