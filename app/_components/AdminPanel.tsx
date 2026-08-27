@@ -49,6 +49,16 @@ export default function AdminPanel() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * 필요 물품 등록 폼은 대화상자로 띄운다. 모바일에서 이 폼이 화면 위쪽을 차지하면
+   * 기관의 주 업무인 "들어온 신청"이 한참 아래로 밀린다.
+   *
+   * 직접 만든 오버레이 대신 <dialog>를 쓴다 — 포커스 가둠과 Esc 닫기를 브라우저가
+   * 해준다. 다만 **배경 스크롤 잠금은 안 해준다**(실측: 열린 상태에서 배경이
+   * 205px 스크롤됐다). 그건 아래 useEffect에서 직접 막는다.
+   */
+  const formDialogRef = useRef<HTMLDialogElement>(null);
+  const [formOpen, setFormOpen] = useState(false);
   // 지금 연락처를 불러오는 중인 신청 id들. 버튼을 눌렀는데 아무 반응이 없어 보이지 않게.
   const [revealingContactIds, setRevealingContactIds] = useState<Set<string>>(new Set());
   // 한 번 확인한 연락처는 기억해둔다. 목록 API는 항상 연락처를 가려서 주므로,
@@ -56,6 +66,14 @@ export default function AdminPanel() {
   // 다시 잠긴다 — 전화 걸려고 다른 앱에 갔다 오는 딱 이 기능의 실제 쓰임에서 계속 걸린다.
   const revealedContactsRef = useRef<Record<string, string>>({});
   const [resolvedFilter, setResolvedFilter] = useState<"pending" | "all">("pending");
+
+  /*
+   * "등록한 요청"은 말 그대로 우리 기관이 등록한 것만 본다. 예전에는 114개 기관의
+   * 요청 41건을 전부 뿌려서, 모바일에서 이 목록만 8,497px(페이지의 81%)이었고
+   * 남의 기관 이름이 카드에 찍혔다. 섹션 제목과도 맞지 않았다.
+   */
+  const myNeeds = needs.filter((need) => need.foodBankId === foodBankId);
+  const selectedFoodBankName = foodBanks.find((fb) => fb.id === foodBankId)?.name;
 
   async function handleRevealContact(id: string) {
     setRevealingContactIds((prev) => new Set(prev).add(id));
@@ -84,7 +102,15 @@ export default function AdminPanel() {
       const data = await needsRes.json();
       setNeeds(data.needs);
       setFoodBanks(data.foodBanks);
-      setFoodBankId((prev) => prev || data.foodBanks[0]?.id || "");
+      // 기관 114곳 중 80곳은 요청이 0건이다. 그냥 첫 번째를 고르면 화면이 텅 빈
+      // 상태로 열려서 뭐가 잘못된 것처럼 보인다. 요청이 있는 기관을 기본값으로 둔다.
+      setFoodBankId((prev) => {
+        if (prev) return prev;
+        const withNeeds = data.foodBanks.find((fb: FoodBank) =>
+          data.needs.some((need: NeedView) => need.foodBankId === fb.id)
+        );
+        return withNeeds?.id ?? data.foodBanks[0]?.id ?? "";
+      });
     }
     if (appsRes.ok) {
       const data: ApplicationRow[] = await appsRes.json();
@@ -97,6 +123,27 @@ export default function AdminPanel() {
     }
     setLoading(false);
   }, []);
+
+  /*
+   * 대화상자가 열려 있는 동안 배경이 스크롤되지 않게 한다. 모바일에서 시트를
+   * 만지다 배경이 밀리면 어디를 보고 있었는지 잃어버린다.
+   *
+   * overflow를 숨기면 데스크탑에서 스크롤바가 사라져 내용이 옆으로 튄다.
+   * 사라진 스크롤바 폭만큼 padding으로 메워 그 흔들림을 없앤다.
+   */
+  useEffect(() => {
+    if (!formOpen) return;
+    const root = document.documentElement;
+    const scrollbar = window.innerWidth - root.clientWidth;
+    const prevOverflow = root.style.overflow;
+    const prevPadding = root.style.paddingRight;
+    root.style.overflow = "hidden";
+    if (scrollbar > 0) root.style.paddingRight = `${scrollbar}px`;
+    return () => {
+      root.style.overflow = prevOverflow;
+      root.style.paddingRight = prevPadding;
+    };
+  }, [formOpen]);
 
   useEffect(() => {
     load();
@@ -163,6 +210,7 @@ export default function AdminPanel() {
     setTargetQty(50);
     setNote("");
     handleClearImage();
+    formDialogRef.current?.close();
     load();
   }
 
@@ -203,116 +251,36 @@ export default function AdminPanel() {
         </button>
       </header>
 
+      <button
+        onClick={() => {
+          setFormOpen(true);
+          formDialogRef.current?.showModal();
+        }}
+        className={`${btnPrimary} flex items-center justify-center gap-1.5`}
+      >
+        <span aria-hidden className="text-[18px] leading-none">
+          +
+        </span>
+        필요 물품 올리기
+      </button>
+
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-6">
-          <section className="flex flex-col gap-3 rounded-2xl border-2 border-primary-500 bg-white p-5">
-            <div>
-              <h2 className={sectionTitle}>필요 물품 올리기</h2>
-              <p className={`${caption} mt-1`}>목표 수량을 정하면 기부자들이 나눠서 채워요</p>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>우리 기관</label>
-              <select
-                value={foodBankId}
-                onChange={(e) => setFoodBankId(e.target.value)}
-                className={field}
-              >
-                {foodBanks.map((fb) => (
-                  <option key={fb.id} value={fb.id}>
-                    {fb.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>필요한 품목</label>
-              <input
-                placeholder="예: 성인용 기저귀 대형"
-                value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
-                className={field}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>카테고리</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>목표 수량</label>
-              <input
-                type="number"
-                min={1}
-                value={targetQty}
-                onChange={(e) => setTargetQty(e.target.value === "" ? "" : clampTargetQty(e.target.value))}
-                onBlur={() => setTargetQty(targetQtyValue)}
-                className={field}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>안내 문구 (선택)</label>
-              <input
-                placeholder="예: 요양 어르신 12분께 매주 전달돼요"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className={field}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>대표 사진 (선택)</label>
-              {imageUrl ? (
-                <div className="flex items-center gap-3">
-                  <img
-                    src={imageUrl}
-                    alt="등록할 물품 사진 미리보기"
-                    className="size-20 rounded-xl object-cover"
-                  />
-                  <button onClick={handleClearImage} className={btnGhost}>
-                    지우기
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => imageInputRef.current?.click()} className={btnOutline}>
-                  사진 선택
-                </button>
-              )}
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageSelected(e.target.files?.[0])}
-                className="hidden"
-              />
-              {imageError && <p className="text-[13px] text-danger-fg">{imageError}</p>}
-            </div>
-
-            <p className={caption}>
-              "도움이 필요해요" 표시는 진행률 30% 미만인 요청에 자동으로 붙어요
-            </p>
-
-            {formError && <p className="text-[13px] text-danger-fg">{formError}</p>}
-
-            <button onClick={handleCreateNeed} disabled={submitting} className={btnPrimary}>
-              {submitting ? "등록 중..." : "필요 물품 등록"}
-            </button>
-          </section>
-
           <section className="flex flex-col gap-3">
-            <h2 className={sectionTitle}>등록한 요청 · 진행률</h2>
+            <div>
+              <h2 className={sectionTitle}>등록한 요청 · 진행률</h2>
+              {selectedFoodBankName && (
+                <p className={`${caption} mt-1`}>{selectedFoodBankName}이 올린 요청이에요</p>
+              )}
+            </div>
             {loading && <p className="text-[15px] text-neutral-500">불러오는 중...</p>}
+            {!loading && myNeeds.length === 0 && (
+              <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-6 text-center text-[15px] text-neutral-400">
+                아직 올린 요청이 없어요. 위 버튼으로 필요한 물품을 올려보세요
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {needs.map((need) => (
+            {myNeeds.map((need) => (
               <article key={need.id} className={card}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex min-w-0 gap-3">
@@ -324,8 +292,7 @@ export default function AdminPanel() {
                       />
                     )}
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
-                      <h3 className="mt-0.5 text-[17px] font-bold tracking-[-0.02em]">
+                      <h3 className="text-[17px] font-bold tracking-[-0.02em]">
                         {need.itemName}
                       </h3>
                       <p className="text-xs text-neutral-400">{need.category}</p>
@@ -509,6 +476,143 @@ export default function AdminPanel() {
           ))}
         </section>
       </div>
+
+      {/*
+        모바일에서는 밑에서 올라오는 시트, 넓은 화면에서는 가운데 대화상자로 보인다.
+        포커스 가둠과 Esc 닫기는 <dialog>가 해준다. 배경 클릭으로 닫기와 배경
+        스크롤 잠금은 브라우저가 안 해줘서 직접 붙였다.
+      */}
+      <dialog
+        ref={formDialogRef}
+        onClose={() => setFormOpen(false)}
+        onClick={(e) => {
+          if (e.target === formDialogRef.current) formDialogRef.current.close();
+        }}
+        className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-2xl border-none bg-white p-5 backdrop:bg-neutral-900/40 sm:inset-0 sm:m-auto sm:h-fit sm:max-w-lg sm:rounded-2xl"
+      >
+        {/* 폼 안의 클릭이 배경 닫기로 새지 않게 여기서 멈춘다. */}
+        <div className="flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className={sectionTitle}>필요 물품 올리기</h2>
+              <p className={`${caption} mt-1`}>목표 수량을 정하면 기부자들이 나눠서 채워요</p>
+            </div>
+            <button
+              onClick={() => formDialogRef.current?.close()}
+              aria-label="닫기"
+              className={`${btnGhost} shrink-0`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                className="size-5"
+              >
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={label}>우리 기관</label>
+              <select
+                value={foodBankId}
+                onChange={(e) => setFoodBankId(e.target.value)}
+                className={field}
+              >
+                {foodBanks.map((fb) => (
+                  <option key={fb.id} value={fb.id}>
+                    {fb.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={label}>필요한 품목</label>
+              <input
+                placeholder="예: 성인용 기저귀 대형"
+                value={itemName}
+                onChange={(e) => setItemName(e.target.value)}
+                className={field}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={label}>카테고리</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={label}>목표 수량</label>
+              <input
+                type="number"
+                min={1}
+                value={targetQty}
+                onChange={(e) => setTargetQty(e.target.value === "" ? "" : clampTargetQty(e.target.value))}
+                onBlur={() => setTargetQty(targetQtyValue)}
+                className={field}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={label}>안내 문구 (선택)</label>
+              <input
+                placeholder="예: 요양 어르신 12분께 매주 전달돼요"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className={field}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={label}>대표 사진 (선택)</label>
+              {imageUrl ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={imageUrl}
+                    alt="등록할 물품 사진 미리보기"
+                    className="size-20 rounded-xl object-cover"
+                  />
+                  <button onClick={handleClearImage} className={btnGhost}>
+                    지우기
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => imageInputRef.current?.click()} className={btnOutline}>
+                  사진 선택
+                </button>
+              )}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageSelected(e.target.files?.[0])}
+                className="hidden"
+              />
+              {imageError && <p className="text-[13px] text-danger-fg">{imageError}</p>}
+            </div>
+
+            <p className={caption}>
+              "도움이 필요해요" 표시는 진행률 30% 미만인 요청에 자동으로 붙어요
+            </p>
+
+            {formError && <p className="text-[13px] text-danger-fg">{formError}</p>}
+
+            <button onClick={handleCreateNeed} disabled={submitting} className={btnPrimary}>
+              {submitting ? "등록 중..." : "필요 물품 등록"}
+            </button>
+        </div>
+      </dialog>
     </div>
   );
 }
