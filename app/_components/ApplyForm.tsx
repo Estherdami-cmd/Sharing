@@ -31,6 +31,8 @@ export default function ApplyForm() {
   const donationId = searchParams.get("donationId");
   const needId = searchParams.get("needId");
   const quantityParam = searchParams.get("quantity");
+  // 게시판에서 특정 요청으로 바로 들어온 경우, 이 사람은 매칭 결과 화면을 거친 적이 없다.
+  const fromBoard = searchParams.get("from") === "board";
 
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [donation, setDonation] = useState<Donation | null>(null);
@@ -481,10 +483,10 @@ export default function ApplyForm() {
       </div>
 
       <Link
-        href={donationId ? `/match/${donationId}` : "/donate"}
+        href={fromBoard ? "/board" : donationId ? `/match/${donationId}` : "/donate"}
         className={`${btnGhost} mx-auto`}
       >
-        ← 매칭 결과로 돌아가기
+        {fromBoard ? "← 게시판으로 돌아가기" : "← 매칭 결과로 돌아가기"}
       </Link>
     </div>
   );

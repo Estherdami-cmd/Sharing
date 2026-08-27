@@ -257,9 +257,10 @@ export default function RegisterFlow() {
     const created = await res.json();
 
     // 게시판에서 특정 요청을 보고 들어온 경우, 매칭 추천 화면을 건너뛰고 바로 그 신청 화면으로 간다.
+    // from=board는 신청 화면이 "매칭 결과로 돌아가기"처럼, 거치지도 않은 화면으로 안내하지 않게 하는 표시다.
     if (presetNeedId) {
       router.push(
-        `/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=${created.quantity}`
+        `/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=${created.quantity}&from=board`
       );
       return;
     }
@@ -527,7 +528,11 @@ export default function RegisterFlow() {
         onClick={handleRegisterNext}
         className={btnSecondary}
       >
-        {submittingDonation ? "등록 중..." : "다음: 매칭 결과 확인"}
+        {submittingDonation
+          ? "등록 중..."
+          : presetNeedId
+            ? "다음: 신청 정보 입력"
+            : "다음: 매칭 결과 확인"}
       </button>
     </div>
   );
