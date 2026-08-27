@@ -56,12 +56,13 @@ export default function ServicePage() {
               잘라내지 않는다. 4장 각자 원래 비율 그대로 박스 안에 다 들어가고,
               가로로 넘겨보는 스크롤 형태는 그대로 유지한다.
             */}
+            {/* "왜 이렇게 만들었나요" 사진(board.png)과 같은 크기(435px 폭)로 4장 다 맞춘다. */}
             {STEPS.map((s) => (
               <img
                 key={s.step}
                 src={s.src}
                 alt={`${s.step} 화면 — ${s.desc}`}
-                className="h-64 w-48 shrink-0 rounded-xl object-contain object-top"
+                className="h-64 w-full shrink-0 rounded-xl object-contain object-top sm:h-auto sm:w-[435px]"
               />
             ))}
           </div>
