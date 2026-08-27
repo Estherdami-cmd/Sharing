@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
+import Wordmark from "./Wordmark";
 
 /** ui.ts의 btnPrimary는 폼용 풀사이즈 버튼이라 h-14/rounded-xl이 고정돼 있다.
  * 헤더 CTA는 히어로의 알약형 버튼과 같은 크기라 직접 스타일링한다.
@@ -47,9 +48,9 @@ export default function Header() {
       }
     >
       <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5 md:px-6 lg:px-8">
-        <Link href="/" className="flex cursor-pointer items-center gap-1" onClick={() => setMenuOpen(false)}>
+        <Link href="/" className="flex cursor-pointer items-center gap-0.5" onClick={() => setMenuOpen(false)}>
           <BrandMark />
-          <span className="text-[17px] font-bold tracking-[-0.02em] whitespace-nowrap text-primary-700">여러시</span>
+          <Wordmark className="h-5 text-primary-700" />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
