@@ -29,12 +29,9 @@ export default function Footer() {
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 py-10 md:px-6 lg:px-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <BrandMark />
-              <span className="flex flex-col leading-none">
-                <span className="text-[15px] font-extrabold tracking-[-0.02em] whitespace-nowrap">YEORESI</span>
-                <span className="mt-0.5 text-[10px] font-bold text-neutral-500 whitespace-nowrap">여러시</span>
-              </span>
+              <span className="text-[17px] font-bold tracking-[-0.02em] whitespace-nowrap text-primary-700">여러시</span>
             </div>
             <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-neutral-500">
               기관이 먼저 필요를 밝히면, 여럿이 나눠서 채우는 나눔 서비스예요.
