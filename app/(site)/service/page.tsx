@@ -27,7 +27,7 @@ export default function ServicePage() {
           </p>
         </header>
 
-        {/* 이 섹션만 사진:글 = 2:1 비율로 나눈다 (다른 두 섹션은 사진 폭 고정). */}
+        {/* 세 섹션 모두 사진:글 = 2:1 비율로 나눈다. */}
         <div className={mediaRow}>
           <img
             src="/service/board.png"
@@ -50,7 +50,7 @@ export default function ServicePage() {
             쌓으면(sm:flex-col) 오른쪽 글 옆에 빈 공간만 길게 남아서, 폭을 좁게
             고정하고 가로 줄은 그대로 유지한다.
           */}
-          <div className="flex w-full gap-2 overflow-x-auto sm:w-72 sm:shrink-0">
+          <div className="flex w-full gap-2 overflow-x-auto sm:min-w-0 sm:flex-[2]">
             {STEPS.map((s) => (
               <img
                 key={s.step}
@@ -60,7 +60,7 @@ export default function ServicePage() {
               />
             ))}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-1">
             <h2 className={sectionTitle}>기부자는 4단계만 거치면 돼요</h2>
             <p className={caption}>
               제품 사진(과 필요하면 유통기한 사진)을 올리면 AI가 품목과 유통기한을 읽고, 지금
@@ -73,9 +73,9 @@ export default function ServicePage() {
           <img
             src="/service/admin.png"
             alt="기관 관리 화면. 필요 물품을 올리는 폼과 들어온 신청 목록을 함께 보여준다"
-            className={`${mediaImg} h-64 w-full sm:h-auto sm:w-72 sm:shrink-0`}
+            className={`${mediaImg} h-64 w-full sm:h-auto sm:min-w-0 sm:flex-[2]`}
           />
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-1">
             <h2 className={sectionTitle}>기관은 목표만 올려두면 돼요</h2>
             <p className={caption}>
               필요한 물품과 목표 수량을 등록해두면, 여러 기부자가 나눠서 채워줘요. 들어온 신청을
