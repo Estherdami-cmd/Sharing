@@ -12,7 +12,6 @@ import {
   cardHighlight,
   cardUrgent,
   caption,
-  field,
   pageDesc,
   pageTitle,
   toneBadge,
@@ -409,11 +408,13 @@ export default function NeedBoard() {
           {almostThereNeeds.length > 0 ? (
             <div className="relative">
               {/*
-                항목이 몇 개 안 될 땐 justify-center로 가운데 모아서, 넓은 화면에서
-                카드 하나가 왼쪽에 덩그러니 있고 오른쪽이 텅 비어 보이는 걸 막는다.
-                항목이 늘어나 줄을 넘치면 평소처럼 왼쪽부터 스크롤된다.
+                justify-center로 가운데 모아서, 넓은 화면에서 카드 하나가 왼쪽에
+                덩그러니 있고 오른쪽이 텅 비어 보이는 걸 막는다. 그냥 justify-center만
+                쓰면 줄이 넘칠 때 스크롤 시작 위치가 콘텐츠 가운데로 잡혀 첫 카드가
+                반쯤 잘린 채로 보인다 — safe 키워드가 "다 들어가면 가운데, 넘치면
+                왼쪽부터"를 자동으로 골라준다.
               */}
-              <div className="flex justify-center gap-3 overflow-x-auto pb-1">
+              <div className="flex justify-[safe_center] gap-3 overflow-x-auto pb-1">
                 {almostThereNeeds.map((need) => (
                   <article
                     key={need.id}
@@ -456,7 +457,10 @@ export default function NeedBoard() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="품목명으로 검색 (예: 기저귀)"
-            className={field}
+            // 이 검색창은 공용 field와 달리 sticky 바 안에 떠 있는 자리라, 폼 입력처럼
+            // 진한 테두리로 두면 상자가 붕 떠 보인다. 테두리를 옅게 낮추고 그림자를
+            // 얹어 다른 카드들처럼 "떠 있는" 느낌으로 맞춘다.
+            className="h-12 w-full rounded-xl border border-neutral-200 bg-white px-4 text-[15px] text-neutral-900 shadow-sm outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
           />
         </div>
 
