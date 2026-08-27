@@ -450,10 +450,10 @@ export default function NeedBoard() {
         번거로움이 커진다. 헤더 바로 아래에 붙여서 목록을 내려보다가도 바로
         조건을 바꿀 수 있게 한다.
       */}
-      {/* 직사각형 통 테두리 대신 다른 섹션들과 같은 카드 언어(둥근 모서리 + 그림자)로
-          맞춘다 — 딱딱한 상자로 안 보이면서도, 스크롤 중엔 그림자가 떠 있는 패널처럼
-          내용 위에 계속 얹혀 있어야 하는 sticky 용도는 그대로 유지된다. */}
-      <div className="sticky top-16 z-30 mt-2 flex flex-col gap-3 rounded-2xl bg-neutral-50/95 px-4 py-4 shadow-sm backdrop-blur-md sm:px-6">
+      {/* 배경을 거의 비워서 페이지 톤이 그대로 비치게 하고, 블러만으로 스크롤되는
+          카드 위에서도 글자가 읽히게 한다 — 색이 꽉 찬 상자로 안 보이면서도
+          sticky 상태에서 밑에 지나가는 카드가 뚜렷이 겹쳐 보이진 않아야 한다. */}
+      <div className="sticky top-16 z-30 mt-2 flex flex-col gap-3 rounded-2xl bg-neutral-50/35 px-4 py-4 backdrop-blur-lg sm:px-6">
         <div className="mx-auto w-full max-w-sm">
           <input
             type="text"
