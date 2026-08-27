@@ -41,6 +41,9 @@ export async function POST(request: Request) {
     // date 인풋은 빈 값을 ""로 준다. 판정 함수가 null만 받도록 여기서 정규화한다.
     expiryDate: body.expiryDate || null,
     region: body.region || DEFAULT_REGION,
+    genericName: typeof body.genericName === "string" && body.genericName.trim()
+      ? body.genericName.trim()
+      : null,
     productImageUrl: sanitizeImageDataUrl(body.productImageUrl),
     expiryImageUrl: sanitizeImageDataUrl(body.expiryImageUrl),
   });

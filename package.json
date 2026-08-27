@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "check:items": "tsc lib/rules.ts --outDir .tmp-check --module esnext --target es2022 --skipLibCheck && node scripts/check-item-matching.mjs"
   },
   "dependencies": {
     "firebase": "^12.18.0",
