@@ -28,7 +28,7 @@ export default function ServicePage() {
           <img
             src="/service/board.png"
             alt="진행 현황 게시판. 기관별 요청이 목표 수량 대비 몇 % 채워졌는지 진행률로 보여준다"
-            className="h-40 w-full object-cover object-top sm:h-auto sm:w-52 sm:shrink-0"
+            className="h-64 w-full object-cover object-top sm:h-auto sm:w-52 sm:shrink-0"
           />
           <div className="flex flex-col gap-2 p-5">
             <h2 className={sectionTitle}>왜 이렇게 만들었나요</h2>
@@ -47,17 +47,18 @@ export default function ServicePage() {
             고정하고 가로 줄은 그대로 유지한다.
           */}
           <div className="flex w-full gap-2 overflow-x-auto sm:w-52 sm:shrink-0">
+            {/*
+              썸네일이 h-28(112px)로 낮아서, 세로로 긴 화면 캡처(폭 대비 높이가 큰
+              모바일 스크린샷)가 위쪽 9%만 남고 대부분 잘려나갔다. h-48로 키워서
+              실제 내용이 보이게 한다.
+            */}
             {STEPS.map((s) => (
-              <div key={s.step} className="relative w-36 shrink-0">
-                <img
-                  src={s.src}
-                  alt={`${s.step} 화면 — ${s.desc}`}
-                  className="h-28 w-full object-cover object-top"
-                />
-                <p className="absolute inset-0 flex items-center justify-center px-2 text-center text-[11px] font-bold text-white [text-shadow:0_1px_3px_rgb(0_0_0_/_70%)]">
-                  {s.step}
-                </p>
-              </div>
+              <img
+                key={s.step}
+                src={s.src}
+                alt={`${s.step} 화면 — ${s.desc}`}
+                className="h-48 w-36 shrink-0 object-cover object-top"
+              />
             ))}
           </div>
           <div className="flex flex-col gap-2 p-5">
@@ -73,7 +74,7 @@ export default function ServicePage() {
           <img
             src="/service/admin.png"
             alt="기관 관리 화면. 필요 물품을 올리는 폼과 들어온 신청 목록을 함께 보여준다"
-            className="h-40 w-full object-cover object-top sm:h-auto sm:w-52 sm:shrink-0"
+            className="h-64 w-full object-cover object-top sm:h-auto sm:w-52 sm:shrink-0"
           />
           <div className="flex flex-col gap-2 p-5">
             <h2 className={sectionTitle}>기관은 목표만 올려두면 돼요</h2>
