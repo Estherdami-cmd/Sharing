@@ -1,5 +1,6 @@
 import Link from "next/link";
 import BrandMark from "./BrandMark";
+import Wordmark from "./Wordmark";
 
 const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -38,9 +39,9 @@ export default function Footer() {
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 py-10 md:px-6 lg:px-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:justify-between">
           <div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <BrandMark />
-              <span className="text-[17px] font-bold tracking-[-0.02em] whitespace-nowrap text-primary-700">여러시</span>
+              <Wordmark className="h-5 text-primary-700" />
             </div>
             <p className="mt-2 whitespace-nowrap text-[13px] leading-relaxed text-neutral-500">
               기관이 먼저 필요를 밝히면, 여럿이 나눠서 채우는 나눔 서비스예요.
