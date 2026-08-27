@@ -76,6 +76,47 @@ async function resizeImageToDataUrl(file: File, maxDim = 960, quality = 0.72): P
  * 사진은 줄여서 함께 등록에 실어 보낸다 — 기관이 신청을 검토할 때 실제 사진을
  * 같이 봐야 문구만으로는 알 수 없는 것(포장 상태, 라벨이 맞는지 등)을 확인할 수 있다.
  */
+/** /api/recognize가 목업으로 떨어졌을 때 알려주는 이유. */
+type RecognizeFailure =
+  | { kind: "rate_limit"; retryAfterSeconds: number | null }
+  | { kind: "no_key" }
+  | { kind: "error" };
+
+/** "1728초" 대신 "약 29분"으로 말한다. */
+function formatWait(seconds: number): string {
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `약 ${minutes}분`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `약 ${hours}시간` : `약 ${hours}시간 ${rest}분`;
+}
+
+/**
+ * 목업으로 떨어진 이유별 문구. 제목을 나누는 게 중요하다 —
+ * 한도 초과에 "연결하지 못했어요"라고 말하면 배포나 네트워크를 엉뚱하게 뒤지게 된다.
+ */
+function failureCopy(failure: RecognizeFailure | null): { title: string; detail: string } {
+  if (failure?.kind === "rate_limit") {
+    const wait = failure.retryAfterSeconds ? formatWait(failure.retryAfterSeconds) : null;
+    return {
+      title: "오늘 AI 판독 한도를 다 썼어요",
+      detail: wait
+        ? `${wait} 뒤에 다시 쓸 수 있어요. 서버 문제가 아니에요.`
+        : "잠시 뒤에 다시 쓸 수 있어요. 서버 문제가 아니에요.",
+    };
+  }
+  if (failure?.kind === "no_key") {
+    return {
+      title: "AI 판독이 설정되지 않았어요",
+      detail: "관리자에게 알려주세요 (OPENAI_API_KEY 미설정).",
+    };
+  }
+  return {
+    title: "AI 서버에 연결하지 못했어요",
+    detail: "잠시 뒤에 다시 시도해주세요.",
+  };
+}
+
 export default function RegisterFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,6 +171,8 @@ export default function RegisterFlow() {
   const [manufacturedOn, setManufacturedOn] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [source, setSource] = useState<"openai" | "mock" | null>(null);
+  /** 목업으로 떨어진 이유. 서버가 알려준다 — 한도 초과와 연결 실패는 할 말이 다르다. */
+  const [failure, setFailure] = useState<RecognizeFailure | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submittingDonation, setSubmittingDonation] = useState(false);
   const [loadingDemoPhoto, setLoadingDemoPhoto] = useState(false);
@@ -254,6 +297,7 @@ export default function RegisterFlow() {
       setManufacturedOn(data.manufacturedOn ?? null);
       setConfidence(data.confidence);
       setSource(data.source ?? null);
+      setFailure(data.failure ?? null);
       setRecognizeStatus("done");
     } catch {
       setRecognizeStatus("error");
@@ -416,12 +460,13 @@ export default function RegisterFlow() {
           */}
           {source === "mock" && (
             <div className="flex flex-col gap-1 rounded-xl border-2 border-warning-fg/40 bg-warning-bg px-4 py-3">
-              <p className="text-[15px] font-extrabold text-warning-fg">
-                AI 서버에 연결하지 못했어요
+              <p className="break-keep text-[15px] font-extrabold text-warning-fg">
+                {failureCopy(failure).title}
               </p>
-              <p className="text-[13px] leading-relaxed text-warning-fg">
-                아래 내용은 실제 판독 결과가 아니라 <b>예시 데이터</b>예요. 품목명과 유통기한이
-                사진과 맞는지 직접 확인하고 고쳐주세요.
+              <p className="break-keep text-[13px] leading-relaxed text-warning-fg">
+                {failureCopy(failure).detail} 아래 내용은 실제 판독 결과가 아니라{" "}
+                <b>예시 데이터</b>예요. 품목명과 유통기한이 사진과 맞는지 직접 확인하고
+                고쳐주세요.
               </p>
             </div>
           )}
