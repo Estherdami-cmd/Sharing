@@ -150,8 +150,13 @@ export default function DeliveryMap({ foodBank }: { foodBank: FoodBank }) {
    * 무료급식소 같은 기관은 지도 서비스에 장소로 등록돼 있지 않다 — 이름으로
    * 검색하면 안 나온다. 그래서 장소 ID가 아니라 좌표를 실어 보낸다.
    * 좌표 순서가 경도,위도인 것에 주의(지도 API의 위도,경도와 반대다).
+   *
+   * 맨 뒤의 이동수단(/-/car)을 빼면 안 된다. 빼면 길찾기 패널이 아예 열리지
+   * 않고(입력창 0개) 지도도 엉뚱한 기본 위치를 보여준다 — 실측으로 확인했다.
+   * car/transit/walk 중 무엇이든 붙으면 정상이고, 화면에서 탭으로 바꿀 수 있다.
+   * 물건을 들고 가는 경우가 많아 자동차를 기본으로 둔다.
    */
-  const naverDirections = `https://map.naver.com/p/directions/-/${lng},${lat},${encodeURIComponent(name)}`;
+  const naverDirections = `https://map.naver.com/p/directions/-/${lng},${lat},${encodeURIComponent(name)}/-/car`;
 
   return (
     <div className="flex flex-col gap-1.5">
