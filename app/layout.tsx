@@ -25,12 +25,12 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        {/* 본문 폰트(Gowun Batang)는 next/font/google이 한글 서브셋을 제공하지 않아
-            직접 링크로 불러온다. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        {/* 본문 폰트(Pretendard)는 구글 폰트에 없어서 CDN 스타일시트를 직접 불러온다. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap"
           rel="stylesheet"
+          as="style"
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
         />
       </head>
       <body>{children}</body>

@@ -31,7 +31,9 @@ export default function Footer() {
           <div>
             <div className="flex items-center gap-2">
               <BrandMark />
-              <span className="text-[17px] font-extrabold tracking-[-0.03em]">여러시</span>
+              <span className="text-[15px] font-extrabold tracking-[-0.02em] whitespace-nowrap">
+                YEORESI <span className="font-bold text-neutral-500">(여러시)</span>
+              </span>
             </div>
             <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-neutral-500">
               기관이 먼저 필요를 밝히면, 여럿이 나눠서 채우는 나눔 서비스예요.
