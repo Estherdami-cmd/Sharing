@@ -31,8 +31,9 @@ export default function Footer() {
           <div>
             <div className="flex items-center gap-2">
               <BrandMark />
-              <span className="text-[15px] font-extrabold tracking-[-0.02em] whitespace-nowrap">
-                YEORESI <span className="font-bold text-neutral-500">(여러시)</span>
+              <span className="flex flex-col leading-none">
+                <span className="text-[15px] font-extrabold tracking-[-0.02em] whitespace-nowrap">YEORESI</span>
+                <span className="mt-0.5 text-[10px] font-bold text-neutral-500 whitespace-nowrap">여러시</span>
               </span>
             </div>
             <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-neutral-500">
