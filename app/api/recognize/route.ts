@@ -149,18 +149,29 @@ type Recognized = {
 };
 
 /**
- * 판독 실패는 두 가지고, 사용자에게 할 말이 서로 다르다.
+ * 판독 실패는 종류마다 사용자에게 할 말이 다르다.
  * unrecognized = 모델은 답했는데 물품이 안 보임 → "다시 찍어주세요"
- * failed       = 호출 자체가 안 됨(타임아웃·5xx·키 없음) → 목업으로 대체
+ * failed       = 호출 자체가 안 됨 → 목업으로 대체하되, 왜 안 됐는지는 구분해서 말한다.
+ *
+ * "연결 실패"와 "한도 초과"를 같은 문구로 말하면 안 된다. 서버가 죽은 것처럼 읽혀서
+ * 팀원이 배포·네트워크를 엉뚱하게 뒤지게 된다. 한도는 기다리면 풀리는 문제다.
  */
+type FailureReason =
+  /** 429. 하루 요청 수(RPD) 한도. retryAfterSeconds만큼 기다리면 1회분이 찬다. */
+  | { kind: "rate_limit"; retryAfterSeconds: number | null }
+  /** 키가 아예 없음 — 로컬 .env.local이나 배포 환경변수 누락 */
+  | { kind: "no_key" }
+  /** 타임아웃·5xx·스키마 불일치 등 나머지 */
+  | { kind: "error" };
+
 type RecognizeOutcome =
   | { status: "ok"; data: Recognized }
   | { status: "unrecognized" }
-  | { status: "failed" };
+  | { status: "failed"; reason: FailureReason };
 
 /** 모델 응답은 스키마를 줘도 끝까지 믿지 않는다. 화면에 들어가기 전에 전부 정규화한다. */
 function normalize(raw: unknown, kind: ItemKind | null): RecognizeOutcome {
-  if (!raw || typeof raw !== "object") return { status: "failed" };
+  if (!raw || typeof raw !== "object") return { status: "failed", reason: { kind: "error" } };
   const data = raw as Record<string, unknown>;
 
   const itemName = typeof data.itemName === "string" ? data.itemName.trim() : "";
@@ -271,8 +282,21 @@ async function recognizeWithOpenAI(
   });
 
   if (!res.ok) {
-    console.error("[recognize] OpenAI 응답 실패", res.status, (await res.text()).slice(0, 500));
-    return { status: "failed" };
+    const body = (await res.text()).slice(0, 500);
+    console.error("[recognize] OpenAI 응답 실패", res.status, body);
+    if (res.status === 429) {
+      // OpenAI가 retry-after 헤더로 "몇 초 뒤에 1회분이 차는지"를 알려준다.
+      // 본문 메시지를 파싱하는 것보다 이게 정확하다.
+      const header = Number(res.headers.get("retry-after"));
+      return {
+        status: "failed",
+        reason: {
+          kind: "rate_limit",
+          retryAfterSeconds: Number.isFinite(header) && header > 0 ? Math.ceil(header) : null,
+        },
+      };
+    }
+    return { status: "failed", reason: { kind: "error" } };
   }
 
   const payload = await res.json();
@@ -287,7 +311,7 @@ async function recognizeWithOpenAI(
   const refusal = blocks.find((b: { type?: unknown }) => b?.type === "refusal");
   if (refusal) {
     console.error("[recognize] OpenAI 응답 거부", JSON.stringify(refusal).slice(0, 500));
-    return { status: "failed" };
+    return { status: "failed", reason: { kind: "error" } };
   }
 
   const text = blocks
@@ -305,14 +329,14 @@ async function recognizeWithOpenAI(
       payload?.status,
       JSON.stringify(payload?.incomplete_details ?? payload).slice(0, 500)
     );
-    return { status: "failed" };
+    return { status: "failed", reason: { kind: "error" } };
   }
 
   try {
     return normalize(JSON.parse(text), kind);
   } catch {
     console.error("[recognize] OpenAI JSON 파싱 실패", text.slice(0, 500));
-    return { status: "failed" };
+    return { status: "failed", reason: { kind: "error" } };
   }
 }
 
@@ -395,17 +419,22 @@ export async function POST(request: Request) {
 
   let result: Recognized | null = null;
   let source: "demo" | "openai" | "mock" = "mock";
+  /** 목업으로 떨어진 이유. 화면이 "연결 실패"와 "한도 초과"를 다르게 말하는 근거다. */
+  let failure: FailureReason | null = null;
 
   if (requestedSample) {
     result = recognizeWithMock(image, requestedSample, kind);
     source = "demo";
-  } else if (apiKey) {
+  } else if (!apiKey) {
+    console.error("[recognize] OPENAI_API_KEY가 없어 목업으로 대체");
+    failure = { kind: "no_key" };
+  } else {
     let outcome: RecognizeOutcome;
     try {
       outcome = await recognizeWithOpenAI(image, expiryImage, apiKey, kind);
     } catch (error) {
       console.error("[recognize] OpenAI 호출 예외", error);
-      outcome = { status: "failed" };
+      outcome = { status: "failed", reason: { kind: "error" } };
     }
 
     // 물품을 못 찾은 건 목업으로 덮으면 안 된다. 엉뚱한 품목을 확신에 차서 보여주게 된다.
@@ -418,6 +447,8 @@ export async function POST(request: Request) {
     if (outcome.status === "ok") {
       result = outcome.data;
       source = "openai";
+    } else {
+      failure = outcome.reason;
     }
   }
 
@@ -439,6 +470,8 @@ export async function POST(request: Request) {
     manufacturedOn: result.manufacturedOn,
     confidence: result.confidence,
     source,
+    /** source가 mock일 때만 채워진다. 화면이 이유에 맞는 문구를 고르는 데 쓴다. */
+    failure,
     photoCount: expiryImage ? 2 : 1,
     ...verdict,
   });
