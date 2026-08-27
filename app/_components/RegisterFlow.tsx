@@ -47,9 +47,34 @@ const DEMO_PHOTOS = {
 } as const;
 
 /**
+ * 사진을 그대로 보내면 휴대폰 사진 한 장이 수 MB라 요청이 커진다. 기관이 화면에서
+ * 확인하는 용도로는 이 정도 크기면 충분해서, 올릴 때 한 번 줄인다.
+ * 실패하면(브라우저 미지원 등) null을 돌려주고 사진 없이 등록을 계속 진행한다 —
+ * 사진 첨부가 등록 자체를 막을 이유는 없다.
+ */
+async function resizeImageToDataUrl(file: File, maxDim = 960, quality = 0.72): Promise<string | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 1단계: 물품 등록.
  * 등록에 성공하면 만들어진 물품 id를 쿼리에 실어 2단계 주소로 넘긴다.
- * 사진 파일은 이 페이지에서만 쓰고 서버로 보내지 않으므로 다음 단계로 넘길 것이 없다.
+ * 사진은 줄여서 함께 등록에 실어 보낸다 — 기관이 신청을 검토할 때 실제 사진을
+ * 같이 봐야 문구만으로는 알 수 없는 것(포장 상태, 라벨이 맞는지 등)을 확인할 수 있다.
  */
 export default function RegisterFlow() {
   const router = useRouter();
@@ -238,6 +263,10 @@ export default function RegisterFlow() {
 
   async function handleRegisterNext() {
     setSubmittingDonation(true);
+    const [productImageUrl, expiryImageUrl] = await Promise.all([
+      productFileRef.current ? resizeImageToDataUrl(productFileRef.current) : Promise.resolve(null),
+      expiryFileRef.current ? resizeImageToDataUrl(expiryFileRef.current) : Promise.resolve(null),
+    ]);
     const res = await fetch("/api/donations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -247,6 +276,8 @@ export default function RegisterFlow() {
         quantity: quantityValue,
         expiryDate,
         region: DEFAULT_REGION,
+        productImageUrl,
+        expiryImageUrl,
       }),
     });
     if (!res.ok) {

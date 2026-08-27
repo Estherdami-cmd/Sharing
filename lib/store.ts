@@ -51,6 +51,9 @@ export type Donation = {
   shareReason: string;
   region: string;
   createdAt: string;
+  /** 기관이 신청을 검토할 때 문구만으로는 알 수 없는 걸 확인하는 용도. 둘 다 선택. */
+  productImageUrl: string | null;
+  expiryImageUrl: string | null;
 };
 
 export type DateCandidate = { date: string; slot: string };
@@ -439,6 +442,8 @@ export function createDonation(input: {
   quantity?: number;
   expiryDate: string | null;
   region: string;
+  productImageUrl?: string | null;
+  expiryImageUrl?: string | null;
 }): Donation {
   // 나눔 가능 여부는 클라이언트가 보낸 값을 믿지 않고 항상 서버가 판정한다.
   const verdict = evaluateShareable(input.expiryDate);
@@ -453,6 +458,8 @@ export function createDonation(input: {
     shareReason: verdict.reason,
     region: input.region || DEFAULT_REGION,
     createdAt: new Date().toISOString(),
+    productImageUrl: input.productImageUrl ?? null,
+    expiryImageUrl: input.expiryImageUrl ?? null,
   };
   donations.set(donation.id, donation);
   return donation;

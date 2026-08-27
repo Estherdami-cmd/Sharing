@@ -389,6 +389,30 @@ export default function AdminPanel() {
                   <p className="mt-1.5 text-[13px] text-neutral-600">
                     {app.donation.itemName} ({app.donation.category}) · {app.quantity}개
                   </p>
+                  {/* 문구만으로는 포장 상태나 라벨이 맞는지 알 수 없다. 기부자가 등록할 때
+                      올린 사진을 그대로 보여줘 수락 전에 확인할 수 있게 한다. */}
+                  {(app.donation.productImageUrl || app.donation.expiryImageUrl) && (
+                    <div className="mt-1.5 flex gap-2">
+                      {app.donation.productImageUrl && (
+                        <a href={app.donation.productImageUrl} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={app.donation.productImageUrl}
+                            alt="기부자가 올린 제품 사진"
+                            className="h-16 w-16 rounded-lg border border-neutral-200 object-cover"
+                          />
+                        </a>
+                      )}
+                      {app.donation.expiryImageUrl && (
+                        <a href={app.donation.expiryImageUrl} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={app.donation.expiryImageUrl}
+                            alt="기부자가 올린 유통기한 사진"
+                            className="h-16 w-16 rounded-lg border border-neutral-200 object-cover"
+                          />
+                        </a>
+                      )}
+                    </div>
+                  )}
                   {app.donation.expiryDate && (
                     <p className="text-[13px] text-neutral-500">
                       유통기한: {app.donation.expiryDate}
