@@ -25,6 +25,8 @@ import {
   evaluateShareable,
   getRegion,
   isSameItem,
+  isSameItemBy,
+  canonicalItemName,
   isUrgent,
   orgCategoriesForNeed,
   parseLocalDate,
@@ -88,6 +90,12 @@ export type Need = {
   targetQty: number;
   filledQty: number;
   note: string;
+  /**
+   * 용량·상표를 뺀 물건 이름("백미 5kg" → "쌀"). 매칭에서 같은 물건인지 볼 때 쓴다.
+   * 사진 판독이나 요청 등록 시점에 한 번 계산해 저장한다 — 매칭 경로에서 모델을
+   * 부르면 화면을 열 때마다 API를 쓰게 된다. 없으면 문자열 규칙으로 떨어진다.
+   */
+  genericName: string | null;
   /** data URL(base64). 파일 스토리지가 따로 없어 Firestore 문서에 그대로 둔다. */
   imageUrl: string | null;
   createdAt: string;
@@ -104,6 +112,12 @@ export type Donation = {
   shareReason: string;
   region: string;
   createdAt: string;
+  /**
+   * 용량·상표를 뺀 물건 이름("백미 5kg" → "쌀"). 매칭에서 같은 물건인지 볼 때 쓴다.
+   * 사진 판독이나 요청 등록 시점에 한 번 계산해 저장한다 — 매칭 경로에서 모델을
+   * 부르면 화면을 열 때마다 API를 쓰게 된다. 없으면 문자열 규칙으로 떨어진다.
+   */
+  genericName: string | null;
   /** 기관이 신청을 검토할 때 문구만으로는 알 수 없는 걸 확인하는 용도. 둘 다 선택. */
   productImageUrl: string | null;
   expiryImageUrl: string | null;
@@ -232,7 +246,7 @@ export const ORG_SNAPSHOT = orgSnapshot;
  * foodBankId는 여기 없다 — 씨드를 넣는 시점에 orgCategoryForNeed로 알맞은 종류의
  * 실제 기관을 골라 붙인다(요양원에 학용품이 걸리는 조합을 막는다).
  */
-const SEED_NEEDS: Omit<Need, "id" | "createdAt" | "foodBankId">[] = [
+const SEED_NEEDS: Omit<Need, "id" | "createdAt" | "foodBankId" | "genericName">[] = [
   {
     itemName: "성인용 기저귀 대형",
     category: "위생용품",
@@ -590,6 +604,9 @@ async function ensureSeeded() {
       addDoc(needsCol, {
         ...seed,
         foodBankId: pickOrgFor(banks, seed.category, seed.itemName, i),
+        // 씨드에서는 API를 부르지 않는다. 문자열 규칙으로 채워두고,
+        // /api/admin/backfill-generic-names가 나중에 AI 값으로 덮는다.
+        genericName: canonicalItemName(seed.itemName),
         createdAt: new Date().toISOString(),
       })
     )
@@ -700,6 +717,7 @@ function needFromDoc(id: string, data: Record<string, unknown>): Need {
     filledQty: data.filledQty as number,
     note: (data.note as string) ?? "",
     imageUrl: (data.imageUrl as string | null) ?? null,
+    genericName: (data.genericName as string | null) ?? null,
     createdAt: data.createdAt as string,
   };
 }
@@ -717,6 +735,7 @@ function donationFromDoc(id: string, data: Record<string, unknown>): Donation {
     createdAt: data.createdAt as string,
     productImageUrl: (data.productImageUrl as string | null) ?? null,
     expiryImageUrl: (data.expiryImageUrl as string | null) ?? null,
+    genericName: (data.genericName as string | null) ?? null,
   };
 }
 
@@ -752,10 +771,53 @@ export async function createNeed(input: {
   targetQty: number;
   note: string;
   imageUrl: string | null;
+  genericName?: string | null;
 }): Promise<Need> {
-  const data = { ...input, filledQty: 0, createdAt: new Date().toISOString() };
+  const data = {
+    ...input,
+    genericName: input.genericName ?? null,
+    filledQty: 0,
+    createdAt: new Date().toISOString(),
+  };
   const ref = await addDoc(needsCol, data);
   return { id: ref.id, ...data };
+}
+
+/**
+ * 기존 요청들의 일반명을 채운다(/api/admin/backfill-generic-names).
+ *
+ * 씨드로 들어간 요청은 문자열 규칙으로 대충 채워져 있다 — "3겹 화장지 30롤"이
+ * "3겹화장지"로 남는 식이다. 모델에게 한 번 물어보면 "화장지"가 된다.
+ * 품목명이 서로 겹쳐도 호출은 한 번이다 — 중복을 제거해 한 프롬프트로 보낸다.
+ *
+ * force가 false면 아직 비어 있는 것만 채우고, true면 전부 다시 계산한다.
+ */
+export async function backfillGenericNames(
+  derive: (names: string[]) => Promise<Map<string, string>>,
+  force = false
+) {
+  const snap = await getDocs(needsCol);
+  const targets = snap.docs.filter((d) => force || !d.data().genericName);
+  if (targets.length === 0) return { scanned: snap.size, updated: 0, distinctNames: 0, names: {} };
+
+  const distinct = [...new Set(targets.map((d) => d.data().itemName as string))];
+  const derived = await derive(distinct);
+
+  await Promise.all(
+    targets.map((d) => {
+      const itemName = d.data().itemName as string;
+      const value = derived.get(itemName);
+      if (!value) return Promise.resolve();
+      return updateDoc(doc(needsCol, d.id), { genericName: value });
+    })
+  );
+
+  return {
+    scanned: snap.size,
+    updated: targets.length,
+    distinctNames: distinct.length,
+    names: Object.fromEntries(derived),
+  };
 }
 
 export type NeedView = Need & {
@@ -863,7 +925,9 @@ function needLabelOf(score: number) {
 export async function matchNeeds(
   category: string,
   itemName: string,
-  regionName: string
+  regionName: string,
+  /** 기부 물품의 일반명. 사진 판독 때 모델이 뽑아준 값. 없으면 품목명으로 비교한다. */
+  genericName: string | null = null
 ): Promise<NeedMatch[]> {
   const origin = getRegion(regionName || DEFAULT_REGION);
   const all = await listNeeds();
@@ -875,7 +939,7 @@ export async function matchNeeds(
       // 이걸 구분해야 "같은 분류라 함께 받는다"는 사실을 화면에서 말할 수 있다.
       const matchGrade: MatchGrade = !isExact
         ? "different"
-        : isSameItem(itemName, need.itemName)
+        : isSameItemBy({ itemName, genericName }, need)
           ? "exact"
           : "similar";
       const distance = distanceKm(origin, need.foodBank);
@@ -1022,6 +1086,7 @@ export async function createDonation(input: {
   region: string;
   productImageUrl?: string | null;
   expiryImageUrl?: string | null;
+  genericName?: string | null;
 }): Promise<Donation> {
   // 나눔 가능 여부는 클라이언트가 보낸 값을 믿지 않고 항상 서버가 판정한다.
   const verdict = evaluateShareable(input.expiryDate);
@@ -1037,6 +1102,7 @@ export async function createDonation(input: {
     createdAt: new Date().toISOString(),
     productImageUrl: input.productImageUrl ?? null,
     expiryImageUrl: input.expiryImageUrl ?? null,
+    genericName: input.genericName ?? null,
   };
   const ref = await addDoc(donationsCol, data);
   return { id: ref.id, ...data };

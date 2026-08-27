@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CATEGORIES, clampTargetQty } from "@/lib/rules";
+import { deriveGenericNames } from "@/lib/generic-name";
 import { createNeed, getFoodBank, getFoodBanks, listNeeds } from "@/lib/store";
 
 /** data URL은 base64라 원본의 4/3배가 된다. Firestore 문서 하나가 너무 커지지 않게 막아둔다. */
@@ -47,6 +48,13 @@ export async function POST(request: Request) {
     }
   }
 
+  /*
+   * 일반명은 여기서 한 번만 뽑는다. 매칭 경로에서 부르면 화면을 열 때마다 API를
+   * 쓰게 된다. 요청 등록은 기관이 어쩌다 하는 일이라 호출량이 문제되지 않는다.
+   * 실패하면 문자열 규칙으로 채워지므로 등록 자체가 막히지는 않는다.
+   */
+  const generics = await deriveGenericNames([itemName]);
+
   const need = await createNeed({
     foodBankId,
     itemName,
@@ -54,6 +62,7 @@ export async function POST(request: Request) {
     targetQty: clampTargetQty(targetQtyNum),
     note: body.note ?? "",
     imageUrl,
+    genericName: generics.get(itemName) ?? null,
   });
   return NextResponse.json(need);
 }
