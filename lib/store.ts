@@ -26,7 +26,7 @@ import {
   getRegion,
   isSameItem,
   isUrgent,
-  orgCategoryForNeed,
+  orgCategoriesForNeed,
   parseLocalDate,
   startOfToday,
   toISODate,
@@ -601,11 +601,9 @@ async function ensureSeeded() {
  * 41건이 한 기관에 몰리지 않게 한다. 맞는 종류가 없으면 아무 기관에나 붙인다.
  */
 function pickOrgFor(banks: FoodBank[], category: string, itemName: string, i: number): string {
-  const wanted = orgCategoryForNeed(category, itemName);
-  const pool = banks.filter((b) => b.category === wanted);
-  // 맞는 종류가 없으면 푸드뱅크로 보낸다 — 품목을 가리지 않고 받는 곳이다.
-  const fallback = banks.filter((b) => b.source === "foodbank");
-  const from = pool.length > 0 ? pool : fallback.length > 0 ? fallback : banks;
+  const wanted = orgCategoriesForNeed(category, itemName);
+  const pool = banks.filter((b) => b.category && wanted.includes(b.category));
+  const from = pool.length > 0 ? pool : banks;
   return from[i % from.length].id;
 }
 
@@ -643,16 +641,19 @@ export async function getFoodBank(id: string): Promise<FoodBank | undefined> {
  * 화면이 깨진다(getFoodBank가 undefined). 그래서 지우기 전에 그 요청들을 같은
  * 종류의 살아있는 기관으로 옮긴다. 하드코딩 시절의 fb1~fb3도 이 경로로 정리된다.
  */
-export async function syncOrgs(orgs: FoodBank[]) {
+export async function syncOrgs(orgs: FoodBank[], options: { redistribute?: boolean } = {}) {
   // 손으로 정리한 푸드뱅크 5곳도 같이 덮어쓴다 — 예전에 넣어둔 임시 운영시간이
   // Firestore에 남아 있으면 화면에서 계속 사실처럼 보인다.
-  const writing = [...CURATED_FOOD_BANKS, ...orgs];
+  // 이 경로로 들어오는 기관은 항상 생활지도 API 출신이다. 호출하는 쪽이 source를
+  // 빼먹어도 정리 기준이 틀어지지 않게 여기서 못 박는다.
+  const incoming: FoodBank[] = orgs.map((o) => ({ ...o, source: "lvlhmap" as const }));
+  const writing = [...CURATED_FOOD_BANKS, ...incoming];
   await Promise.all(writing.map((o) => setDoc(doc(foodBanksCol, o.id), o)));
 
   const alive = new Set(writing.map((o) => o.id));
   const existing = await getDocs(foodBanksCol);
   // 이번에 갱신한 출처의 기관만 정리 대상이다. 다른 출처는 건드리지 않는다.
-  const syncedSources = new Set<string>(orgs.map((o) => o.source ?? "lvlhmap"));
+  const syncedSources = new Set<string>(["lvlhmap"]);
   const stale = existing.docs
     .filter((d) => !alive.has(d.id))
     .filter((d) => syncedSources.has((d.data().source as string | undefined) ?? "lvlhmap"))
@@ -662,7 +663,10 @@ export async function syncOrgs(orgs: FoodBank[]) {
   // 지우기 전에 같은 종류의 살아있는 기관으로 옮긴다.
   const staleSet = new Set(stale);
   const needsSnap = await getDocs(needsCol);
+  // redistribute를 켜면 멀쩡한 요청까지 전부 다시 배정한다. 기관이 5곳에서 114곳으로
+  // 늘어난 뒤 요청이 예전 5곳에만 몰려 있으면, 새로 들어온 기관은 화면에 안 나온다.
   const orphaned = needsSnap.docs.filter((d) => {
+    if (options.redistribute) return true;
     const id = d.data().foodBankId as string;
     return staleSet.has(id) || !alive.has(id);
   });

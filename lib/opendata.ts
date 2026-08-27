@@ -20,6 +20,25 @@ export const SOURCE = {
   collectedAt: "2023-08-28",
 } as const;
 
+/**
+ * 화면에 밝히는 출처 목록. 기관 정보는 두 공공데이터에서 오고, 둘 다 표기해야 한다.
+ * SOURCE는 이 파일이 실제로 호출하는 API(생활지도)만 가리킨다.
+ */
+export const SOURCES = [
+  {
+    dataset: "경상북도 포항시_생활 지도 시설 현황",
+    datasetUrl: "https://www.data.go.kr/data/15139519/openapi.do",
+    covers: "지역아동센터·무료급식소·요양원",
+    collectedAt: "2023-08-28",
+  },
+  {
+    dataset: "경상북도_푸드뱅크 현황",
+    datasetUrl: "https://www.data.go.kr/data/15063077/fileData.do",
+    covers: "푸드뱅크·푸드마켓",
+    collectedAt: null,
+  },
+] as const;
+
 /** 물품 기부가 실제로 의미 있는 카테고리만 고른다. */
 const TARGETS: Record<string, { audience: string; goodsHint: string }> = {
   지역아동센터: { audience: "아동", goodsHint: "학용품·간식·의류·도서" },

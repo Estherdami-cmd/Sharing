@@ -64,17 +64,23 @@ export const REGIONS: Region[] = [
 export const DEFAULT_REGION = "북구 죽도동";
 
 /**
- * 어떤 물품 요청이 어느 종류의 기관에서 나올 만한지 고른다.
- * 공공데이터에서 받아온 실제 기관(지역아동센터·무료급식소·요양원)에 씨드 요청을
- * 붙일 때, 요양원에 학용품이 걸리는 식의 어색한 조합을 막는 용도다.
+ * 어떤 물품 요청이 어느 종류의 기관에서 나올 만한지 고른다. 앞에 있는 종류가 더 잘 맞는다.
+ * 공공데이터에서 받아온 실제 기관에 씨드 요청을 붙일 때, 요양원에 학용품이 걸리는 식의
+ * 어색한 조합을 막는 용도다. 푸드뱅크·푸드마켓은 품목을 가리지 않고 받으니 대부분에 들어간다.
  */
-export function orgCategoryForNeed(category: string, itemName: string): string {
-  if (category === "학용품") return "지역아동센터";
-  if (/동화책|문제집|보드게임|인형|아동용/.test(itemName)) return "지역아동센터";
-  if (["쌀/곡물", "통조림", "라면/면류", "음료", "유제품"].includes(category)) return "무료급식소";
-  if (/즉석밥|소금|미역|시리얼/.test(itemName)) return "무료급식소";
-  return "노인의료시설";
+export function orgCategoriesForNeed(category: string, itemName: string): string[] {
+  if (category === "학용품" || /동화책|문제집|보드게임|인형|아동용/.test(itemName)) {
+    return ["지역아동센터"];
+  }
+  if (
+    ["쌀/곡물", "통조림", "라면/면류", "음료", "유제품"].includes(category) ||
+    /즉석밥|소금|미역|시리얼/.test(itemName)
+  ) {
+    return ["무료급식소", "푸드뱅크", "푸드마켓"];
+  }
+  return ["노인의료시설", "푸드뱅크", "푸드마켓"];
 }
+
 
 export function getRegion(name: string): Region {
   return REGIONS.find((r) => r.name === name) ?? REGIONS[0];

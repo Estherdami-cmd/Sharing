@@ -192,7 +192,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="기관명으로 검색 (예: 사랑의 열매)"
+            placeholder="기관명으로 검색 (예: 흥해제일교회)"
             className={field}
           />
           <p className="text-xs text-neutral-400">

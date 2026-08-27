@@ -20,6 +20,8 @@ export async function GET(req: Request) {
   // 커밋된 스냅샷으로만 Firestore를 채운다 — 공공데이터를 안 부르니 빠르고 한도도 안 쓴다.
   // 팀원이 서비스키 없이 DB를 초기화할 때 쓴다.
   const fromSnapshot = url.searchParams.get("source") === "snapshot";
+  // 기관 목록이 크게 늘었을 때 한 번 쓴다 — 기존 요청을 새 기관에도 골고루 나눈다.
+  const redistribute = url.searchParams.get("redistribute") === "1";
 
   const expected = process.env.ADMIN_SYNC_TOKEN;
   if (process.env.NODE_ENV === "production") {
@@ -35,7 +37,7 @@ export async function GET(req: Request) {
   }
 
   if (fromSnapshot) {
-    const written = await syncOrgs(ORG_SNAPSHOT.orgs);
+    const written = await syncOrgs(ORG_SNAPSHOT.orgs, { redistribute });
     return NextResponse.json({
       source: SOURCE,
       from: "lib/data/pohang-orgs.json 스냅샷",
@@ -66,7 +68,7 @@ export async function GET(req: Request) {
       return NextResponse.json(result);
     }
 
-    const written = await syncOrgs(result.orgs);
+    const written = await syncOrgs(result.orgs, { redistribute });
     return NextResponse.json({
       source: SOURCE,
       fetchedAt: result.fetchedAt,
