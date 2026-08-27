@@ -386,8 +386,11 @@ export default function ApplyForm() {
             </div>
           )}
 
+          {/* 공공데이터에 수거시간이 없다. 없는 시간을 지어내지 않고 모른다고 말한다. */}
           <p className="text-xs text-neutral-400">
-            {selectedNeed.foodBank.name} 수거 시간: {selectedNeed.foodBank.pickupSlots.join(", ")}
+            {selectedNeed.foodBank.pickupSlots?.length
+              ? `${selectedNeed.foodBank.name} 수거 시간: ${selectedNeed.foodBank.pickupSlots.join(", ")}`
+              : `${selectedNeed.foodBank.name} 수거 시간은 미확인이에요. 신청 후 기관과 협의해요`}
           </p>
         </div>
 
