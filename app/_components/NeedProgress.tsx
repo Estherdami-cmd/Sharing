@@ -139,12 +139,12 @@ export default function NeedProgress({
             }}
           />
         )}
-        {/* 아직 대기중인 내 몫. 빗금 대신 같은 색의 옅은 톤을 쓴다 — 막대가 10px인데
-            줄무늬 간격이 4px이라 뭉개져 보이고, 빗금은 "공사중"에 가까워 내 몫으로 안 읽힌다.
-            진한 색 = 확정, 옅은 색 = 아직. 색 하나로 끝난다. */}
+        {/* 아직 대기중인 내 몫. 고정된 연두색 대신 지금 채움 색(fillClass)을 그대로 옅게
+            써서 한 색 계열로 이어지게 한다 — 진행률이 낮아 막대가 빨간색(danger)일 때도
+            엉뚱한 초록이 붙지 않는다. 진한 색 = 확정, 옅은 색 = 아직. */}
         {minePending > 0 && (
           <div
-            className="bg-primary-300 transition-[width] duration-700 ease-out"
+            className={`${fillClass(progress)}/45 transition-[width] duration-700 ease-out`}
             style={{ width: `${animationStarted ? minePending : 0}%` }}
           />
         )}
@@ -174,7 +174,7 @@ export default function NeedProgress({
           <span className="flex items-center gap-1.5">
             <span
               className={`h-2.5 w-2.5 shrink-0 rounded-[3px] ${
-                mineCounted ? "bg-primary-700" : "bg-primary-300"
+                mineCounted ? "bg-primary-700" : `${fillClass(progress)}/45`
               }`}
             />
             내 신청 <strong className="text-neutral-900">{mineQty.toLocaleString()}개</strong>
