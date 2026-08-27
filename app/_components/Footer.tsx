@@ -47,7 +47,7 @@ export default function Footer() {
             {/* break-keep으로 되돌아간 적이 있는데, 그럼 다시 두 줄로 나뉜다.
                 한 줄로 고정해달라는 요청이 명확했던 부분이라 whitespace-nowrap을 유지한다. */}
             <p className="mt-2 whitespace-nowrap text-[13px] leading-relaxed text-neutral-500">
-              기관이 먼저 필요를 밝히면, 여럿이 나눠서 채우는 나눔 서비스예요.
+              사진 한장으로 필요로 하는 곳에 함께 모여 기부합니다.
             </p>
           </div>
 
