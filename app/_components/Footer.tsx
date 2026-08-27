@@ -1,7 +1,6 @@
 import Link from "next/link";
 import BrandMark from "./BrandMark";
 import Wordmark from "./Wordmark";
-import { SOURCES } from "@/lib/opendata";
 
 const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -82,29 +81,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* 화면에 뜨는 기관은 실제 공공데이터다. 두 출처를 모두 밝혀 둔다. */}
-          <div className="mt-5 break-keep text-[11px] leading-relaxed text-neutral-400">
-            <p>기관 정보 출처 — 공공데이터포털</p>
-            <ul className="mt-1 space-y-0.5">
-              {SOURCES.map((src) => (
-                <li key={src.dataset}>
-                  <a
-                    href={src.datasetUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline decoration-neutral-300 underline-offset-2 hover:text-neutral-600"
-                  >
-                    {src.dataset}
-                  </a>{" "}
-                  ({src.covers}
-                  {src.collectedAt ? `, ${src.collectedAt} 수집 기준` : ""})
-                </li>
-              ))}
-            </ul>
-            <p className="mt-1">기관 운영시간·연락처는 원본에 없는 항목이라 표시하지 않아요.</p>
-          </div>
-
-          <div className="mt-4 flex flex-col gap-2 text-xs text-neutral-400 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-5 flex flex-col gap-2 text-xs text-neutral-400 sm:flex-row sm:items-center sm:justify-between">
             <p>© 2026 여러시. All rights reserved.</p>
             <div className="flex gap-3">
               <Link href="/terms" className="hover:text-neutral-600">

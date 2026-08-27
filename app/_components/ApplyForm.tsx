@@ -16,6 +16,7 @@ import {
   pageDesc,
   pageTitle,
 } from "../ui";
+import DeliveryMap from "./DeliveryMap";
 import NeedProgress from "./NeedProgress";
 
 const SLOT_CHOICES = ["상관없음", "오전", "오후"];
@@ -340,9 +341,19 @@ export default function ApplyForm() {
 
         <div className="flex flex-col gap-1.5">
           <label className={label}>전달 장소</label>
-          <p className="flex h-12 w-full items-center rounded-xl border border-neutral-200 bg-neutral-50 px-4 text-[15px] text-neutral-700">
-            {selectedNeed.foodBank.name}
-          </p>
+          <div className="flex flex-col gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+            <div className="flex flex-col gap-0.5">
+              <p className="text-[15px] font-semibold text-neutral-800">
+                {selectedNeed.foodBank.name}
+              </p>
+              {selectedNeed.foodBank.address && (
+                <p className="break-keep text-[13px] leading-relaxed text-neutral-500">
+                  {selectedNeed.foodBank.address}
+                </p>
+              )}
+            </div>
+            <DeliveryMap foodBank={selectedNeed.foodBank} />
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
