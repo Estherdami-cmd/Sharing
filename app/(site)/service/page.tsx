@@ -48,13 +48,15 @@ export default function ServicePage() {
           */}
           <div className="flex w-full gap-2 overflow-x-auto sm:w-52 sm:shrink-0">
             {STEPS.map((s) => (
-              <div key={s.step} className="flex w-36 shrink-0 flex-col gap-1">
+              <div key={s.step} className="relative w-36 shrink-0">
                 <img
                   src={s.src}
                   alt={`${s.step} 화면 — ${s.desc}`}
                   className="h-28 w-full object-cover object-top"
                 />
-                <p className="text-[11px] font-bold text-neutral-700">{s.step}</p>
+                <p className="absolute inset-0 flex items-center justify-center bg-black/35 px-2 text-center text-[11px] font-bold text-white">
+                  {s.step}
+                </p>
               </div>
             ))}
           </div>
