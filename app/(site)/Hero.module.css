@@ -57,10 +57,14 @@
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.letterEnter > path { transform-box: fill-box; transform-origin: center; }
-.letterEnter > path:nth-child(1) { animation: letterIn .6s ease-out both; animation-delay: 900ms; }
-.letterEnter > path:nth-child(2) { animation: letterIn .6s ease-out both; animation-delay: 1030ms; }
-.letterEnter > path:nth-child(3) { animation: letterIn .6s ease-out both; animation-delay: 1160ms; }
+.letterEnter > path,
+.letterEnter > use { transform-box: fill-box; transform-origin: center; }
+.letterEnter > path:nth-child(1),
+.letterEnter > use:nth-child(1) { animation: letterIn .6s ease-out both; animation-delay: 900ms; }
+.letterEnter > path:nth-child(2),
+.letterEnter > use:nth-child(2) { animation: letterIn .6s ease-out both; animation-delay: 1030ms; }
+.letterEnter > path:nth-child(3),
+.letterEnter > use:nth-child(3) { animation: letterIn .6s ease-out both; animation-delay: 1160ms; }
 .letterEnter > path:nth-child(4) { animation: letterIn .6s ease-out both; animation-delay: 1290ms; }
 .letterEnter > path:nth-child(5) { animation: letterIn .6s ease-out both; animation-delay: 1420ms; }
 .letterEnter > path:nth-child(6) { animation: letterIn .6s ease-out both; animation-delay: 1550ms; }
@@ -103,7 +107,8 @@
   .scrollBtn { animation: none; }
   .floatFade { animation: none; opacity: 1; }
   .floatBob { animation: none; transform: none; }
-  .letterEnter > path { animation: none; opacity: 1; transform: none; }
+  .letterEnter > path,
+  .letterEnter > use { animation: none; opacity: 1; transform: none; }
   .typeSlot { animation: none; width: min(58vw, 320px); opacity: 0; }
   .ctaReveal { animation: none; opacity: 1; transform: translate(-50%, -50%); }
   .taglineFade { animation: none; opacity: 1; transform: none; }
