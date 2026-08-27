@@ -8,14 +8,17 @@ const STEPS: { src: string; step: string; desc: string }[] = [
   { src: "/service/complete.png", step: "4. 신청 완료", desc: "기관이 날짜를 확정하면 끝나요" },
 ];
 
-/** 사진이 카드 안 작은 썸네일로 끼어있지 않고, 카드 가장자리까지 꽉 차게 빠져나온다. */
-const mediaCard =
-  "flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white sm:flex-row";
+/**
+ * 흰 배경 카드로 감싸지 않는다 — 사진 옆에 흰 블록이 따로 떠 보이는 걸 없애려고
+ * 뺐다. 사진은 그 자체로 둥근 모서리를 갖고, 글은 배경 없이 사진 옆에 놓인다.
+ */
+const mediaRow = "flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-5";
+const mediaImg = "rounded-xl object-cover object-top";
 
 export default function ServicePage() {
   return (
     <PageShell>
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
         <header className="text-center">
           <h1 className={pageTitle}>여러시는 이렇게 동작해요</h1>
           <p className={pageDesc}>
@@ -24,13 +27,13 @@ export default function ServicePage() {
           </p>
         </header>
 
-        <div className={mediaCard}>
+        <div className={mediaRow}>
           <img
             src="/service/board.png"
             alt="진행 현황 게시판. 기관별 요청이 목표 수량 대비 몇 % 채워졌는지 진행률로 보여준다"
-            className="h-64 w-full object-cover object-top sm:h-auto sm:w-52 sm:shrink-0"
+            className={`${mediaImg} h-64 w-full sm:h-auto sm:w-52 sm:shrink-0`}
           />
-          <div className="flex flex-col gap-2 p-5">
+          <div className="flex flex-col gap-2">
             <h2 className={sectionTitle}>왜 이렇게 만들었나요</h2>
             <p className={caption}>
               게시판에 물건을 올려두고 기관이 일일이 골라가는 방식은 모니터링 부담이 크고, 한
@@ -40,28 +43,23 @@ export default function ServicePage() {
           </div>
         </div>
 
-        <div className={mediaCard}>
+        <div className={mediaRow}>
           {/*
-            화면 4개짜리 띠도 같은 방식으로 왼쪽(모바일은 위쪽) 가장자리에 붙여 뺀다.
-            세로로 쌓으면(sm:flex-col) 오른쪽 글 옆에 빈 공간만 길게 남아서, 폭을 좁게
+            화면 4개짜리 띠도 같은 방식으로 왼쪽(모바일은 위쪽)에 둔다. 세로로
+            쌓으면(sm:flex-col) 오른쪽 글 옆에 빈 공간만 길게 남아서, 폭을 좁게
             고정하고 가로 줄은 그대로 유지한다.
           */}
           <div className="flex w-full gap-2 overflow-x-auto sm:w-52 sm:shrink-0">
-            {/*
-              썸네일이 h-28(112px)로 낮아서, 세로로 긴 화면 캡처(폭 대비 높이가 큰
-              모바일 스크린샷)가 위쪽 9%만 남고 대부분 잘려나갔다. h-48로 키워서
-              실제 내용이 보이게 한다.
-            */}
             {STEPS.map((s) => (
               <img
                 key={s.step}
                 src={s.src}
                 alt={`${s.step} 화면 — ${s.desc}`}
-                className="h-48 w-36 shrink-0 object-cover object-top"
+                className={`${mediaImg} h-48 w-36 shrink-0`}
               />
             ))}
           </div>
-          <div className="flex flex-col gap-2 p-5">
+          <div className="flex flex-col gap-2">
             <h2 className={sectionTitle}>기부자는 4단계만 거치면 돼요</h2>
             <p className={caption}>
               제품 사진(과 필요하면 유통기한 사진)을 올리면 AI가 품목과 유통기한을 읽고, 지금
@@ -70,13 +68,13 @@ export default function ServicePage() {
           </div>
         </div>
 
-        <div className={mediaCard}>
+        <div className={mediaRow}>
           <img
             src="/service/admin.png"
             alt="기관 관리 화면. 필요 물품을 올리는 폼과 들어온 신청 목록을 함께 보여준다"
-            className="h-64 w-full object-cover object-top sm:h-auto sm:w-52 sm:shrink-0"
+            className={`${mediaImg} h-64 w-full sm:h-auto sm:w-52 sm:shrink-0`}
           />
-          <div className="flex flex-col gap-2 p-5">
+          <div className="flex flex-col gap-2">
             <h2 className={sectionTitle}>기관은 목표만 올려두면 돼요</h2>
             <p className={caption}>
               필요한 물품과 목표 수량을 등록해두면, 여러 기부자가 나눠서 채워줘요. 들어온 신청을
