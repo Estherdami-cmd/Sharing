@@ -51,12 +51,17 @@ export default function ServicePage() {
             고정하고 가로 줄은 그대로 유지한다.
           */}
           <div className="flex w-full gap-2 overflow-x-auto sm:min-w-0 sm:flex-[2]">
+            {/*
+              여기도 admin.png처럼 object-cover 대신 object-contain을 써서 사진을
+              잘라내지 않는다. 4장 각자 원래 비율 그대로 박스 안에 다 들어가고,
+              가로로 넘겨보는 스크롤 형태는 그대로 유지한다.
+            */}
             {STEPS.map((s) => (
               <img
                 key={s.step}
                 src={s.src}
                 alt={`${s.step} 화면 — ${s.desc}`}
-                className={`${mediaImg} h-64 w-48 shrink-0`}
+                className="h-64 w-48 shrink-0 rounded-xl object-contain object-top"
               />
             ))}
           </div>
