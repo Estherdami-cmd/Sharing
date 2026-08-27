@@ -342,27 +342,108 @@ export function startOfToday(): Date {
 export type MatchGrade = "exact" | "similar" | "different";
 
 /** 용량·규격 표기. "즉석밥 210g"의 뒷부분처럼 물건 이름 뒤에 붙는 것들. */
-const ITEM_SIZE_SUFFIX = /\d+\s*(kg|g|ml|l|리터|롤|개|매|입|호|팩|봉|포|장)/gi;
+/*
+ * 용량·규격 표기. "즉석밥 210g"의 뒷부분처럼 물건 이름 뒤에 붙는 것들.
+ * 단위 나열 순서가 중요하다 — "5개입"을 "개입"으로 먼저 잡아야 한다. "개"를 먼저
+ * 두면 "5개"만 지워지고 "입"이 남아 "라면멀티팩입" 같은 찌꺼기가 생긴다.
+ */
+const ITEM_SIZE_SUFFIX =
+  /\d+\s*(kg|g|ml|l|리터|개입|매입|롤|개|매|입|병|캔|권|색|장|호|팩|봉|포|족|벌|켤레|인용)/gi;
+
+/** 숫자가 안 붙는 규격어. "밀폐용기 세트"의 "세트"처럼 물건 이름이 아니다. */
+const ITEM_SIZE_WORD = /(세트|모음|멀티팩|대형|중형|소형)/g;
+
+/** 괄호 안 부연. "아동용 겨울 점퍼 (110-130)"의 사이즈 표기 같은 것. */
+const ITEM_PAREN = /\([^)]*\)/g;
 
 /** "즉석밥 210g" → "즉석밥". 물건 이름만 남겨 서로 비교할 수 있게 만든다. */
 export function normalizeItemName(name: string): string {
-  return name.toLowerCase().replace(ITEM_SIZE_SUFFIX, "").replace(/\s+/g, "");
+  return name
+    .toLowerCase()
+    .replace(ITEM_PAREN, "")
+    .replace(ITEM_SIZE_SUFFIX, "")
+    .replace(ITEM_SIZE_WORD, "")
+    .replace(/[^0-9a-z가-힣]/g, "");
+}
+
+/**
+ * 같은 물건을 다르게 부르는 말을 한 이름으로 모은다.
+ *
+ * 정규화한 이름이 이 표에 **정확히 일치할 때만** 바꾼다. 부분일치로 바꾸면
+ * "찹쌀"이 "쌀"로 뭉개진다 — 찹쌀 요청에 백미를 내는 건 같은 물건이 아니다.
+ * 그래서 상표명·다른 이름만 좁게 모으고, 애매한 건 표에 넣지 않는다.
+ *
+ * 여기 없는 말은 그대로 남아 "비슷한 분류"로 처리된다. 표를 늘리지 않아도
+ * 매칭이 깨지지 않고, 정확도만 조금 낮아진다.
+ */
+const ITEM_ALIASES: Record<string, string> = {
+  // 상표명 → 일반명
+  햇반: "즉석밥",
+  오뚜기밥: "즉석밥",
+  // 같은 물건의 다른 이름
+  백미: "쌀",
+  정백미: "쌀",
+  두루마리휴지: "화장지",
+  롤화장지: "화장지",
+  휴지: "화장지",
+  먹는샘물: "생수",
+  생수병: "생수",
+  빨래세제: "세탁세제",
+  세탁세재: "세탁세제",
+  위생대: "생리대",
+  물티슈: "물수건",
+  종이기저귀: "기저귀",
+};
+
+/** 정규화 + 동의어 통합까지 끝낸 비교용 이름. */
+export function canonicalItemName(name: string): string {
+  const n = normalizeItemName(name);
+  return ITEM_ALIASES[n] ?? n;
 }
 
 /**
  * 두 품목명이 같은 물건을 가리키는지.
  *
- * 한쪽이 다른 쪽을 포함하면 같다고 본다 — "즉석밥 210g"과 "즉석밥",
- * "백미 5kg"과 "백미 10kg"은 같은 물건이고 용량만 다르다.
+ * 용량·규격을 떼고 동의어를 모은 뒤, 한쪽이 다른 쪽을 포함하면 같다고 본다 —
+ * "즉석밥 210g"과 "즉석밥", "백미 5kg"과 "쌀 20kg"은 같은 물건이다.
  *
- * 자연어 매칭이 아니라 실용적 근사다. "햇반"과 "즉석밥"은 못 잡는다.
- * 틀려도 안내 문구가 달라질 뿐 진행률 규칙은 안 바뀌므로 손해가 작다.
+ * 자연어 매칭이 아니라 실용적 근사다. 표에 없는 말은 못 잡는다. 그래서
+ * AI가 판독할 때 뽑아주는 일반명(genericName)이 있으면 그쪽을 먼저 쓴다
+ * — matchNeeds를 보라. 이 함수는 그게 없을 때의 바닥이다.
+ *
+ * 틀려도 안내 문구와 정렬 순서가 달라질 뿐 진행률 규칙은 안 바뀌므로 손해가 작다.
  */
 export function isSameItem(a: string, b: string): boolean {
-  const x = normalizeItemName(a);
-  const y = normalizeItemName(b);
+  const x = canonicalItemName(a);
+  const y = canonicalItemName(b);
   if (!x || !y) return false;
-  return x.includes(y) || y.includes(x);
+  if (x === y) return true;
+
+  /*
+   * 포함 관계는 짧은 쪽이 두 글자 이상일 때만 인정한다.
+   * 한 글자를 허용하면 "찹쌀"이 "쌀"을 포함해 같은 물건이 돼버린다 — 찹쌀 요청에
+   * 백미를 내는 건 같은 물건이 아니다. 반대로 두 글자까지 막으면 "우유"와 "흰 우유"
+   * 처럼 실제로 같은 물건을 놓친다. 그 사이가 두 글자다.
+   */
+  const shorter = x.length <= y.length ? x : y;
+  const longer = shorter === x ? y : x;
+  return shorter.length >= 2 && longer.includes(shorter);
+}
+
+/**
+ * 같은 물건인지 판단한다. AI가 판독·등록 시점에 뽑아둔 일반명이 **양쪽에 다** 있으면
+ * 그걸로 보고, 한쪽이라도 없으면 품목명 문자열 규칙으로 떨어진다.
+ *
+ * 일반명을 쓰는 이유: "백미"와 "쌀", "즉석밥"과 "햇반"은 문자열로는 이을 수 없다.
+ * 동의어 표로도 되지만 손으로 계속 늘려야 한다. 다만 일반명끼리도 isSameItem을
+ * 통과시킨다 — 모델이 "쌀"과 "찹쌀"을 섞어 내놔도 한 글자 포함 규칙이 막아준다.
+ */
+export function isSameItemBy(
+  a: { itemName: string; genericName?: string | null },
+  b: { itemName: string; genericName?: string | null }
+): boolean {
+  if (a.genericName && b.genericName) return isSameItem(a.genericName, b.genericName);
+  return isSameItem(a.itemName, b.itemName);
 }
 
 export function withJosa(word: string, withFinal: string, withoutFinal: string) {

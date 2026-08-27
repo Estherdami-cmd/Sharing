@@ -4,6 +4,7 @@ import {
   FOOD_CATEGORIES,
   type ItemKind,
   NONFOOD_CATEGORIES,
+  canonicalItemName,
   categoriesFor,
   type ExpiryStatus,
   evaluateShareable,
@@ -52,13 +53,22 @@ const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
     itemName: { type: "string" },
+    genericName: { type: "string" },
     category: { type: "string", enum: CATEGORIES },
     expiryDate: { type: "string" },
     expiryRaw: { type: "string" },
     expiryKind: { type: "string", enum: DATE_KINDS },
     confidence: { type: "number" },
   },
-  required: ["itemName", "category", "expiryDate", "expiryRaw", "expiryKind", "confidence"],
+  required: [
+    "itemName",
+    "genericName",
+    "category",
+    "expiryDate",
+    "expiryRaw",
+    "expiryKind",
+    "confidence",
+  ],
   additionalProperties: false,
 };
 
@@ -93,6 +103,13 @@ function buildPrompt(today: string, hasExpiryPhoto: boolean, kind: ItemKind | nu
       : "사진은 한 장이다. 품목명과 날짜를 모두 이 사진에서 읽어라.",
     "",
     "itemName: 한국어로 '품목명 + 용량/규격'. 예) '참치 통조림 200g', '백미 5kg', '성인용 기저귀 대형'.",
+    // 일반명은 매칭에서 "같은 물건인지" 판단하는 데 쓴다. 판독할 때 같이 받아두면
+    // 매칭 화면에서 모델을 또 부를 필요가 없다.
+    "genericName: 용량·수량·상표·수식어를 뺀, 그 물건의 가장 일반적인 한국어 이름.",
+    "  - 예) '백미 5kg' → '쌀', '햇반 210g' → '즉석밥', '3겹 화장지 30롤' → '화장지'",
+    "  - 상표명은 일반명으로 바꿔라. 햇반 → 즉석밥.",
+    "  - 서로 다른 물건은 서로 다른 일반명이어야 한다. 찹쌀은 '쌀'이 아니라 '찹쌀'이다.",
+    "  - 판단이 안 되면 itemName에서 용량 표기만 뗀 값을 그대로 써라. 지어내지 마라.",
     ...(kind ? [] : [`category: 반드시 다음 중 하나. ${CATEGORIES.join(", ")}`]),
     "expiryRaw: 포장에 적힌 날짜 문구를 본 그대로 옮겨라. 형식을 바꾸지 마라.",
     '  - 예) "2027.05.01", "27.05.01", "2027년 5월", "20270501", "2027.05.01 B4 15:12"',
@@ -121,6 +138,8 @@ function buildPrompt(today: string, hasExpiryPhoto: boolean, kind: ItemKind | nu
 
 type Recognized = {
   itemName: string;
+  /** 용량·상표를 뺀 물건 이름. 매칭에서 같은 물건인지 볼 때 쓴다. */
+  genericName: string;
   category: string;
   expiryDate: string | null;
   expiryStatus: ExpiryStatus;
@@ -146,6 +165,10 @@ function normalize(raw: unknown, kind: ItemKind | null): RecognizeOutcome {
 
   const itemName = typeof data.itemName === "string" ? data.itemName.trim() : "";
   if (!itemName) return { status: "unrecognized" };
+
+  // 모델이 일반명을 비우거나 빼먹으면 문자열 규칙으로 채운다. 매칭이 멈추지는 않는다.
+  const modelGeneric = typeof data.genericName === "string" ? data.genericName.trim() : "";
+  const genericName = modelGeneric || canonicalItemName(itemName);
 
   // 세부분류는 기부자가 고른 대분류 안에서만 인정한다. 모델이 벗어나면 그 대분류의
   // "기타"로 떨어뜨린다. 화면의 선택지와 서버가 인정하는 값이 어긋나면 안 된다.
@@ -199,7 +222,7 @@ function normalize(raw: unknown, kind: ItemKind | null): RecognizeOutcome {
 
   return {
     status: "ok",
-    data: { itemName, category, expiryDate, expiryStatus, manufacturedOn, confidence },
+    data: { itemName, genericName, category, expiryDate, expiryStatus, manufacturedOn, confidence },
   };
 }
 
@@ -310,6 +333,7 @@ function recognizeWithMock(
 
   return {
     itemName: sample.itemName,
+    genericName: canonicalItemName(sample.itemName),
     category: allowed.includes(sample.category) ? sample.category : "기타",
     expiryDate: nonfood ? null : sampleExpiryDate(sample),
     expiryStatus: nonfood ? "none" : sampleExpiryStatus(sample),
@@ -408,6 +432,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     itemName: result.itemName,
+    genericName: result.genericName,
     category: result.category,
     expiryDate: result.expiryDate,
     expiryStatus: result.expiryStatus,

@@ -130,6 +130,16 @@ export default function RegisterFlow() {
   const [manufacturedOn, setManufacturedOn] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [source, setSource] = useState<"openai" | "mock" | null>(null);
+  /**
+   * 판독 때 모델이 뽑아준 물건 일반명("백미 5kg" → "쌀"). 매칭에서 같은 물건인지
+   * 볼 때 쓴다.
+   *
+   * 어느 품목명에서 나온 값인지 함께 들고 있는다. 사용자가 품목명을 고치면 그
+   * 일반명은 더 이상 맞지 않는다 — 백미를 찍었다가 "현미 2kg"으로 고쳤는데
+   * 일반명이 "쌀"로 남으면, 매칭이 현미 요청을 "바로 그 물건"으로 착각한다.
+   */
+  const [generic, setGeneric] = useState<{ forItemName: string; name: string } | null>(null);
+  const genericName = generic && generic.forItemName === itemName ? generic.name : null;
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submittingDonation, setSubmittingDonation] = useState(false);
   const [loadingDemoPhoto, setLoadingDemoPhoto] = useState(false);
@@ -169,6 +179,7 @@ export default function RegisterFlow() {
     // 사진이 바뀌면 이전 판독 결과는 무효다.
     setRecognizeStatus("idle");
     setItemName("");
+    setGeneric(null);
     setCategory("");
     setExpiryDate(null);
     setExpiryKnown("has");
@@ -184,6 +195,7 @@ export default function RegisterFlow() {
     setKind(next);
     setRecognizeStatus("idle");
     setItemName("");
+    setGeneric(null);
     setCategory("");
     setExpiryDate(null);
     setExpiryKnown("has");
@@ -254,6 +266,9 @@ export default function RegisterFlow() {
       setManufacturedOn(data.manufacturedOn ?? null);
       setConfidence(data.confidence);
       setSource(data.source ?? null);
+      setGeneric(
+        data.genericName ? { forItemName: data.itemName, name: data.genericName } : null
+      );
       setRecognizeStatus("done");
     } catch {
       setRecognizeStatus("error");
@@ -276,6 +291,7 @@ export default function RegisterFlow() {
         quantity: quantityValue,
         expiryDate,
         region: DEFAULT_REGION,
+        genericName,
         productImageUrl,
         expiryImageUrl,
       }),
@@ -305,6 +321,7 @@ export default function RegisterFlow() {
     handleClearSlot("expiry");
     setRecognizeStatus("idle");
     setItemName("");
+    setGeneric(null);
     setCategory("");
     setQuantity(1);
     setExpiryDate(null);
