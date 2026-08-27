@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CATEGORIES, clampTargetQty, formatKoreanDate, isSameItem } from "@/lib/rules";
+import { CATEGORIES, clampTargetQty, formatKoreanDate, isSameItem, withJosa } from "@/lib/rules";
 import type { ApplicationDetail, FoodBank, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
@@ -153,12 +153,21 @@ export default function AdminPanel() {
   // 탭을 다시 보면(포커스) 들어온 신청·진행률을 다시 불러온다.
   useRefetchOnFocus(load);
 
-  const pendingCount = applications.filter((a) => a.status === "pending").length;
-  const resolvedCount = applications.length - pendingCount;
+  /*
+   * 신청도 선택한 기관 것만 본다. 기관 선택이 페이지 상단으로 올라와 화면 전체의
+   * 범위를 정하게 됐는데, 신청만 전체 기관 것을 보여주면 범위가 어긋난다.
+   * 아래 개수들도 같은 범위여야 한다 — "지난 신청도 보기 (N건)"의 N이 남의 기관
+   * 신청까지 세면 눌렀을 때 숫자와 목록이 안 맞는다.
+   */
+  const myApplications = applications.filter((a) => a.foodBankId === foodBankId);
+  const pendingCount = myApplications.filter((a) => a.status === "pending").length;
+  const resolvedCount = myApplications.length - pendingCount;
   // 대기중 신청은 처리해야 할 일이고, 끝난 신청은 기록이다. 계속 쌓이는 기록 사이에
   // 방금 들어온 대기중 신청이 묻히지 않게, 기본은 대기중만 보여준다.
   const visibleApplications =
-    resolvedFilter === "pending" ? applications.filter((a) => a.status === "pending") : applications;
+    resolvedFilter === "pending"
+      ? myApplications.filter((a) => a.status === "pending")
+      : myApplications;
 
   function handleImageSelected(file: File | undefined) {
     if (!file) return;
@@ -251,26 +260,52 @@ export default function AdminPanel() {
         </button>
       </header>
 
-      <button
-        onClick={() => {
-          setFormOpen(true);
-          formDialogRef.current?.showModal();
-        }}
-        className={`${btnPrimary} flex items-center justify-center gap-1.5`}
-      >
-        <span aria-hidden className="text-[18px] leading-none">
-          +
-        </span>
-        필요 물품 올리기
-      </button>
+      {/*
+        기관 선택은 이 화면 전체의 범위를 정한다 — 아래 "등록한 요청"과 "들어온 신청"이
+        모두 여기서 고른 기관 것이다. 그래서 대화상자 안이 아니라 페이지에 둔다.
+      */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200/70 bg-white p-4 sm:flex-row sm:items-end">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <label htmlFor="foodbank-select" className={label}>
+            우리 기관
+          </label>
+          <select
+            id="foodbank-select"
+            value={foodBankId}
+            onChange={(e) => setFoodBankId(e.target.value)}
+            className={field}
+          >
+            {foodBanks.map((fb) => (
+              <option key={fb.id} value={fb.id}>
+                {fb.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={() => {
+            setFormOpen(true);
+            formDialogRef.current?.showModal();
+          }}
+          className={`${btnPrimary} flex shrink-0 items-center justify-center gap-1.5 sm:w-auto sm:px-5`}
+        >
+          <span aria-hidden className="text-[18px] leading-none">
+            +
+          </span>
+          필요 물품 올리기
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-6">
           <section className="flex flex-col gap-3">
             <div>
               <h2 className={sectionTitle}>등록한 요청 · 진행률</h2>
+              {/* withJosa로 받침을 본다. 그냥 "이"를 붙이면 "경동교회이"가 된다. */}
               {selectedFoodBankName && (
-                <p className={`${caption} mt-1`}>{selectedFoodBankName}이 올린 요청이에요</p>
+                <p className={`${caption} mt-1`}>
+                  {withJosa(selectedFoodBankName, "이", "가")} 올린 요청이에요
+                </p>
               )}
             </div>
             {loading && <p className="text-[15px] text-neutral-500">불러오는 중...</p>}
@@ -336,7 +371,7 @@ export default function AdminPanel() {
                 className="w-60 rounded-2xl opacity-40 grayscale"
               />
               <p className="text-[15px] text-neutral-400">
-                {applications.length === 0
+                {myApplications.length === 0
                   ? "아직 들어온 신청이 없어요"
                   : "대기중인 신청이 없어요"}
               </p>
@@ -516,20 +551,15 @@ export default function AdminPanel() {
             </button>
           </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>우리 기관</label>
-              <select
-                value={foodBankId}
-                onChange={(e) => setFoodBankId(e.target.value)}
-                className={field}
-              >
-                {foodBanks.map((fb) => (
-                  <option key={fb.id} value={fb.id}>
-                    {fb.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/*
+              기관 선택은 페이지에 있다. 대화상자 안에 또 두면 "지금 보고 있는 기관"과
+              "올릴 기관"이 달라질 수 있어 헷갈린다. 여기서는 어디에 올리는지만 알린다.
+            */}
+            {selectedFoodBankName && (
+              <p className="rounded-xl bg-primary-50 px-3 py-2 text-[13px] text-primary-800">
+                <b>{selectedFoodBankName}</b>의 요청으로 올라가요
+              </p>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <label className={label}>필요한 품목</label>
