@@ -31,7 +31,7 @@ export default function ServicePage() {
           <img
             src="/service/board.png"
             alt="진행 현황 게시판. 기관별 요청이 목표 수량 대비 몇 % 채워졌는지 진행률로 보여준다"
-            className={`${mediaImg} h-64 w-full sm:h-auto sm:w-52 sm:shrink-0`}
+            className={`${mediaImg} h-64 w-full sm:h-auto sm:w-72 sm:shrink-0`}
           />
           <div className="flex flex-col gap-2">
             <h2 className={sectionTitle}>왜 이렇게 만들었나요</h2>
@@ -49,13 +49,13 @@ export default function ServicePage() {
             쌓으면(sm:flex-col) 오른쪽 글 옆에 빈 공간만 길게 남아서, 폭을 좁게
             고정하고 가로 줄은 그대로 유지한다.
           */}
-          <div className="flex w-full gap-2 overflow-x-auto sm:w-52 sm:shrink-0">
+          <div className="flex w-full gap-2 overflow-x-auto sm:w-72 sm:shrink-0">
             {STEPS.map((s) => (
               <img
                 key={s.step}
                 src={s.src}
                 alt={`${s.step} 화면 — ${s.desc}`}
-                className={`${mediaImg} h-48 w-36 shrink-0`}
+                className={`${mediaImg} h-64 w-48 shrink-0`}
               />
             ))}
           </div>
@@ -72,7 +72,7 @@ export default function ServicePage() {
           <img
             src="/service/admin.png"
             alt="기관 관리 화면. 필요 물품을 올리는 폼과 들어온 신청 목록을 함께 보여준다"
-            className={`${mediaImg} h-64 w-full sm:h-auto sm:w-52 sm:shrink-0`}
+            className={`${mediaImg} h-64 w-full sm:h-auto sm:w-72 sm:shrink-0`}
           />
           <div className="flex flex-col gap-2">
             <h2 className={sectionTitle}>기관은 목표만 올려두면 돼요</h2>
