@@ -58,19 +58,12 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .letterEnter > path { transform-box: fill-box; transform-origin: center; }
-.letterEnter > path:nth-child(1)  { animation: letterIn .6s ease-out both; animation-delay: 1000ms; }
-.letterEnter > path:nth-child(2)  { animation: letterIn .6s ease-out both; animation-delay: 1110ms; }
-.letterEnter > path:nth-child(3)  { animation: letterIn .6s ease-out both; animation-delay: 1220ms; }
-.letterEnter > path:nth-child(4)  { animation: letterIn .6s ease-out both; animation-delay: 1330ms; }
-.letterEnter > path:nth-child(5)  { animation: letterIn .6s ease-out both; animation-delay: 1440ms; }
-.letterEnter > path:nth-child(6)  { animation: letterIn .6s ease-out both; animation-delay: 1550ms; }
-.letterEnter > path:nth-child(7)  { animation: letterIn .6s ease-out both; animation-delay: 1660ms; }
-.letterEnter > path:nth-child(8)  { animation: letterIn .6s ease-out both; animation-delay: 1770ms; }
-.letterEnter > path:nth-child(9)  { animation: letterIn .6s ease-out both; animation-delay: 1880ms; }
-.letterEnter > path:nth-child(10) { animation: letterIn .6s ease-out both; animation-delay: 1990ms; }
-.letterEnter > path:nth-child(11) { animation: letterIn .6s ease-out both; animation-delay: 2100ms; }
-.letterEnter > path:nth-child(12) { animation: letterIn .6s ease-out both; animation-delay: 2210ms; }
-.letterEnter > path:nth-child(13) { animation: letterIn .6s ease-out both; animation-delay: 2320ms; }
+.letterEnter > path:nth-child(1) { animation: letterIn .6s ease-out both; animation-delay: 900ms; }
+.letterEnter > path:nth-child(2) { animation: letterIn .6s ease-out both; animation-delay: 1030ms; }
+.letterEnter > path:nth-child(3) { animation: letterIn .6s ease-out both; animation-delay: 1160ms; }
+.letterEnter > path:nth-child(4) { animation: letterIn .6s ease-out both; animation-delay: 1290ms; }
+.letterEnter > path:nth-child(5) { animation: letterIn .6s ease-out both; animation-delay: 1420ms; }
+.letterEnter > path:nth-child(6) { animation: letterIn .6s ease-out both; animation-delay: 1550ms; }
 
 /* 워드마크는 무대(stage)의 정중앙에 고정한다. width가 줄어도 translate(-50%,-50%)가
    그때그때의 크기를 기준으로 다시 계산되어 항상 중심이 유지된다. 축소(wordmarkShrink)와
