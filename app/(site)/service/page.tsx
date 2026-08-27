@@ -54,7 +54,7 @@ export default function ServicePage() {
                   alt={`${s.step} 화면 — ${s.desc}`}
                   className="h-28 w-full object-cover object-top"
                 />
-                <p className="absolute inset-0 flex items-center justify-center bg-black/35 px-2 text-center text-[11px] font-bold text-white">
+                <p className="absolute inset-0 flex items-center justify-center px-2 text-center text-[11px] font-bold text-white [text-shadow:0_1px_3px_rgb(0_0_0_/_70%)]">
                   {s.step}
                 </p>
               </div>
