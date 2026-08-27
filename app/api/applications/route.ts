@@ -93,6 +93,23 @@ export async function POST(request: Request) {
   return NextResponse.json(application);
 }
 
-export async function GET() {
-  return NextResponse.json(listApplications().map(describeApplication));
+/**
+ * 진행률 계산 등 다른 화면(게시판)도 이 목록을 그대로 받아쓰는데, 그런 곳까지
+ * 신청자 전원의 연락처를 한 번에 내려보낼 이유가 없다. 개별 신청은 이미
+ * GET /api/applications/:id로 따로 조회할 수 있으니, 목록에서는 항상 가린다.
+ *
+ * ?contact=01012345678 로 물으면 그 번호로 낸 신청만 연락처를 포함해 돌려준다.
+ * 진짜 인증은 아니고("이 번호를 아는 사람"이 곧 자격이다) 회원 없는 서비스의
+ * 최소한의 장치다 — 본인 번호를 아는 사람만 자기 신청을 조회하는 정도의 보호.
+ */
+export async function GET(request: Request) {
+  const contactQuery = new URL(request.url).searchParams.get("contact");
+  const applications = listApplications().map(describeApplication);
+
+  if (contactQuery) {
+    const digits = contactQuery.replace(/\D/g, "");
+    return NextResponse.json(applications.filter((app) => app.contact === digits));
+  }
+
+  return NextResponse.json(applications.map((app) => ({ ...app, contact: null })));
 }

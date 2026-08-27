@@ -236,10 +236,6 @@ export default function CompleteView({ applicationId }: { applicationId: string 
               {refreshingStatus ? "확인 중..." : "상태 새로고침"}
             </button>
           </div>
-          {/* 버튼만 있으면 사용자가 직접 눌러야 하는 화면으로 읽힌다. 기다려도 된다고 말해준다. */}
-          {application.status === "pending" && (
-            <p className={caption}>상태는 자동으로 확인하고 있어요</p>
-          )}
         </div>
 
         {/* 이 화면에 다시 들어오는 이유는 "내 약속이 어떻게 됐지?" 하나다.

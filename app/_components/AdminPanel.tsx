@@ -20,7 +20,9 @@ import {
   toneBadge,
 } from "../ui";
 
-type ApplicationRow = ApplicationDetail;
+// 목록으로 받을 때는 서버가 연락처를 항상 null로 가려서 보낸다.
+// 카드에서 "보기"를 눌러야 개별 조회(GET /api/applications/:id)로 채워진다.
+type ApplicationRow = Omit<ApplicationDetail, "contact"> & { contact: string | null };
 
 const STATUS_BADGE = {
   pending: { tone: "caution", label: "대기중" },
@@ -47,6 +49,33 @@ export default function AdminPanel() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // 지금 연락처를 불러오는 중인 신청 id들. 버튼을 눌렀는데 아무 반응이 없어 보이지 않게.
+  const [revealingContactIds, setRevealingContactIds] = useState<Set<string>>(new Set());
+  // 한 번 확인한 연락처는 기억해둔다. 목록 API는 항상 연락처를 가려서 주므로,
+  // 이 기억이 없으면 포커스가 돌아올 때마다(useRefetchOnFocus) 방금 본 번호가
+  // 다시 잠긴다 — 전화 걸려고 다른 앱에 갔다 오는 딱 이 기능의 실제 쓰임에서 계속 걸린다.
+  const revealedContactsRef = useRef<Record<string, string>>({});
+  const [resolvedFilter, setResolvedFilter] = useState<"pending" | "all">("pending");
+
+  async function handleRevealContact(id: string) {
+    setRevealingContactIds((prev) => new Set(prev).add(id));
+    try {
+      const res = await fetch(`/api/applications/${id}`);
+      if (res.ok) {
+        const detail = await res.json();
+        revealedContactsRef.current[id] = detail.contact;
+        setApplications((prev) =>
+          prev.map((app) => (app.id === id ? { ...app, contact: detail.contact } : app))
+        );
+      }
+    } finally {
+      setRevealingContactIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,7 +86,15 @@ export default function AdminPanel() {
       setFoodBanks(data.foodBanks);
       setFoodBankId((prev) => prev || data.foodBanks[0]?.id || "");
     }
-    if (appsRes.ok) setApplications(await appsRes.json());
+    if (appsRes.ok) {
+      const data: ApplicationRow[] = await appsRes.json();
+      setApplications(
+        data.map((app) => ({
+          ...app,
+          contact: revealedContactsRef.current[app.id] ?? app.contact,
+        }))
+      );
+    }
     setLoading(false);
   }, []);
 
@@ -68,6 +105,13 @@ export default function AdminPanel() {
   // 이 탭을 열어둔 채로 다른 곳에서 새 신청이 들어와도 자동으로는 안 보였다.
   // 탭을 다시 보면(포커스) 들어온 신청·진행률을 다시 불러온다.
   useRefetchOnFocus(load);
+
+  const pendingCount = applications.filter((a) => a.status === "pending").length;
+  const resolvedCount = applications.length - pendingCount;
+  // 대기중 신청은 처리해야 할 일이고, 끝난 신청은 기록이다. 계속 쌓이는 기록 사이에
+  // 방금 들어온 대기중 신청이 묻히지 않게, 기본은 대기중만 보여준다.
+  const visibleApplications =
+    resolvedFilter === "pending" ? applications.filter((a) => a.status === "pending") : applications;
 
   function handleImageSelected(file: File | undefined) {
     if (!file) return;
@@ -303,20 +347,36 @@ export default function AdminPanel() {
         </div>
 
         <section className="flex flex-col gap-3">
-          <h2 className={sectionTitle}>들어온 신청</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className={sectionTitle}>들어온 신청</h2>
+            {resolvedCount > 0 && (
+              <button
+                onClick={() => setResolvedFilter((f) => (f === "pending" ? "all" : "pending"))}
+                className="cursor-pointer border-none bg-transparent text-xs font-bold text-primary-700 hover:text-primary-800"
+              >
+                {resolvedFilter === "pending"
+                  ? `지난 신청도 보기 (${resolvedCount}건)`
+                  : "대기중만 보기"}
+              </button>
+            )}
+          </div>
 
-          {!loading && applications.length === 0 && (
+          {!loading && visibleApplications.length === 0 && (
             <div className="flex flex-col items-center gap-4 py-8">
               <img
                 src="https://picsum.photos/seed/empty-apply/240/180"
                 alt="들어온 신청이 없는 상태를 나타내는 이미지"
                 className="w-60 rounded-2xl opacity-40 grayscale"
               />
-              <p className="text-[15px] text-neutral-400">아직 들어온 신청이 없어요</p>
+              <p className="text-[15px] text-neutral-400">
+                {applications.length === 0
+                  ? "아직 들어온 신청이 없어요"
+                  : "대기중인 신청이 없어요"}
+              </p>
             </div>
           )}
 
-          {applications.map((app) => (
+          {visibleApplications.map((app) => (
             <article key={app.id} className={card}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -344,7 +404,20 @@ export default function AdminPanel() {
                     </p>
                   )}
                   <p className="text-[13px] text-neutral-500">전달 장소: {app.place}</p>
-                  <p className="text-[13px] text-neutral-500">연락처: {app.contact}</p>
+                  <p className="flex items-center gap-1.5 text-[13px] text-neutral-500">
+                    연락처:{" "}
+                    {app.contact ? (
+                      app.contact
+                    ) : (
+                      <button
+                        onClick={() => handleRevealContact(app.id)}
+                        disabled={revealingContactIds.has(app.id)}
+                        className="cursor-pointer border-none bg-transparent p-0 font-bold text-primary-700 hover:text-primary-800"
+                      >
+                        {revealingContactIds.has(app.id) ? "불러오는 중..." : "보기"}
+                      </button>
+                    )}
+                  </p>
                   {app.receiptRequested && (
                     <p className="mt-1 text-[13px] font-semibold text-success-fg">
                       기부금 신청서 작성 요청됨

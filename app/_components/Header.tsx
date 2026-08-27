@@ -16,6 +16,7 @@ const navCta =
 const NAV_LINKS = [
   { href: "/donate", label: "기부하기" },
   { href: "/board", label: "진행 현황" },
+  { href: "/lookup", label: "신청 조회" },
   { href: "/service", label: "서비스 소개" },
   { href: "/foodbank", label: "기관등록" },
 ];
