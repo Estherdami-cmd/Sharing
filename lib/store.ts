@@ -239,6 +239,12 @@ const SNAPSHOT_ORGS: FoodBank[] = orgSnapshot.orgs.map((o) => ({
 
 const SEED_FOOD_BANKS: FoodBank[] = [...CURATED_FOOD_BANKS, ...SNAPSHOT_ORGS];
 
+/**
+ * 화면에 뜨는 기관 수. 서비스 소개에서 "실제 기관 N곳"을 말할 때 쓴다.
+ * 숫자를 문구에 직접 적으면 데이터가 늘거나 줄 때 조용히 거짓말이 된다.
+ */
+export const ORG_COUNT = SEED_FOOD_BANKS.length;
+
 export const ORG_SOURCE = orgSnapshot.source;
 export const ORG_SNAPSHOT = orgSnapshot;
 
