@@ -42,7 +42,7 @@ export default function Footer() {
               <BrandMark />
               <span className="text-[17px] font-bold tracking-[-0.02em] whitespace-nowrap text-primary-700">여러시</span>
             </div>
-            <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-neutral-500">
+            <p className="mt-2 max-w-xs break-keep text-[13px] leading-relaxed text-neutral-500">
               기관이 먼저 필요를 밝히면, 여럿이 나눠서 채우는 나눔 서비스예요.
             </p>
           </div>
