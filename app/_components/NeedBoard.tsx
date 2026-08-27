@@ -79,42 +79,30 @@ function NeedCard({
       style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
       className={`${need.urgent ? cardUrgent : card} animate-fade-in-up transition-shadow hover:shadow-lg`}
     >
-      <div className="relative -mx-5 -mt-5 mb-1">
-        {need.imageUrl ? (
+      {/*
+        사진은 기관이 올릴 수 있지만 지금 올라온 요청 41건에는 하나도 없다. 없을 때
+        띄우던 "사진 없음" 회색 박스(4:3)는 카드마다 빈자리만 크게 차지했다.
+        그래서 사진이 있을 때만 사진 영역을 만든다.
+
+        카테고리 배지와 공유 버튼은 그 사진 위에 겹쳐 있었다. 사진이 없으면 얹을
+        곳이 없으니 카드 안의 보통 줄로 내려놓는다.
+      */}
+      {need.imageUrl ? (
+        <div className="relative -mx-5 -mt-5 mb-1">
           <img
             src={need.imageUrl}
             alt={`${need.itemName} 사진`}
             className="aspect-4/3 w-full rounded-t-2xl object-cover"
           />
-        ) : (
-          <div className="flex aspect-4/3 w-full flex-col items-center justify-center gap-1.5 rounded-t-2xl bg-neutral-100">
+          <span className="absolute left-2.5 top-2.5 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs font-bold text-white">
+            {need.category}
+          </span>
+          <button
+            onClick={() => onShare(need)}
+            aria-label="이 요청 공유하기"
+            className="absolute right-2.5 top-2.5 grid size-8 cursor-pointer place-items-center rounded-full bg-neutral-900/70 text-white transition-colors hover:bg-neutral-900"
+          >
             <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-8 text-neutral-300"
-              aria-hidden="true"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
-            </svg>
-            <span className="text-xs text-neutral-400">사진 없음</span>
-          </div>
-        )}
-        <span className="absolute left-2.5 top-2.5 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs font-bold text-white">
-          {need.category}
-        </span>
-        <button
-          onClick={() => onShare(need)}
-          aria-label="이 요청 공유하기"
-          className="absolute right-2.5 top-2.5 grid size-8 cursor-pointer place-items-center rounded-full bg-neutral-900/70 text-white transition-colors hover:bg-neutral-900"
-        >
-          <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="none"
@@ -129,8 +117,36 @@ function NeedCard({
             <path d="M8 8l4-4 4 4" />
             <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
           </svg>
-        </button>
-      </div>
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-bold text-neutral-500">
+            {need.category}
+          </span>
+          <button
+            onClick={() => onShare(need)}
+            aria-label="이 요청 공유하기"
+            className="grid size-8 cursor-pointer place-items-center rounded-full border-none bg-neutral-100 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+          >
+            <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4"
+            aria-hidden="true"
+          >
+            <path d="M12 15V4" />
+            <path d="M8 8l4-4 4 4" />
+            <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+          </svg>
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-2">
         <span className="tabular text-3xl font-extrabold text-primary-700">{displayedProgress}%</span>
