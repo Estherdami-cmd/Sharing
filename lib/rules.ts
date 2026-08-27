@@ -1,7 +1,21 @@
 // globalThis를 건드리지 않는 순수 규칙 모듈.
 // 서버(라우트)와 클라이언트(단계별 화면들) 양쪽에서 같은 판정 함수를 공유하기 위해 분리했다.
 
-export const CATEGORIES = ["통조림", "세제", "화장지", "위생용품", "쌀/곡물", "기타"];
+export const CATEGORIES = [
+  "통조림",
+  "쌀/곡물",
+  "라면/면류",
+  "음료",
+  "유제품",
+  "세제",
+  "화장지",
+  "위생용품",
+  "생리용품",
+  "주방용품",
+  "의류/침구",
+  "학용품",
+  "기타",
+];
 
 /** 물품 대분류. 유통기한을 물어봐야 하는지가 여기서 갈린다. */
 export type ItemKind = "food" | "nonfood";
@@ -19,8 +33,17 @@ export const ITEM_KIND_LABEL: Record<ItemKind, string> = {
   즉석밥 요청이 "기타"를 쓰고 있어서 음식 쪽에 반드시 필요하고, 비음식 쪽도
   담요·학용품처럼 세 분류에 안 맞는 물품을 받을 데가 있어야 한다.
 */
-export const FOOD_CATEGORIES = ["통조림", "쌀/곡물", "기타"];
-export const NONFOOD_CATEGORIES = ["세제", "화장지", "위생용품", "기타"];
+export const FOOD_CATEGORIES = ["통조림", "쌀/곡물", "라면/면류", "음료", "유제품", "기타"];
+export const NONFOOD_CATEGORIES = [
+  "세제",
+  "화장지",
+  "위생용품",
+  "생리용품",
+  "주방용품",
+  "의류/침구",
+  "학용품",
+  "기타",
+];
 
 export function categoriesFor(kind: ItemKind): string[] {
   return kind === "food" ? FOOD_CATEGORIES : NONFOOD_CATEGORIES;
@@ -509,7 +532,7 @@ export const SAMPLE_ITEMS: SampleItem[] = [
     key: "juice",
     label: "아침에주스 오렌지 (번들 예시 사진)",
     itemName: "아침에주스 오렌지 210mL",
-    category: "기타",
+    category: "음료",
     // public/demo/juice-back.jpg 의 유통기한에 맞춘 값. 날짜를 박으면 데모가 썩는다.
     expiryOffsetDays: 17,
     confidence: 0.96,
@@ -519,7 +542,7 @@ export const SAMPLE_ITEMS: SampleItem[] = [
     key: "yogurt",
     label: "요구르트 (기한 임박)",
     itemName: "요구르트 4입",
-    category: "기타",
+    category: "유제품",
     expiryOffsetDays: 2,
     confidence: 0.85,
     keywords: ["yogurt", "요구르트", "임박"],
@@ -528,10 +551,55 @@ export const SAMPLE_ITEMS: SampleItem[] = [
     key: "milk",
     label: "우유 (유통기한 지남)",
     itemName: "흰 우유 1L",
-    category: "기타",
+    category: "유제품",
     expiryOffsetDays: -3,
     confidence: 0.87,
     keywords: ["milk", "우유", "expired", "만료", "지남"],
+  },
+  {
+    key: "ramen",
+    label: "라면 멀티팩",
+    itemName: "라면 멀티팩 5개입",
+    category: "라면/면류",
+    expiryOffsetDays: 210,
+    confidence: 0.92,
+    keywords: ["ramen", "라면", "noodle", "봉지면"],
+  },
+  {
+    key: "pad",
+    label: "생리대 대형",
+    itemName: "생리대 대형 20개입",
+    category: "생리용품",
+    expiryOffsetDays: null,
+    confidence: 0.9,
+    keywords: ["pad", "생리대", "sanitary"],
+  },
+  {
+    key: "kitchenware",
+    label: "밀폐용기 세트",
+    itemName: "스테인리스 밀폐용기 세트",
+    category: "주방용품",
+    expiryOffsetDays: null,
+    confidence: 0.86,
+    keywords: ["kitchenware", "container", "밀폐용기", "주방"],
+  },
+  {
+    key: "bedding",
+    label: "겨울 이불 세트",
+    itemName: "겨울 이불 세트 (1인용)",
+    category: "의류/침구",
+    expiryOffsetDays: null,
+    confidence: 0.84,
+    keywords: ["bedding", "blanket", "이불", "침구"],
+  },
+  {
+    key: "school",
+    label: "공책 세트",
+    itemName: "공책 10권 세트",
+    category: "학용품",
+    expiryOffsetDays: null,
+    confidence: 0.88,
+    keywords: ["notebook", "공책", "학용품"],
   },
 ];
 
