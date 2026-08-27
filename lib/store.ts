@@ -6,6 +6,7 @@ import {
   addDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -13,6 +14,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import orgSnapshot from "./data/pohang-orgs.json";
 import {
   DAY_NAMES,
   DEFAULT_REGION,
@@ -24,12 +26,18 @@ import {
   getRegion,
   isSameItem,
   isUrgent,
+  orgCategoryForNeed,
   parseLocalDate,
   startOfToday,
   toISODate,
   withJosa,
 } from "./rules";
 
+/**
+ * 기부를 받는 기관. 공공데이터포털의 포항시 생활지도 시설현황에서 가져온다.
+ * operatingDays/pickupSlots는 그 데이터에 없다 — 실존 기관에 없는 운영시간을
+ * 지어 붙이면 허위 정보가 되므로, 비어 있으면 화면에서 "미확인"으로 말한다.
+ */
 export type FoodBank = {
   id: string;
   name: string;
@@ -37,8 +45,14 @@ export type FoodBank = {
   region: string;
   lat: number;
   lng: number;
-  operatingDays: string[];
-  pickupSlots: string[];
+  /** 지역아동센터 / 무료급식소 / 노인의료시설 */
+  category?: string;
+  /** 이 기관이 돌보는 대상 — 아동·노인·식품 */
+  audience?: string;
+  /** 이 기관에 특히 맞는 물품 성격 */
+  goodsHint?: string;
+  operatingDays?: string[];
+  pickupSlots?: string[];
 };
 
 /** 기관이 직접 올리는 "이 물건이 이만큼 필요해요" 한 건. 여럿이 나눠 채운다. */
@@ -91,45 +105,22 @@ export type Application = {
   createdAt: string;
 };
 
-// 목업 데이터: 실제 포항 지역 푸드뱅크 데이터로 나중에 교체.
-// id는 고정 문자열을 그대로 쓴다 — SEED_NEEDS와 이미 만들어진 신청들이
-// 이 id를 foodBankId로 참조하고 있어서, 자동 생성 id로 바꾸면 다 끊어진다.
-const SEED_FOOD_BANKS: FoodBank[] = [
-  {
-    id: "fb1",
-    name: "포항 나눔 푸드뱅크",
-    address: "포항시 남구 오천읍",
-    region: "남구 오천읍",
-    lat: 35.966,
-    lng: 129.414,
-    operatingDays: ["월", "수", "금"],
-    pickupSlots: ["오전 10-12시", "오후 2-4시"],
-  },
-  {
-    id: "fb2",
-    name: "포항 생활지원센터",
-    address: "포항시 북구 죽도동",
-    region: "북구 죽도동",
-    lat: 36.038,
-    lng: 129.365,
-    operatingDays: ["화", "목"],
-    pickupSlots: ["오후 1-5시"],
-  },
-  {
-    id: "fb3",
-    name: "포항 사랑의 열매",
-    address: "포항시 남구 효자동",
-    region: "남구 효자동",
-    lat: 36.008,
-    lng: 129.33,
-    operatingDays: ["월", "화", "수", "목", "금"],
-    pickupSlots: ["오전 9-12시", "오후 2-6시"],
-  },
-];
+/**
+ * 씨드용 기관 목록. lib/data/pohang-orgs.json은 /api/admin/sync-orgs?dryRun=1로
+ * 공공데이터포털에서 뽑아 커밋해 둔 스냅샷이다 — 지어낸 데이터가 아니라 실제 기관이다.
+ * Firestore가 비어 있을 때 이걸로 채우고, 갱신은 같은 라우트로 한다.
+ */
+const SEED_FOOD_BANKS: FoodBank[] = orgSnapshot.orgs;
 
-const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
+export const ORG_SOURCE = orgSnapshot.source;
+export const ORG_SNAPSHOT = orgSnapshot;
+
+/**
+ * foodBankId는 여기 없다 — 씨드를 넣는 시점에 orgCategoryForNeed로 알맞은 종류의
+ * 실제 기관을 골라 붙인다(요양원에 학용품이 걸리는 조합을 막는다).
+ */
+const SEED_NEEDS: Omit<Need, "id" | "createdAt" | "foodBankId">[] = [
   {
-    foodBankId: "fb3",
     itemName: "성인용 기저귀 대형",
     category: "위생용품",
     targetQty: 50,
@@ -138,7 +129,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "참치 통조림 200g",
     category: "통조림",
     targetQty: 100,
@@ -147,7 +137,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "백미 5kg",
     category: "쌀/곡물",
     targetQty: 30,
@@ -156,7 +145,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "액체 세탁세제 2L",
     category: "세제",
     targetQty: 40,
@@ -165,7 +153,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "3겹 화장지 30롤",
     category: "화장지",
     targetQty: 20,
@@ -174,7 +161,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "즉석밥 210g",
     category: "기타",
     targetQty: 20,
@@ -183,7 +169,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "스팸 200g",
     category: "통조림",
     targetQty: 60,
@@ -192,7 +177,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "찹쌀 3kg",
     category: "쌀/곡물",
     targetQty: 25,
@@ -201,7 +185,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "현미 2kg",
     category: "쌀/곡물",
     targetQty: 40,
@@ -210,7 +193,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "라면 멀티팩 5개입",
     category: "라면/면류",
     targetQty: 80,
@@ -219,7 +201,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "컵라면 모음 6개입",
     category: "라면/면류",
     targetQty: 50,
@@ -228,7 +209,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "두유 190mL 24팩",
     category: "음료",
     targetQty: 30,
@@ -237,7 +217,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "생수 2L 6병",
     category: "음료",
     targetQty: 100,
@@ -246,7 +225,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "흰 우유 1L",
     category: "유제품",
     targetQty: 45,
@@ -255,7 +233,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "떠먹는 요구르트 8개입",
     category: "유제품",
     targetQty: 35,
@@ -264,7 +241,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "주방세제 500mL",
     category: "세제",
     targetQty: 50,
@@ -273,7 +249,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "섬유유연제 1L",
     category: "세제",
     targetQty: 30,
@@ -282,7 +257,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "키친타월 6롤",
     category: "화장지",
     targetQty: 40,
@@ -291,7 +265,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "물티슈 10팩",
     category: "위생용품",
     targetQty: 60,
@@ -300,7 +273,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "생리대 대형 20개입",
     category: "생리용품",
     targetQty: 40,
@@ -309,7 +281,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "팬티라이너 40개입",
     category: "생리용품",
     targetQty: 25,
@@ -318,7 +289,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "스테인리스 밀폐용기 세트",
     category: "주방용품",
     targetQty: 20,
@@ -327,7 +297,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "후라이팬 26cm",
     category: "주방용품",
     targetQty: 15,
@@ -336,7 +305,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "겨울 이불 세트 (1인용)",
     category: "의류/침구",
     targetQty: 30,
@@ -345,7 +313,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "아동용 겨울 점퍼 (110-130)",
     category: "의류/침구",
     targetQty: 25,
@@ -354,7 +321,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "성인용 내복 세트",
     category: "의류/침구",
     targetQty: 40,
@@ -363,7 +329,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "공책 10권 세트",
     category: "학용품",
     targetQty: 50,
@@ -372,7 +337,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "색연필 24색 세트",
     category: "학용품",
     targetQty: 30,
@@ -381,7 +345,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "소금 1kg",
     category: "기타",
     targetQty: 20,
@@ -390,7 +353,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "미역 100g",
     category: "기타",
     targetQty: 35,
@@ -399,7 +361,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "선풍기",
     category: "기타",
     targetQty: 15,
@@ -408,7 +369,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "시리얼",
     category: "기타",
     targetQty: 40,
@@ -417,7 +377,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "양말",
     category: "의류/침구",
     targetQty: 60,
@@ -426,7 +385,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "수건",
     category: "위생용품",
     targetQty: 50,
@@ -435,7 +393,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "충전기",
     category: "기타",
     targetQty: 20,
@@ -444,7 +401,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "동화책",
     category: "학용품",
     targetQty: 30,
@@ -453,7 +409,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb2",
     itemName: "인형",
     category: "기타",
     targetQty: 25,
@@ -462,7 +417,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "문제집",
     category: "학용품",
     targetQty: 40,
@@ -471,7 +425,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "보드게임",
     category: "기타",
     targetQty: 20,
@@ -480,7 +433,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb1",
     itemName: "비엔나 소시지",
     category: "통조림",
     targetQty: 70,
@@ -489,7 +441,6 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
   {
-    foodBankId: "fb3",
     itemName: "생수 500mL 20팩",
     category: "음료",
     targetQty: 60,
@@ -498,6 +449,10 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     imageUrl: null,
   },
 ];
+
+/** 기관 운영시간을 모를 때 화면에 쓰는 문구. 여러 곳에서 같은 말을 해야 한다. */
+export const UNKNOWN_HOURS_LABEL = "미확인 (기관과 협의)";
+export const UNKNOWN_SLOT_LABEL = "시간 협의";
 
 const needsCol = collection(db, "needs");
 const donationsCol = collection(db, "donations");
@@ -516,15 +471,34 @@ async function ensureSeeded() {
   seedChecked = true;
   const snap = await getDocs(query(needsCol, fsLimit(1)));
   if (!snap.empty) return;
+  const banks = await ensureFoodBanksLoaded();
   await Promise.all(
-    SEED_NEEDS.map((seed) => addDoc(needsCol, { ...seed, createdAt: new Date().toISOString() }))
+    SEED_NEEDS.map((seed, i) =>
+      addDoc(needsCol, {
+        ...seed,
+        foodBankId: pickOrgFor(banks, seed.category, seed.itemName, i),
+        createdAt: new Date().toISOString(),
+      })
+    )
   );
+}
+
+/**
+ * 요청에 어울리는 종류의 기관을 하나 고른다. 같은 종류 안에서는 순번으로 돌려서
+ * 41건이 한 기관에 몰리지 않게 한다. 맞는 종류가 없으면 아무 기관에나 붙인다.
+ */
+function pickOrgFor(banks: FoodBank[], category: string, itemName: string, i: number): string {
+  const wanted = orgCategoryForNeed(category, itemName);
+  const pool = banks.filter((b) => b.category === wanted);
+  const from = pool.length > 0 ? pool : banks;
+  return from[i % from.length].id;
 }
 
 /**
  * 기관은 자주 안 바뀌는 기준 정보라, 한 번 불러오면 이 서버 인스턴스가 살아있는
  * 동안은 다시 안 묻는다 — needs처럼 요청마다 바뀌는 데이터가 아니다.
- * id는 SEED_FOOD_BANKS에 박힌 고정값(fb1 등)을 그대로 문서 id로 쓴다.
+ * 문서 id는 공공데이터의 행 번호에서 만든 고정값(ph-64621 등)이라, 다시 동기화해도
+ * 같은 기관이 같은 id를 유지한다 — 이미 걸린 요청·신청이 끊기지 않는다.
  */
 let foodBanksCache: FoodBank[] | null = null;
 async function ensureFoodBanksLoaded(): Promise<FoodBank[]> {
@@ -545,6 +519,37 @@ export async function getFoodBanks(): Promise<FoodBank[]> {
 export async function getFoodBank(id: string): Promise<FoodBank | undefined> {
   const banks = await ensureFoodBanksLoaded();
   return banks.find((fb) => fb.id === id);
+}
+
+/**
+ * 공공데이터에서 새로 받은 기관 목록을 Firestore에 반영한다(/api/admin/sync-orgs).
+ *
+ * 목록에서 사라진 기관 문서는 지우는데, 그 기관을 참조하던 요청이 남아 있으면
+ * 화면이 깨진다(getFoodBank가 undefined). 그래서 지우기 전에 그 요청들을 같은
+ * 종류의 살아있는 기관으로 옮긴다. 하드코딩 시절의 fb1~fb3도 이 경로로 정리된다.
+ */
+export async function syncOrgs(orgs: FoodBank[]) {
+  await Promise.all(orgs.map((o) => setDoc(doc(foodBanksCol, o.id), o)));
+
+  const alive = new Set(orgs.map((o) => o.id));
+  const existing = await getDocs(foodBanksCol);
+  const stale = existing.docs.map((d) => d.id).filter((id) => !alive.has(id));
+
+  const needsSnap = await getDocs(needsCol);
+  const orphaned = needsSnap.docs.filter((d) => !alive.has(d.data().foodBankId as string));
+  await Promise.all(
+    orphaned.map((d, i) => {
+      const data = d.data();
+      return updateDoc(doc(needsCol, d.id), {
+        foodBankId: pickOrgFor(orgs, data.category as string, data.itemName as string, i),
+      });
+    })
+  );
+
+  await Promise.all(stale.map((id) => deleteDoc(doc(foodBanksCol, id))));
+
+  foodBanksCache = null;
+  return { orgsWritten: orgs.length, staleRemoved: stale.length, needsRemapped: orphaned.length };
 }
 
 function needFromDoc(id: string, data: Record<string, unknown>): Need {
@@ -811,6 +816,12 @@ export async function recommendDates(
   const fb = await getFoodBank(foodBankId);
   if (!fb) return { ok: false, message: "기관 정보를 찾을 수 없어요", options: [] };
 
+  // 공공데이터에는 기관 운영일·수거시간이 없다. 없는 걸 지어내면 실존 기관에 대한
+  // 허위 정보가 되므로, 모르면 "모른다"로 두고 회원님 가능 요일만 제약으로 쓴다.
+  const operatingDays = fb.operatingDays ?? [];
+  const pickupSlots = fb.pickupSlots ?? [];
+  const hoursKnown = operatingDays.length > 0 && pickupSlots.length > 0;
+
   const hasRestriction = Object.keys(donorAvailability).length > 0;
   const today = startOfToday();
   const limitDate = maxDateISO ? parseLocalDate(maxDateISO) : null;
@@ -822,7 +833,7 @@ export async function recommendDates(
     const date = addDays(today, offset);
     const day = DAY_NAMES[date.getDay()];
 
-    if (!fb.operatingDays.includes(day)) continue;
+    if (hoursKnown && !operatingDays.includes(day)) continue;
     if (hasRestriction && !(day in donorAvailability)) continue;
 
     if (limitDate && date.getTime() > limitDate.getTime()) {
@@ -831,15 +842,22 @@ export async function recommendDates(
     }
 
     const daySlot = hasRestriction ? donorAvailability[day] : "상관없음";
-    const slot =
-      daySlot === "상관없음" ? fb.pickupSlots[0] : fb.pickupSlots.find((s) => s.startsWith(daySlot));
+    const slot = hoursKnown
+      ? daySlot === "상관없음"
+        ? pickupSlots[0]
+        : pickupSlots.find((s) => s.startsWith(daySlot))
+      : daySlot === "상관없음"
+        ? UNKNOWN_SLOT_LABEL
+        : daySlot;
     if (!slot) continue;
 
     options.push({
       date: toISODate(date),
       day,
       slot,
-      reason: `기관 운영일(${day}) · 회원님 가능 요일${daySlot !== "상관없음" ? `(${daySlot})` : ""} · ${slot}`,
+      reason: hoursKnown
+        ? `기관 운영일(${day}) · 회원님 가능 요일${daySlot !== "상관없음" ? `(${daySlot})` : ""} · ${slot}`
+        : `회원님 가능 요일(${day}) · 기관 운영일은 미확인이라 시간은 협의해요`,
     });
   }
 
@@ -851,7 +869,9 @@ export async function recommendDates(
   }
   return {
     ok: false,
-    message: `두 분 모두 가능한 날이 없어요. ${withJosa(fb.name, "은", "는")} ${fb.operatingDays.join("·")}요일 ${fb.pickupSlots.join(", ")}에만 받아요`,
+    message: hoursKnown
+      ? `두 분 모두 가능한 날이 없어요. ${withJosa(fb.name, "은", "는")} ${operatingDays.join("·")}요일 ${pickupSlots.join(", ")}에만 받아요`
+      : "앞으로 2주 안에 회원님이 가능한 날이 없어요. 가능한 요일을 다시 골라주세요",
     options: [],
   };
 }
