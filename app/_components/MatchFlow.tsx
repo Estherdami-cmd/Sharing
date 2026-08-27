@@ -192,7 +192,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="기관명으로 검색 (예: 사랑의 열매)"
+            placeholder="기관명으로 검색 (예: 흥해제일교회)"
             className={field}
           />
           <p className="text-xs text-neutral-400">
@@ -230,8 +230,11 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
               <p className="mt-0.5 text-[13px] text-neutral-500">
                 {need.foodBank.name} · {need.distanceKm}km
               </p>
+              {/* 운영일은 공공데이터에 없다. 대신 실제로 있는 기관 종류를 보여준다. */}
               <p className="text-[13px] text-neutral-400">
-                운영일: {need.foodBank.operatingDays.join(", ")}
+                {need.foodBank.operatingDays?.length
+                  ? `운영일: ${need.foodBank.operatingDays.join(", ")}`
+                  : `${need.foodBank.category ?? "기관"} · 운영일은 신청 후 협의`}
               </p>
             </div>
 
