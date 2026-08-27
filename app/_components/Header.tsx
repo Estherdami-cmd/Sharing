@@ -49,8 +49,9 @@ export default function Header() {
       <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5 md:px-6 lg:px-8">
         <Link href="/" className="flex cursor-pointer items-center gap-2" onClick={() => setMenuOpen(false)}>
           <BrandMark />
-          <span className="text-[15px] font-extrabold tracking-[-0.02em] whitespace-nowrap">
-            YEORESI <span className="font-bold text-neutral-500">(여러시)</span>
+          <span className="flex flex-col leading-none">
+            <span className="text-[15px] font-extrabold tracking-[-0.02em] whitespace-nowrap">YEORESI</span>
+            <span className="mt-0.5 text-[10px] font-bold text-neutral-500 whitespace-nowrap">여러시</span>
           </span>
         </Link>
 
