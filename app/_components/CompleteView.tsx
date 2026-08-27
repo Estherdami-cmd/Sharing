@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatKoreanDate, isSameItem } from "@/lib/rules";
+import { formatKoreanDate, isSameItem, withJosa } from "@/lib/rules";
 import type { ApplicationDetail } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import {
@@ -279,11 +279,20 @@ export default function CompleteView({ applicationId }: { applicationId: string 
                 </li>
               ))}
             </ul>
-            <p className="mt-1.5 text-[13px] text-neutral-600">
-              {application.status === "pending"
-                ? "기관이 이 중 하나를 골라 확정해요"
-                : // 거절된 신청에까지 "확인 중"이라고 하면 화면이 거짓말을 한다.
-                  "이번에는 확정되지 않았어요"}
+            {/* "확정해요"까지만 말하면 그다음에 내가 뭘 하는지가 빠진다.
+                이 서비스는 기부자가 기관까지 직접 가져가는 방식이라, 그 사실을
+                여기서 미리 알려줘야 날짜를 고른 의미가 통한다. */}
+            <p className="mt-1.5 text-[13px] leading-relaxed text-neutral-600">
+              {application.status === "pending" ? (
+                <>
+                  {withJosa(application.foodBank.name, "이", "가")} 이 중 하루를 정하면,
+                  <br />
+                  그날 <strong className="font-bold text-neutral-800">직접 전달</strong>하시면 돼요
+                </>
+              ) : (
+                // 거절된 신청에까지 "확인 중"이라고 하면 화면이 거짓말을 한다.
+                "이번에는 확정되지 않았어요"
+              )}
             </p>
           </div>
         )}
