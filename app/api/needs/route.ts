@@ -7,7 +7,7 @@ const MAX_IMAGE_DATA_URL_LENGTH = 3 * 1024 * 1024;
 const IMAGE_DATA_URL = /^data:image\/(png|jpe?g|webp|gif);base64,/;
 
 export async function GET() {
-  return NextResponse.json({ needs: listNeeds(), foodBanks: getFoodBanks() });
+  return NextResponse.json({ needs: await listNeeds(), foodBanks: getFoodBanks() });
 }
 
 export async function POST(request: Request) {
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const need = createNeed({
+  const need = await createNeed({
     foodBankId,
     itemName,
     category,

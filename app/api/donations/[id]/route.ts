@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const donation = getDonation(id);
+  const donation = await getDonation(id);
   if (!donation) {
     return NextResponse.json({ error: "물품을 찾을 수 없습니다" }, { status: 404 });
   }
@@ -30,7 +30,7 @@ export async function PATCH(
     return NextResponse.json({ error: "유통기한 형식이 올바르지 않습니다" }, { status: 400 });
   }
 
-  const donation = updateDonation(id, {
+  const donation = await updateDonation(id, {
     ...(body.itemName !== undefined && { itemName: body.itemName }),
     ...(body.category !== undefined && { category: body.category }),
     ...(body.region !== undefined && { region: body.region }),

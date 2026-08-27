@@ -11,11 +11,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const application = getApplication(id);
+  const application = await getApplication(id);
   if (!application) {
     return NextResponse.json({ error: "신청 내역을 찾을 수 없습니다" }, { status: 404 });
   }
-  return NextResponse.json(describeApplication(application));
+  return NextResponse.json(await describeApplication(application));
 }
 
 export async function PATCH(
@@ -31,13 +31,13 @@ export async function PATCH(
   }
 
   const application = body.status
-    ? updateApplicationStatus(
+    ? await updateApplicationStatus(
         id,
         body.status,
         body.status === "accepted" ? { date: body.confirmedDate, slot: body.confirmedSlot } : undefined
       )
     : body.receiptRequested
-      ? requestReceipt(id)
+      ? await requestReceipt(id)
       : undefined;
 
   if (!application) {
@@ -47,5 +47,5 @@ export async function PATCH(
         : "신청 내역을 찾을 수 없습니다";
     return NextResponse.json({ error: message }, { status: body.status === "accepted" ? 400 : 404 });
   }
-  return NextResponse.json(describeApplication(application));
+  return NextResponse.json(await describeApplication(application));
 }

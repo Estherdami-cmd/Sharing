@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "수량 형식이 올바르지 않습니다" }, { status: 400 });
   }
 
-  const donation = createDonation({
+  const donation = await createDonation({
     itemName,
     category,
     quantity: body.quantity,

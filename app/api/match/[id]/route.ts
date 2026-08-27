@@ -7,13 +7,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const donation = getDonation(id);
+  const donation = await getDonation(id);
   if (!donation) {
     return NextResponse.json({ error: "물품을 찾을 수 없습니다" }, { status: 404 });
   }
   return NextResponse.json({
     donation,
     regions: REGIONS.map((r) => r.name),
-    matches: matchNeeds(donation.category, donation.itemName, donation.region),
+    matches: await matchNeeds(donation.category, donation.itemName, donation.region),
   });
 }

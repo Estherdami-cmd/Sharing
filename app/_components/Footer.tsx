@@ -36,7 +36,7 @@ export default function Footer() {
                 <span className="mt-0.5 text-[10px] font-bold text-neutral-500 whitespace-nowrap">여러시</span>
               </span>
             </div>
-            <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-neutral-500">
+            <p className="mt-2 whitespace-nowrap text-[13px] leading-relaxed text-neutral-500">
               기관이 먼저 필요를 밝히면, 여럿이 나눠서 채우는 나눔 서비스예요.
             </p>
           </div>

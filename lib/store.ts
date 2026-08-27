@@ -1,4 +1,18 @@
 import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  limit as fsLimit,
+  runTransaction,
+} from "firebase/firestore";
+import { db } from "./firebase";
+import {
   DAY_NAMES,
   DEFAULT_REGION,
   type MatchGrade,
@@ -35,7 +49,7 @@ export type Need = {
   targetQty: number;
   filledQty: number;
   note: string;
-  /** data URL(base64). 파일 스토리지가 따로 없어 인메모리 레코드에 그대로 둔다. */
+  /** data URL(base64). 파일 스토리지가 따로 없어 Firestore 문서에 그대로 둔다. */
   imageUrl: string | null;
   createdAt: string;
 };
@@ -77,6 +91,7 @@ export type Application = {
 };
 
 // 목업 데이터: 실제 포항 지역 푸드뱅크 데이터로 나중에 교체.
+// 기관은 자주 안 바뀌는 기준 정보라 Firestore 왕복 없이 코드에 그대로 둔다.
 const FOOD_BANKS: FoodBank[] = [
   {
     id: "fb1",
@@ -165,74 +180,319 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt">[] = [
     note: "긴급 지원 가정 비상식량",
     imageUrl: null,
   },
+  {
+    foodBankId: "fb3",
+    itemName: "스팸 200g",
+    category: "통조림",
+    targetQty: 60,
+    filledQty: 10,
+    note: "명절 선물세트 대신 나가는 실속형 반찬",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb2",
+    itemName: "찹쌀 3kg",
+    category: "쌀/곡물",
+    targetQty: 25,
+    filledQty: 20,
+    note: "떡 만들기 프로그램 재료로 써요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "현미 2kg",
+    category: "쌀/곡물",
+    targetQty: 40,
+    filledQty: 6,
+    note: "건강식 도시락 준비용",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "라면 멀티팩 5개입",
+    category: "라면/면류",
+    targetQty: 80,
+    filledQty: 55,
+    note: "1인 가구 비상식량으로 나가요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb3",
+    itemName: "컵라면 모음 6개입",
+    category: "라면/면류",
+    targetQty: 50,
+    filledQty: 47,
+    note: "야간 자율학습 학생 간식으로 전달돼요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb2",
+    itemName: "두유 190mL 24팩",
+    category: "음료",
+    targetQty: 30,
+    filledQty: 9,
+    note: "우유 못 마시는 아이들 간식용",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "생수 2L 6병",
+    category: "음료",
+    targetQty: 100,
+    filledQty: 34,
+    note: "폭염 대비 어르신 가정 배달용",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb3",
+    itemName: "흰 우유 1L",
+    category: "유제품",
+    targetQty: 45,
+    filledQty: 40,
+    note: "성장기 아동 급식 보충용",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb2",
+    itemName: "떠먹는 요구르트 8개입",
+    category: "유제품",
+    targetQty: 35,
+    filledQty: 8,
+    note: "장 건강 안 좋은 어르신께 드려요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "주방세제 500mL",
+    category: "세제",
+    targetQty: 50,
+    filledQty: 33,
+    note: "1인 가구 생활용품 꾸러미",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb3",
+    itemName: "섬유유연제 1L",
+    category: "세제",
+    targetQty: 30,
+    filledQty: 27,
+    note: "거의 다 채워졌어요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb3",
+    itemName: "키친타월 6롤",
+    category: "화장지",
+    targetQty: 40,
+    filledQty: 12,
+    note: "다자녀 가정 생필품 지원",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "물티슈 10팩",
+    category: "위생용품",
+    targetQty: 60,
+    filledQty: 44,
+    note: "영유아 가정에 전달돼요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb2",
+    itemName: "생리대 대형 20개입",
+    category: "생리용품",
+    targetQty: 40,
+    filledQty: 11,
+    note: "위기 청소년 쉼터로 전달돼요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb3",
+    itemName: "팬티라이너 40개입",
+    category: "생리용품",
+    targetQty: 25,
+    filledQty: 19,
+    note: "생리용품 꾸러미에 같이 나가요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "스테인리스 밀폐용기 세트",
+    category: "주방용품",
+    targetQty: 20,
+    filledQty: 3,
+    note: "자립준비청년 살림 꾸러미",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb2",
+    itemName: "후라이팬 26cm",
+    category: "주방용품",
+    targetQty: 15,
+    filledQty: 12,
+    note: "새로 독립하는 가정에 지원돼요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb3",
+    itemName: "겨울 이불 세트 (1인용)",
+    category: "의류/침구",
+    targetQty: 30,
+    filledQty: 7,
+    note: "한파 대비 독거 어르신 지원",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "아동용 겨울 점퍼 (110-130)",
+    category: "의류/침구",
+    targetQty: 25,
+    filledQty: 18,
+    note: "지역아동센터 아이들에게 전달돼요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb2",
+    itemName: "성인용 내복 세트",
+    category: "의류/침구",
+    targetQty: 40,
+    filledQty: 36,
+    note: "거의 다 채워졌어요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb2",
+    itemName: "공책 10권 세트",
+    category: "학용품",
+    targetQty: 50,
+    filledQty: 14,
+    note: "새 학기 준비 지원",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "색연필 24색 세트",
+    category: "학용품",
+    targetQty: 30,
+    filledQty: 21,
+    note: "지역아동센터 미술수업 재료",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb1",
+    itemName: "소금 1kg",
+    category: "기타",
+    targetQty: 20,
+    filledQty: 17,
+    note: "김장 나눔 행사 재료로 써요",
+    imageUrl: null,
+  },
+  {
+    foodBankId: "fb3",
+    itemName: "미역 100g",
+    category: "기타",
+    targetQty: 35,
+    filledQty: 9,
+    note: "산모·어르신 미역국용",
+    imageUrl: null,
+  },
 ];
 
-// Next.js dev 서버는 API 라우트 파일별로 이 모듈을 별도 청크로 다시 컴파일해서,
-// 모듈 스코프 변수로 두면 라우트마다 다른 인스턴스를 참조하게 된다.
-// globalThis에 얹어 같은 프로세스 안에서 하나의 저장소를 공유하도록 한다.
-const globalForStore = globalThis as unknown as {
-  __foodBankStoreV3?: {
-    foodBanks: FoodBank[];
-    needs: Map<string, Need>;
-    donations: Map<string, Donation>;
-    applications: Map<string, Application>;
-    needSeq: number;
-    donationSeq: number;
-    applicationSeq: number;
-  };
-};
+const needsCol = collection(db, "needs");
+const donationsCol = collection(db, "donations");
+const applicationsCol = collection(db, "applications");
 
-const store = (globalForStore.__foodBankStoreV3 ??= (() => {
-  const needs = new Map<string, Need>();
-  let needSeq = 1;
-  for (const seed of SEED_NEEDS) {
-    const id = `n${needSeq++}`;
-    needs.set(id, { ...seed, id, createdAt: new Date().toISOString() });
-  }
-  return {
-    foodBanks: FOOD_BANKS,
-    needs,
-    donations: new Map<string, Donation>(),
-    applications: new Map<string, Application>(),
-    needSeq,
-    donationSeq: 1,
-    applicationSeq: 1,
-  };
-})());
-
-const foodBanks = store.foodBanks;
-const needs = store.needs;
-const donations = store.donations;
-const applications = store.applications;
+/**
+ * Firestore가 비어 있으면(새로 만든 프로젝트) 씨드 데이터를 한 번 채운다.
+ * 매 요청마다 확인하면 낭비라, 이 서버 인스턴스가 이미 확인했으면 다시 안 본다
+ * — 진짜로 비어 있던 적이 없다는 보장은 아니지만, 데모 규모에서 동시에 두 요청이
+ * 똑같이 빈 상태를 볼 가능성은 낮고, 그래봐야 씨드가 중복되는 정도라 감수한다.
+ */
+let seedChecked = false;
+async function ensureSeeded() {
+  if (seedChecked) return;
+  seedChecked = true;
+  const snap = await getDocs(query(needsCol, fsLimit(1)));
+  if (!snap.empty) return;
+  await Promise.all(
+    SEED_NEEDS.map((seed) => addDoc(needsCol, { ...seed, createdAt: new Date().toISOString() }))
+  );
+}
 
 export function getFoodBanks() {
-  return foodBanks;
+  return FOOD_BANKS;
 }
 
 export function getFoodBank(id: string) {
-  return foodBanks.find((fb) => fb.id === id);
+  return FOOD_BANKS.find((fb) => fb.id === id);
 }
 
-export function getNeed(id: string) {
-  return needs.get(id);
+function needFromDoc(id: string, data: Record<string, unknown>): Need {
+  return {
+    id,
+    foodBankId: data.foodBankId as string,
+    itemName: data.itemName as string,
+    category: data.category as string,
+    targetQty: data.targetQty as number,
+    filledQty: data.filledQty as number,
+    note: (data.note as string) ?? "",
+    imageUrl: (data.imageUrl as string | null) ?? null,
+    createdAt: data.createdAt as string,
+  };
 }
 
-export function createNeed(input: {
+function donationFromDoc(id: string, data: Record<string, unknown>): Donation {
+  return {
+    id,
+    itemName: data.itemName as string,
+    category: data.category as string,
+    quantity: data.quantity as number,
+    expiryDate: (data.expiryDate as string | null) ?? null,
+    shareable: data.shareable as boolean,
+    shareReason: data.shareReason as string,
+    region: data.region as string,
+    createdAt: data.createdAt as string,
+    productImageUrl: (data.productImageUrl as string | null) ?? null,
+    expiryImageUrl: (data.expiryImageUrl as string | null) ?? null,
+  };
+}
+
+function applicationFromDoc(id: string, data: Record<string, unknown>): Application {
+  return {
+    id,
+    donationId: data.donationId as string,
+    needId: data.needId as string,
+    foodBankId: data.foodBankId as string,
+    quantity: data.quantity as number,
+    candidateDates: (data.candidateDates as DateCandidate[]) ?? [],
+    confirmedDate: (data.confirmedDate as string | null) ?? null,
+    confirmedSlot: (data.confirmedSlot as string | null) ?? null,
+    place: data.place as string,
+    contact: data.contact as string,
+    status: data.status as Application["status"],
+    receiptRequested: (data.receiptRequested as boolean) ?? false,
+    createdAt: data.createdAt as string,
+  };
+}
+
+export async function getNeed(id: string): Promise<Need | undefined> {
+  await ensureSeeded();
+  const snap = await getDoc(doc(needsCol, id));
+  if (!snap.exists()) return undefined;
+  return needFromDoc(snap.id, snap.data());
+}
+
+export async function createNeed(input: {
   foodBankId: string;
   itemName: string;
   category: string;
   targetQty: number;
   note: string;
   imageUrl: string | null;
-}): Need {
-  const need: Need = {
-    ...input,
-    id: `n${store.needSeq++}`,
-    filledQty: 0,
-    createdAt: new Date().toISOString(),
-  };
-  needs.set(need.id, need);
-  return need;
+}): Promise<Need> {
+  const data = { ...input, filledQty: 0, createdAt: new Date().toISOString() };
+  const ref = await addDoc(needsCol, data);
+  return { id: ref.id, ...data };
 }
 
 export type NeedView = Need & {
@@ -243,14 +503,8 @@ export type NeedView = Need & {
   urgent: boolean;
 };
 
-function toView(need: Need): NeedView {
-  // 카테고리가 다른 대기중 신청은 수락돼도 이 진행률을 안 채우니, "대기중 반영 시"
-  // 미리보기에서도 빼야 한다 — 안 그러면 실제로는 안 오를 숫자를 예고하게 된다.
-  const pendingQty = Array.from(applications.values())
-    .filter((app) => app.needId === need.id && app.status === "pending")
-    .filter((app) => getDonation(app.donationId)?.category === need.category)
-    .reduce((sum, app) => sum + app.quantity, 0);
-
+/** need 하나와, 이미 불러온 관련 데이터를 순수하게 조합만 한다 — Firestore를 모른다. */
+function computeNeedView(need: Need, pendingQty: number): NeedView {
   // Math.round는 99.5%도 100%로 올려버려서, 1개가 남았는데도 "목표 달성"으로
   // 보이는 경우가 생긴다. 실제로 다 채워졌을 때(filledQty >= targetQty)만 100%를 준다.
   const progress =
@@ -268,11 +522,51 @@ function toView(need: Need): NeedView {
   };
 }
 
+/**
+ * 대기중 신청들을 한 번에 불러와 need별로 묶는다. 카테고리가 다른 대기중 신청은
+ * 수락돼도 그 진행률을 안 채우니, "대기중 반영 시" 미리보기에서도 빼야 한다.
+ * need마다 따로 물어보면(N+1) Firestore 왕복이 요청 수만큼 늘어나니 한 번에 처리한다.
+ */
+async function pendingQtyByNeed(needs: Need[]): Promise<Map<string, number>> {
+  const pendingSnap = await getDocs(query(applicationsCol, where("status", "==", "pending")));
+  const pendingApps = pendingSnap.docs.map((d) => applicationFromDoc(d.id, d.data()));
+  if (pendingApps.length === 0) return new Map();
+
+  const donationIds = Array.from(new Set(pendingApps.map((a) => a.donationId)));
+  const donations = await Promise.all(donationIds.map((id) => getDonation(id)));
+  const categoryByDonationId = new Map(
+    donations.filter(Boolean).map((d) => [d!.id, d!.category])
+  );
+
+  const needCategoryById = new Map(needs.map((n) => [n.id, n.category]));
+  const result = new Map<string, number>();
+  for (const app of pendingApps) {
+    const needCategory = needCategoryById.get(app.needId);
+    if (needCategory === undefined) continue;
+    if (categoryByDonationId.get(app.donationId) !== needCategory) continue;
+    result.set(app.needId, (result.get(app.needId) ?? 0) + app.quantity);
+  }
+  return result;
+}
+
 /** 진행률 게시판용. 도움이 필요한 것(진행률 낮은 것) 먼저. */
-export function listNeeds(): NeedView[] {
-  return Array.from(needs.values())
-    .map(toView)
+export async function listNeeds(): Promise<NeedView[]> {
+  await ensureSeeded();
+  const snap = await getDocs(needsCol);
+  const needsList = snap.docs.map((d) => needFromDoc(d.id, d.data()));
+  const pendingByNeed = await pendingQtyByNeed(needsList);
+
+  return needsList
+    .map((need) => computeNeedView(need, pendingByNeed.get(need.id) ?? 0))
     .sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.progress - b.progress);
+}
+
+/** 신청 상세(describeApplication)처럼 need 하나만 필요한 자리용. */
+export async function getNeedView(id: string): Promise<NeedView | undefined> {
+  const need = await getNeed(id);
+  if (!need) return undefined;
+  const pendingByNeed = await pendingQtyByNeed([need]);
+  return computeNeedView(need, pendingByNeed.get(need.id) ?? 0);
 }
 
 export type NeedMatch = NeedView & {
@@ -302,9 +596,13 @@ function needLabelOf(score: number) {
  * 나눔하고 싶을 수도 있으니, 항상 전체를 보여주되 우선순위만 다르게 준다.
  * 부족분이 클수록, 진행률이 낮아 도움이 필요할수록, 가까울수록 위로 온다.
  */
-export function matchNeeds(category: string, itemName: string, regionName: string): NeedMatch[] {
+export async function matchNeeds(
+  category: string,
+  itemName: string,
+  regionName: string
+): Promise<NeedMatch[]> {
   const origin = getRegion(regionName || DEFAULT_REGION);
-  const all = listNeeds();
+  const all = await listNeeds();
 
   return all
     .map((need) => {
@@ -377,6 +675,7 @@ export type DateRecommendation = {
 /**
  * 기관 운영일 ∩ 기부자 가능 요일 ∩ 시간대 교집합.
  * "양쪽 모두 가능한 시간대만 걸러서 날짜 추천"의 실제 구현.
+ * FoodBank 기준 정보만 쓰고 Firestore는 건드리지 않아 동기 함수로 남는다.
  *
  * donorAvailability는 요일마다 다른 시간대를 가질 수 있다(예: 월요일은 오전만,
  * 화요일은 오후만 가능). 키로 들어있는 요일만 "가능한 요일"이고, 값은 그 요일의
@@ -436,7 +735,7 @@ export function recommendDates(
   };
 }
 
-export function createDonation(input: {
+export async function createDonation(input: {
   itemName: string;
   category: string;
   quantity?: number;
@@ -444,11 +743,10 @@ export function createDonation(input: {
   region: string;
   productImageUrl?: string | null;
   expiryImageUrl?: string | null;
-}): Donation {
+}): Promise<Donation> {
   // 나눔 가능 여부는 클라이언트가 보낸 값을 믿지 않고 항상 서버가 판정한다.
   const verdict = evaluateShareable(input.expiryDate);
-  const donation: Donation = {
-    id: `d${store.donationSeq++}`,
+  const data = {
     itemName: input.itemName,
     category: input.category,
     // 나눔 가능 여부와 같은 이유로, 개수도 클라이언트가 보낸 값을 그대로 믿지 않는다.
@@ -461,60 +759,66 @@ export function createDonation(input: {
     productImageUrl: input.productImageUrl ?? null,
     expiryImageUrl: input.expiryImageUrl ?? null,
   };
-  donations.set(donation.id, donation);
-  return donation;
+  const ref = await addDoc(donationsCol, data);
+  return { id: ref.id, ...data };
 }
 
-export function getDonation(id: string) {
-  return donations.get(id);
+export async function getDonation(id: string): Promise<Donation | undefined> {
+  const snap = await getDoc(doc(donationsCol, id));
+  if (!snap.exists()) return undefined;
+  return donationFromDoc(snap.id, snap.data());
 }
 
-export function updateDonation(
+export async function updateDonation(
   id: string,
   patch: Partial<Pick<Donation, "itemName" | "category" | "quantity" | "expiryDate" | "region">>
-) {
-  const donation = donations.get(id);
+): Promise<Donation | undefined> {
+  const donation = await getDonation(id);
   if (!donation) return undefined;
 
-  if (patch.itemName !== undefined) donation.itemName = patch.itemName;
-  if (patch.category !== undefined) donation.category = patch.category;
-  if (patch.quantity !== undefined) donation.quantity = clampQuantity(patch.quantity);
-  if (patch.region !== undefined) donation.region = patch.region;
+  const update: Record<string, unknown> = {};
+  if (patch.itemName !== undefined) update.itemName = patch.itemName;
+  if (patch.category !== undefined) update.category = patch.category;
+  if (patch.quantity !== undefined) update.quantity = clampQuantity(patch.quantity);
+  if (patch.region !== undefined) update.region = patch.region;
   if (patch.expiryDate !== undefined) {
-    donation.expiryDate = patch.expiryDate;
+    update.expiryDate = patch.expiryDate;
     const verdict = evaluateShareable(patch.expiryDate);
-    donation.shareable = verdict.shareable;
-    donation.shareReason = verdict.reason;
+    update.shareable = verdict.shareable;
+    update.shareReason = verdict.reason;
   }
-  return donation;
+  await updateDoc(doc(donationsCol, id), update);
+  return { ...donation, ...update } as Donation;
 }
 
-export function createApplication(
+export async function createApplication(
   input: Pick<Application, "donationId" | "needId" | "quantity" | "candidateDates" | "place" | "contact">
-): Application | undefined {
-  const need = needs.get(input.needId);
+): Promise<Application | undefined> {
+  const need = await getNeed(input.needId);
   if (!need) return undefined;
 
-  const application: Application = {
+  const data = {
     ...input,
     confirmedDate: null,
     confirmedSlot: null,
     foodBankId: need.foodBankId,
-    id: `a${store.applicationSeq++}`,
-    status: "pending",
+    status: "pending" as const,
     receiptRequested: false,
     createdAt: new Date().toISOString(),
   };
-  applications.set(application.id, application);
-  return application;
+  const ref = await addDoc(applicationsCol, data);
+  return { id: ref.id, ...data };
 }
 
-export function getApplication(id: string) {
-  return applications.get(id);
+export async function getApplication(id: string): Promise<Application | undefined> {
+  const snap = await getDoc(doc(applicationsCol, id));
+  if (!snap.exists()) return undefined;
+  return applicationFromDoc(snap.id, snap.data());
 }
 
-export function listApplications() {
-  return Array.from(applications.values()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+export async function listApplications(): Promise<Application[]> {
+  const snap = await getDocs(query(applicationsCol, orderBy("createdAt", "desc")));
+  return snap.docs.map((d) => applicationFromDoc(d.id, d.data()));
 }
 
 /**
@@ -526,60 +830,80 @@ export function listApplications() {
  *
  * 수락(accepted)하려면 기부자가 제안한 날짜 후보 중 하나를 반드시 같이 골라야 한다
  * — 날짜 없이는 "언제 전달할지" 자체가 정해지지 않으니 수락도 의미가 없다.
+ *
+ * Firestore는 이제 정말로 여러 인스턴스가 동시에 건드릴 수 있어서(예전 인메모리는
+ * 프로세스 하나였다), 읽고 더해서 쓰는 이 로직을 트랜잭션으로 묶는다 — 안 그러면
+ * 같은 요청을 동시에 두 번 수락 처리할 때 진행률이 두 배로 뛸 수 있다.
  */
-export function updateApplicationStatus(
+export async function updateApplicationStatus(
   id: string,
   status: Application["status"],
   confirmed?: DateCandidate
-) {
-  const application = applications.get(id);
-  if (!application) return undefined;
+): Promise<Application | undefined> {
+  return runTransaction(db, async (tx) => {
+    const appRef = doc(applicationsCol, id);
+    const appSnap = await tx.get(appRef);
+    if (!appSnap.exists()) return undefined;
+    const application = applicationFromDoc(appSnap.id, appSnap.data());
 
-  if (status === "accepted") {
-    const isValidCandidate = confirmed
-      ? application.candidateDates.some((c) => c.date === confirmed.date && c.slot === confirmed.slot)
-      : false;
-    if (!isValidCandidate) return undefined;
-  }
-
-  const need = needs.get(application.needId);
-  const donation = getDonation(application.donationId);
-  const countsTowardProgress = Boolean(need && donation && need.category === donation.category);
-
-  if (need && countsTowardProgress) {
-    if (status === "accepted" && application.status !== "accepted") {
-      // 목표치를 넘겨 채우지 않는다. 여러 신청이 동시에 수락돼도 진행률은 100%를 넘지 않는다.
-      need.filledQty = Math.min(need.targetQty, need.filledQty + application.quantity);
-    } else if (application.status === "accepted" && status !== "accepted") {
-      need.filledQty = Math.max(0, need.filledQty - application.quantity);
+    if (status === "accepted") {
+      const isValidCandidate = confirmed
+        ? application.candidateDates.some((c) => c.date === confirmed.date && c.slot === confirmed.slot)
+        : false;
+      if (!isValidCandidate) return undefined;
     }
-  }
 
-  application.status = status;
-  if (status === "accepted" && confirmed) {
-    application.confirmedDate = confirmed.date;
-    application.confirmedSlot = confirmed.slot;
-  }
-  return application;
+    const needRef = doc(needsCol, application.needId);
+    const donationRef = doc(donationsCol, application.donationId);
+    const [needSnap, donationSnap] = await Promise.all([tx.get(needRef), tx.get(donationRef)]);
+    const need = needSnap.exists() ? needFromDoc(needSnap.id, needSnap.data()) : undefined;
+    const donation = donationSnap.exists() ? donationFromDoc(donationSnap.id, donationSnap.data()) : undefined;
+    const countsTowardProgress = Boolean(need && donation && need.category === donation.category);
+
+    if (need && countsTowardProgress) {
+      let filledQty = need.filledQty;
+      if (status === "accepted" && application.status !== "accepted") {
+        // 목표치를 넘겨 채우지 않는다. 여러 신청이 동시에 수락돼도 진행률은 100%를 넘지 않는다.
+        filledQty = Math.min(need.targetQty, filledQty + application.quantity);
+      } else if (application.status === "accepted" && status !== "accepted") {
+        filledQty = Math.max(0, filledQty - application.quantity);
+      }
+      if (filledQty !== need.filledQty) {
+        tx.update(needRef, { filledQty });
+      }
+    }
+
+    const patch: Record<string, unknown> = { status };
+    if (status === "accepted" && confirmed) {
+      patch.confirmedDate = confirmed.date;
+      patch.confirmedSlot = confirmed.slot;
+    }
+    tx.update(appRef, patch);
+
+    return { ...application, ...patch } as Application;
+  });
 }
 
-export function requestReceipt(id: string) {
-  const application = applications.get(id);
+export async function requestReceipt(id: string): Promise<Application | undefined> {
+  const application = await getApplication(id);
   if (!application) return undefined;
-  application.receiptRequested = true;
-  return application;
+  await updateDoc(doc(applicationsCol, id), { receiptRequested: true });
+  return { ...application, receiptRequested: true };
 }
 
-export function describeApplication(application: Application) {
-  const need = needs.get(application.needId);
+export async function describeApplication(application: Application) {
+  const [donation, needView] = await Promise.all([
+    getDonation(application.donationId),
+    getNeedView(application.needId),
+  ]);
   return {
     ...application,
     // 삭제 기능이 없어 신청이 참조하는 donation/foodBank는 항상 존재한다는 가정.
     // 나중에 삭제 경로가 생기면 이 단언이 깨진다.
-    donation: getDonation(application.donationId)!,
+    donation: donation!,
     foodBank: getFoodBank(application.foodBankId)!,
-    need: need ? toView(need) : undefined,
+    need: needView,
   };
 }
 
-export type ApplicationDetail = ReturnType<typeof describeApplication>;
+export type ApplicationDetail = Awaited<ReturnType<typeof describeApplication>>;
