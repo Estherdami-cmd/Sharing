@@ -13,9 +13,6 @@ import { useCountUp } from "./useCountUp";
 const RESET_BAR_DURATION_MS = 1400;
 const DEFAULT_BAR_DURATION_MS = 700;
 
-/** 대기 구간을 칠하는 45도 빗금. "아직 반영 안 됨"을 뜻한다 — 색만 바꿔 내 몫과 남의 몫을 가른다. */
-const MINE_STRIPES = "repeating-linear-gradient(45deg, currentColor 0 4px, transparent 4px 8px)";
-
 function fillClass(progress: number) {
   if (progress >= 100) return "bg-success-fg";
   if (progress >= 60) return "bg-primary-600";
@@ -150,15 +147,12 @@ export default function NeedProgress({
         )}
         {othersWidth > 0 &&
           (mineQty == null ? (
-            // 내 몫 표시를 안 쓰는 화면(게시판·기관)은 기존 빗금 그대로 둔다.
-            // DESIGN_GUIDE 3.2가 빗금으로 명시하고 있어 이 PR에서 전체를 바꾸지는 않는다.
+            // 게시판·기관·매칭 화면(내 몫을 구분하지 않는 곳)의 대기중 구간.
+            // 예전엔 빗금이었는데, 진행률 색과 안 이어져서 뭉개져 보인다는 피드백으로
+            // 위 minePending과 같은 방식(채움 색을 옅게)으로 통일했다.
             <div
-              className="opacity-30 transition-[width] duration-700 ease-out"
-              style={{
-                width: `${animationStarted ? othersWidth : 0}%`,
-                backgroundImage: MINE_STRIPES,
-                color: "var(--color-neutral-900)",
-              }}
+              className={`${fillClass(progress)}/45 transition-[width] duration-700 ease-out`}
+              style={{ width: `${animationStarted ? othersWidth : 0}%` }}
             />
           ) : (
             <div
