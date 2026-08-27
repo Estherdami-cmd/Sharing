@@ -396,7 +396,7 @@ export default function ApplyForm() {
           {loadingSlots
             ? "가능한 날짜를 찾는 중..."
             : autoLoaded
-              ? "조건 바꿔서 다시 찾기"
+              ? "가능한 날짜 찾기"
               : "AI 추천 날짜 받기"}
         </button>
 
