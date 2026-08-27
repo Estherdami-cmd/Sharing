@@ -27,14 +27,14 @@ export default function ServicePage() {
           </p>
         </header>
 
-        {/* 이 섹션만 글:사진 = 2:1 비율로 나눈다 (다른 두 섹션은 사진 폭 고정). */}
+        {/* 이 섹션만 사진:글 = 2:1 비율로 나눈다 (다른 두 섹션은 사진 폭 고정). */}
         <div className={mediaRow}>
           <img
             src="/service/board.png"
             alt="진행 현황 게시판. 기관별 요청이 목표 수량 대비 몇 % 채워졌는지 진행률로 보여준다"
-            className={`${mediaImg} h-64 w-full sm:h-auto sm:min-w-0 sm:flex-1`}
+            className={`${mediaImg} h-64 w-full sm:h-auto sm:min-w-0 sm:flex-[2]`}
           />
-          <div className="flex flex-col gap-2 sm:flex-[2]">
+          <div className="flex flex-col gap-2 sm:flex-1">
             <h2 className={sectionTitle}>왜 이렇게 만들었나요</h2>
             <p className={caption}>
               게시판에 물건을 올려두고 기관이 일일이 골라가는 방식은 모니터링 부담이 크고, 한
