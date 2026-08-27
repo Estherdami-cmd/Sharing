@@ -53,6 +53,30 @@ export type FoodBank = {
   goodsHint?: string;
   operatingDays?: string[];
   pickupSlots?: string[];
+  /**
+   * 이 기관이 어느 공공데이터에서 왔는지. 한 출처를 갱신할 때 다른 출처의 기관을
+   * 지우지 않기 위해 필요하다.
+   *  - "foodbank": 경상북도_푸드뱅크 현황 (손으로 정리한 5곳)
+   *  - "lvlhmap":  포항시 생활지도 시설현황 (API로 받아오는 109곳)
+   */
+  source?: "foodbank" | "lvlhmap";
+};
+
+/**
+ * need/application이 가리키는 foodBankId가 실제로는 없을 때(예: 직접 데이터를 옮기다가
+ * 순간적으로 어긋난 경우) 화면 전체가 죽는 대신 이걸 대신 보여준다.
+ * NeedView·ApplicationDetail 어디서든 foodBank는 항상 있다고 가정하고 .name 등을
+ * 바로 읽는 코드가 많아서, undefined를 그대로 넘기는 대신 여기서 안전한 값으로 막는다.
+ */
+const UNKNOWN_FOOD_BANK: FoodBank = {
+  id: "unknown",
+  name: "정보를 찾을 수 없는 기관",
+  address: "",
+  region: "",
+  lat: 0,
+  lng: 0,
+  operatingDays: [],
+  pickupSlots: [],
 };
 
 /** 기관이 직접 올리는 "이 물건이 이만큼 필요해요" 한 건. 여럿이 나눠 채운다. */
@@ -106,11 +130,100 @@ export type Application = {
 };
 
 /**
- * 씨드용 기관 목록. lib/data/pohang-orgs.json은 /api/admin/sync-orgs?dryRun=1로
- * 공공데이터포털에서 뽑아 커밋해 둔 스냅샷이다 — 지어낸 데이터가 아니라 실제 기관이다.
- * Firestore가 비어 있을 때 이걸로 채우고, 갱신은 같은 라우트로 한다.
+ * 기부를 받는 기관은 두 공공데이터에서 온다. 둘은 역할이 다르고 서로를 대체하지 않는다.
+ *
+ *  1) 푸드뱅크·푸드마켓 5곳 — 기부를 받아서 나눠주는 거점. 이 앱의 원래 모델이다.
+ *  2) 지역아동센터·무료급식소·요양원 109곳 — 물품이 실제로 가 닿는 수혜 기관.
+ *
+ * 어느 쪽도 지어낸 데이터가 아니다. syncOrgs가 한쪽을 갱신할 때 다른 쪽을 지우지
+ * 않도록 source로 구분한다.
  */
-const SEED_FOOD_BANKS: FoodBank[] = orgSnapshot.orgs;
+
+/*
+ * 출처: 공공데이터포털 "경상북도_푸드뱅크 현황"
+ * (data.go.kr/data/15063077, 로그인·API 키 불필요, 25행 중 포항 5행).
+ * 위경도는 원본에 없어서 주소를 OpenStreetMap Nominatim으로 지오코딩해 채웠다
+ * (fb3만 상세 주소가 안 잡혀 흥해읍 중심 좌표로 대체 — 정확도가 나머지보다 낮음).
+ *
+ * 운영요일·수거시간대는 원본에 아예 없는 항목이다. 예전에는 임시값을 넣어뒀는데,
+ * 실존 기관 이름 옆에 붙은 가짜 시간은 화면에서 사실로 읽힌다. 그래서 아예 비워두고
+ * "미확인 — 기관과 협의"로 말한다.
+ *
+ * id는 고정 문자열을 그대로 쓴다 — 이미 만들어진 요청·신청이 이 id를 참조한다.
+ */
+const CURATED_FOOD_BANKS: FoodBank[] = [
+  {
+    id: "fb1",
+    name: "한기장내일을여는집",
+    address: "포항시 북구 삼흥로74번길 7-7",
+    region: "북구 두호동",
+    lat: 36.0686,
+    lng: 129.3813,
+    category: "푸드뱅크",
+    audience: "식품",
+    goodsHint: "쌀·부식·생필품",
+    source: "foodbank",
+  },
+  {
+    id: "fb2",
+    name: "경동교회",
+    address: "포항시 남구 오천읍 해병로347번길 34",
+    region: "남구 오천읍",
+    lat: 35.964,
+    lng: 129.4121,
+    category: "푸드뱅크",
+    audience: "식품",
+    goodsHint: "쌀·부식·생필품",
+    source: "foodbank",
+  },
+  {
+    id: "fb3",
+    name: "흥해제일교회",
+    address: "포항시 북구 흥해읍 한동로43",
+    region: "북구 흥해읍",
+    lat: 36.1126,
+    lng: 129.354,
+    category: "푸드뱅크",
+    audience: "식품",
+    goodsHint: "쌀·부식·생필품",
+    source: "foodbank",
+  },
+  {
+    id: "fb4",
+    name: "선한 이웃",
+    address: "포항시 북구 중앙로298번길 3-1",
+    region: "북구 중앙동",
+    lat: 36.0393,
+    lng: 129.3679,
+    category: "푸드뱅크",
+    audience: "식품",
+    goodsHint: "쌀·부식·생필품",
+    source: "foodbank",
+  },
+  {
+    id: "fb5",
+    name: "포항모자원 (푸드마켓)",
+    address: "포항시 남구 송도로 51",
+    region: "남구 송도동",
+    lat: 36.0345,
+    lng: 129.3802,
+    category: "푸드마켓",
+    audience: "식품",
+    goodsHint: "쌀·부식·생필품",
+    source: "foodbank",
+  },
+];
+
+/**
+ * lib/data/pohang-orgs.json은 /api/admin/sync-orgs?dryRun=1로 공공데이터포털에서
+ * 뽑아 커밋해 둔 스냅샷이다. 서비스키가 없는 환경에서도 앱이 뜨게 하는 기본값이다.
+ */
+const SNAPSHOT_ORGS: FoodBank[] = orgSnapshot.orgs.map((o) => ({
+  ...o,
+  source: "lvlhmap" as const,
+}));
+
+const SEED_FOOD_BANKS: FoodBank[] = [...CURATED_FOOD_BANKS, ...SNAPSHOT_ORGS];
 
 export const ORG_SOURCE = orgSnapshot.source;
 export const ORG_SNAPSHOT = orgSnapshot;
@@ -490,7 +603,9 @@ async function ensureSeeded() {
 function pickOrgFor(banks: FoodBank[], category: string, itemName: string, i: number): string {
   const wanted = orgCategoryForNeed(category, itemName);
   const pool = banks.filter((b) => b.category === wanted);
-  const from = pool.length > 0 ? pool : banks;
+  // 맞는 종류가 없으면 푸드뱅크로 보낸다 — 품목을 가리지 않고 받는 곳이다.
+  const fallback = banks.filter((b) => b.source === "foodbank");
+  const from = pool.length > 0 ? pool : fallback.length > 0 ? fallback : banks;
   return from[i % from.length].id;
 }
 
@@ -529,19 +644,33 @@ export async function getFoodBank(id: string): Promise<FoodBank | undefined> {
  * 종류의 살아있는 기관으로 옮긴다. 하드코딩 시절의 fb1~fb3도 이 경로로 정리된다.
  */
 export async function syncOrgs(orgs: FoodBank[]) {
-  await Promise.all(orgs.map((o) => setDoc(doc(foodBanksCol, o.id), o)));
+  // 손으로 정리한 푸드뱅크 5곳도 같이 덮어쓴다 — 예전에 넣어둔 임시 운영시간이
+  // Firestore에 남아 있으면 화면에서 계속 사실처럼 보인다.
+  const writing = [...CURATED_FOOD_BANKS, ...orgs];
+  await Promise.all(writing.map((o) => setDoc(doc(foodBanksCol, o.id), o)));
 
-  const alive = new Set(orgs.map((o) => o.id));
+  const alive = new Set(writing.map((o) => o.id));
   const existing = await getDocs(foodBanksCol);
-  const stale = existing.docs.map((d) => d.id).filter((id) => !alive.has(id));
+  // 이번에 갱신한 출처의 기관만 정리 대상이다. 다른 출처는 건드리지 않는다.
+  const syncedSources = new Set<string>(orgs.map((o) => o.source ?? "lvlhmap"));
+  const stale = existing.docs
+    .filter((d) => !alive.has(d.id))
+    .filter((d) => syncedSources.has((d.data().source as string | undefined) ?? "lvlhmap"))
+    .map((d) => d.id);
 
+  // 지울 기관을 참조하는 요청이 남으면 화면이 깨진다(getFoodBank가 undefined).
+  // 지우기 전에 같은 종류의 살아있는 기관으로 옮긴다.
+  const staleSet = new Set(stale);
   const needsSnap = await getDocs(needsCol);
-  const orphaned = needsSnap.docs.filter((d) => !alive.has(d.data().foodBankId as string));
+  const orphaned = needsSnap.docs.filter((d) => {
+    const id = d.data().foodBankId as string;
+    return staleSet.has(id) || !alive.has(id);
+  });
   await Promise.all(
     orphaned.map((d, i) => {
       const data = d.data();
       return updateDoc(doc(needsCol, d.id), {
-        foodBankId: pickOrgFor(orgs, data.category as string, data.itemName as string, i),
+        foodBankId: pickOrgFor(writing, data.category as string, data.itemName as string, i),
       });
     })
   );
@@ -549,8 +678,13 @@ export async function syncOrgs(orgs: FoodBank[]) {
   await Promise.all(stale.map((id) => deleteDoc(doc(foodBanksCol, id))));
 
   foodBanksCache = null;
-  return { orgsWritten: orgs.length, staleRemoved: stale.length, needsRemapped: orphaned.length };
+  return {
+    orgsWritten: writing.length,
+    staleRemoved: stale.length,
+    needsRemapped: orphaned.length,
+  };
 }
+
 
 function needFromDoc(id: string, data: Record<string, unknown>): Need {
   return {
@@ -639,7 +773,7 @@ async function computeNeedView(need: Need, pendingQty: number): Promise<NeedView
 
   return {
     ...need,
-    foodBank: (await getFoodBank(need.foodBankId))!,
+    foodBank: (await getFoodBank(need.foodBankId)) ?? UNKNOWN_FOOD_BANK,
     progress,
     remainingQty: Math.max(0, need.targetQty - need.filledQty),
     pendingQty,
@@ -1043,7 +1177,7 @@ export async function describeApplication(application: Application) {
     // 삭제 기능이 없어 신청이 참조하는 donation/foodBank는 항상 존재한다는 가정.
     // 나중에 삭제 경로가 생기면 이 단언이 깨진다.
     donation: donation!,
-    foodBank: foodBank!,
+    foodBank: foodBank ?? UNKNOWN_FOOD_BANK,
     need: needView,
   };
 }
