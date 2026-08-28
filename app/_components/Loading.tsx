@@ -16,8 +16,17 @@
  * viewBox 중심(229.5, 234.0)과 0.1px 차이로 맞아서, 별도 보정 없이 제자리에서
  * 돈다. 그림을 교체할 땐 이 중심이 맞는지 먼저 재야 한다.
  *
+ * 회전 자체는 이 컴포넌트가 아니라 loading-spinner.svg 내부에서 일어난다.
+ * 예전에는 <img>를 통째로 animate-spin으로 돌렸는데, 그러면 그림 안의 아홉
+ * 아이콘(사람·새·사슴…) 각자도 같이 뒤집혀 돌아서 무슨 그림인지 알아보기
+ * 어려웠다. 지금은 SVG 안에 두 겹의 회전이 들어있다 — 바깥 그룹(.yrs-ring)이
+ * 전체를 궤도로 돌리고, 아이콘마다 자기 중심을 축으로 정확히 반대 방향·같은
+ * 속도로 반전 회전(.yrs-icon)해서 서로 상쇄시킨다. 결과적으로 아이콘은 궤도를
+ * 따라 자리를 옮기기만 하고, 그 자체는 항상 똑바로 서 있다. reduced-motion도
+ * SVG의 @media 쿼리 안에서 함께 처리하므로, 바깥 <img>에는 더 손댈 게 없다.
+ *
  * 다른 에셋으로 바꾸려면 SPINNER_SRC만 고치면 된다. null로 두면 아래 CSS 링
- * 스피너로 돌아간다.
+ * 스피너로 돌아간다 — 이건 도형이 하나뿐이라 뒤집힐 게 없어서 그대로 둔다.
  * ────────────────────────────────────────────────────────────────────────────
  */
 const SPINNER_SRC: string | null = "/loading-spinner.svg";
@@ -104,24 +113,16 @@ export default function Loading({
     >
       {SPINNER_SRC ? (
         /*
-          animate-spin 기본 속도는 1초인데, 도형이 여러 개 든 그림에는 너무
-          빨라 형체가 뭉개지고 조급해 보였다. 2.5초로 늦춰 도형이 알아볼 만한
-          속도로 돈다.
-
-          animate-spin은 prefers-reduced-motion을 스스로 존중하지 않는다.
-          motion-reduce:animate-none으로 끊는다 — 그래도 그림은 남아서 로딩
-          중이라는 걸 보여주고, 아래 글자가 상태를 말한다.
+          회전·속도(2.5s)·reduced-motion은 모두 loading-spinner.svg 안의
+          CSS 애니메이션이 처리한다. 여기서 animate-spin을 걸면 SVG 내부에서
+          이미 상쇄해 둔 아이콘 회전 위에 그림 전체를 한 번 더 돌리는 셈이라,
+          아이콘이 다시 뒤집혀 보인다 — 그래서 이 <img>는 순수하게 정적이다.
 
           alt=""로 두는 건 의도한 것이다. 바깥 role="status"가 아래 글자를
           읽어주므로, 그림까지 읽으면 같은 말이 두 번 나온다.
         */
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={SPINNER_SRC}
-          alt=""
-          aria-hidden
-          className={`${SIZE[size]} shrink-0 animate-spin [animation-duration:2.5s] motion-reduce:animate-none`}
-        />
+        <img src={SPINNER_SRC} alt="" aria-hidden className={`${SIZE[size]} shrink-0`} />
       ) : (
         /*
           SPINNER_SRC가 null일 때 쓰는 폴백. 링의 한 조각만 진한 색으로 남기고
