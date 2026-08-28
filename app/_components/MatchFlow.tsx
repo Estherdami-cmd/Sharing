@@ -136,7 +136,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
 
   if (loadState === "loading") {
     return (
-      <Loading label="기관 정보" fullPage />
+      <Loading label="기관 정보" size="lg" overlay />
     );
   }
 
