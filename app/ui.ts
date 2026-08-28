@@ -39,21 +39,45 @@ export const cardUrgent = "bg-white border-2 border-warning-fg/40 rounded-2xl p-
 export const label = "text-xs font-bold text-neutral-700";
 export const caption = "text-[13px] text-neutral-500 leading-relaxed";
 
-export const field =
-  "w-full h-12 px-4 rounded-xl border border-neutral-300 bg-white text-[15px] text-neutral-900 " +
-  "outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-100";
+/*
+ * 여기 상수에 이미 들어 있는 성격의 클래스를 호출부에서 다시 얹어 덮어쓰려 하면 안 된다.
+ *
+ * Tailwind는 className에 쓴 순서가 아니라 **생성된 CSS의 순서**로 이긴다. 그래서
+ * `${btnPrimary} h-11`처럼 써도 btnPrimary의 h-14가 이겨서 h-11이 조용히 무시된다
+ * (실측: 44px를 의도했는데 56px로 그려졌다). 크기나 색을 바꿔야 하면 아래처럼
+ * 변형 상수를 만들어 쓴다 — 한 요소에 같은 성격의 클래스가 둘 있으면 안 된다.
+ */
+
+const FIELD_BASE =
+  "w-full h-12 px-4 rounded-xl border border-neutral-300 text-[15px] outline-none transition-colors";
+
+export const field = `${FIELD_BASE} bg-white text-neutral-900 focus:border-primary-500 focus:ring-4 focus:ring-primary-100`;
+
+/** 값을 보여주기만 하는 칸. 입력칸과 같은 모양이되 회색이라 못 고친다는 게 드러난다. */
+export const fieldReadonly = `${FIELD_BASE} bg-neutral-100 text-neutral-700`;
 
 const BTN_BASE =
   "inline-flex items-center justify-center rounded-xl font-bold transition-all active:scale-[0.98] " +
   "disabled:cursor-not-allowed disabled:active:scale-100";
 
-/** 화면의 핵심 행동. 라벤더는 밝아서 700을 써야 흰 글씨가 읽힌다. */
-export const btnPrimary = `${BTN_BASE} h-14 md:h-13 w-full bg-primary-700 text-white text-[15px] hover:bg-primary-800 disabled:bg-neutral-100 disabled:text-neutral-400`;
+/** 라벤더는 밝아서 700을 써야 흰 글씨가 읽힌다. */
+const BTN_PRIMARY_SKIN =
+  "bg-primary-700 text-white hover:bg-primary-800 disabled:bg-neutral-100 disabled:text-neutral-400";
+const BTN_OUTLINE_SKIN = "bg-white border-2 border-neutral-300 text-neutral-700 hover:border-neutral-400";
+
+/** 화면의 핵심 행동. */
+export const btnPrimary = `${BTN_BASE} ${BTN_PRIMARY_SKIN} h-14 md:h-13 w-full text-[15px]`;
+
+/** 카드 안처럼 자리가 좁을 때 쓰는 작은 핵심 버튼. */
+export const btnPrimaryCompact = `${BTN_BASE} ${BTN_PRIMARY_SKIN} h-11 w-full text-[14px]`;
 
 /** 단계 이동. 토스의 검정 버튼. */
 export const btnSecondary = `${BTN_BASE} h-14 md:h-13 w-full bg-neutral-900 text-white text-[15px] hover:bg-neutral-800 disabled:bg-neutral-100 disabled:text-neutral-400`;
 
-export const btnOutline = `${BTN_BASE} h-12 flex-1 bg-white border-2 border-neutral-300 text-neutral-700 text-[14px] hover:border-neutral-400`;
+export const btnOutline = `${BTN_BASE} ${BTN_OUTLINE_SKIN} h-12 flex-1 text-[14px]`;
+
+/** btnOutline과 같은 모양의 낮은 버튼. */
+export const btnOutlineCompact = `${BTN_BASE} ${BTN_OUTLINE_SKIN} h-11 flex-1 text-[14px]`;
 
 export const btnDanger = `${BTN_BASE} h-12 flex-1 bg-white border-2 border-danger-fg/40 text-danger-fg text-[14px] hover:bg-danger-bg`;
 
