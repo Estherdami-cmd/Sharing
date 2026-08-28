@@ -146,3 +146,41 @@ html {
     animation: none;
   }
 }
+
+/*
+ * 최근 나눔 소식 티커. 주식 시세판처럼 옆으로 흘러간다.
+ *
+ * 같은 목록을 두 벌 이어 붙이고 정확히 절반(-50%)만큼 밀면, 두 번째 벌의 첫 항목이
+ * 첫 번째 벌이 있던 자리에 딱 맞아 들어와서 이음매가 안 보인다. 그래서 끝에서
+ * 처음으로 튀지 않고 계속 흐르는 것처럼 보인다.
+ */
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-ticker {
+  animation: ticker-scroll var(--ticker-duration, 40s) linear infinite;
+}
+
+/* 읽고 싶은 항목에 마우스를 올리면 멈춘다. */
+.ticker-track:hover .animate-ticker {
+  animation-play-state: paused;
+}
+
+/*
+ * 움직임을 줄여달라고 한 사용자에게는 흐르지 않게 한다. 그러면 넘치는 부분을
+ * 볼 방법이 없어지므로, 대신 손으로 밀어 볼 수 있게 가로 스크롤을 열어준다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ticker {
+    animation: none;
+  }
+  .ticker-track {
+    overflow-x: auto;
+  }
+}
