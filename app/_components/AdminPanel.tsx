@@ -301,17 +301,26 @@ export default function AdminPanel() {
           <label htmlFor="beneficiary-select" className={label}>
             우리 기관
           </label>
+          {/*
+            기관 목록도 같이 불러오므로 처음에는 비어 있다. 빈 선택 상자는
+            "고를 게 없다"로 읽혀서, 목록이 오기 전까지는 그렇게 말해준다.
+          */}
           <select
             id="beneficiary-select"
             value={beneficiaryId}
             onChange={(e) => setBeneficiaryId(e.target.value)}
+            disabled={beneficiaries.length === 0}
             className={field}
           >
-            {beneficiaries.map((fb) => (
-              <option key={fb.id} value={fb.id}>
-                {fb.name}
-              </option>
-            ))}
+            {beneficiaries.length === 0 ? (
+              <option value="">기관 목록을 불러오고 있어요</option>
+            ) : (
+              beneficiaries.map((fb) => (
+                <option key={fb.id} value={fb.id}>
+                  {fb.name}
+                </option>
+              ))
+            )}
           </select>
         </div>
         <button
@@ -328,266 +337,275 @@ export default function AdminPanel() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-        <div className="flex flex-col gap-6">
-          <section className="flex flex-col gap-3">
-            <div>
-              <h2 className={sectionTitle}>등록한 요청 · 진행률</h2>
-              {/* withJosa로 받침을 본다. 그냥 "이"를 붙이면 "경동교회이"가 된다. */}
-              {selectedBeneficiaryName && (
-                <p className={`${caption} mt-1`}>
-                  {withJosa(selectedBeneficiaryName, "이", "가")} 올린
-                  요청이에요
+      {/*
+        기관을 고르기 전까지 아래가 전부 이 기관 것이라, 일부만 채워 보여주면
+        어느 기관 얘긴지 헷갈린다. 다 오기 전까지는 이 아래를 통째로 스피너
+        하나로 둔다.
+
+        기관 선택과 새로고침은 위에 그대로 남긴다 — 로딩 중에도 다른 기관으로
+        바꾸거나 다시 불러올 수 있어야 한다.
+      */}
+      {loading ? (
+        <Loading label="기관 현황" size="lg" fullPage />
+      ) : (
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+          <div className="flex flex-col gap-6">
+            <section className="flex flex-col gap-3">
+              <div>
+                <h2 className={sectionTitle}>등록한 요청 · 진행률</h2>
+                {/* withJosa로 받침을 본다. 그냥 "이"를 붙이면 "경동교회이"가 된다. */}
+                {selectedBeneficiaryName && (
+                  <p className={`${caption} mt-1`}>
+                    {withJosa(selectedBeneficiaryName, "이", "가")} 올린
+                    요청이에요
+                  </p>
+                )}
+              </div>
+              {myNeeds.length === 0 && (
+                <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-6 text-center text-[15px] text-neutral-400">
+                  아직 올린 요청이 없어요. 위 버튼으로 필요한 물품을 올려보세요
                 </p>
               )}
-            </div>
-            {loading && (
-              <Loading label="신청 목록" />
-            )}
-            {!loading && myNeeds.length === 0 && (
-              <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-6 text-center text-[15px] text-neutral-400">
-                아직 올린 요청이 없어요. 위 버튼으로 필요한 물품을 올려보세요
-              </p>
-            )}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {myNeeds.map((need) => (
-                <article key={need.id} className={card}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 gap-3">
-                      {need.imageUrl && (
-                        <img
-                          src={need.imageUrl}
-                          alt={`${need.itemName} 사진`}
-                          className="size-14 shrink-0 rounded-xl object-cover"
-                        />
-                      )}
-                      <div className="min-w-0">
-                        <h3 className="text-[17px] font-bold tracking-[-0.02em]">
-                          {need.itemName}
-                        </h3>
-                        <p className="text-xs text-neutral-400">
-                          {need.category}
-                        </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {myNeeds.map((need) => (
+                  <article key={need.id} className={card}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 gap-3">
+                        {need.imageUrl && (
+                          <img
+                            src={need.imageUrl}
+                            alt={`${need.itemName} 사진`}
+                            className="size-14 shrink-0 rounded-xl object-cover"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <h3 className="text-[17px] font-bold tracking-[-0.02em]">
+                            {need.itemName}
+                          </h3>
+                          <p className="text-xs text-neutral-400">
+                            {need.category}
+                          </p>
+                        </div>
                       </div>
+                      {need.urgent && (
+                        <span className={toneBadge("caution")}>
+                          도움이 필요해요
+                        </span>
+                      )}
                     </div>
-                    {need.urgent && (
-                      <span className={toneBadge("caution")}>
-                        도움이 필요해요
-                      </span>
-                    )}
-                  </div>
-                  <NeedProgress
-                    filledQty={need.filledQty}
-                    targetQty={need.targetQty}
-                    progress={need.progress}
-                    pendingQty={need.pendingQty}
-                  />
-                  {need.note && <p className={caption}>{need.note}</p>}
-                </article>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className={sectionTitle}>들어온 신청</h2>
-            {resolvedCount > 0 && (
-              <button
-                onClick={() =>
-                  setResolvedFilter((f) =>
-                    f === "pending" ? "all" : "pending",
-                  )
-                }
-                className="cursor-pointer border-none bg-transparent text-xs font-bold text-primary-700 hover:text-primary-800"
-              >
-                {resolvedFilter === "pending"
-                  ? `지난 신청도 보기 (${resolvedCount}건)`
-                  : "대기중만 보기"}
-              </button>
-            )}
+                    <NeedProgress
+                      filledQty={need.filledQty}
+                      targetQty={need.targetQty}
+                      progress={need.progress}
+                      pendingQty={need.pendingQty}
+                    />
+                    {need.note && <p className={caption}>{need.note}</p>}
+                  </article>
+                ))}
+              </div>
+            </section>
           </div>
 
-          {!loading && visibleApplications.length === 0 && (
-            <div className="flex flex-col items-center gap-4 py-8">
-              <img
-                src="https://picsum.photos/seed/empty-apply/240/180"
-                alt="들어온 신청이 없는 상태를 나타내는 이미지"
-                className="w-60 rounded-2xl opacity-40 grayscale"
-              />
-              <p className="text-[15px] text-neutral-400">
-                {myApplications.length === 0
-                  ? "아직 들어온 신청이 없어요"
-                  : "대기중인 신청이 없어요"}
-              </p>
-            </div>
-          )}
-
-          {visibleApplications.map((app) => (
-            <article key={app.id} className={card}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[15px] font-bold">
-                    {app.beneficiary.name}
-                  </p>
-                  {app.need && (
-                    <p className="mt-0.5 text-[13px] font-bold text-primary-700">
-                      {app.need.itemName} 목표 채우기 (현재 {app.need.progress}
-                      %)
-                    </p>
-                  )}
-                  <p className="mt-1.5 text-[13px] text-neutral-600">
-                    {app.donation.itemName} ({app.donation.category}) ·{" "}
-                    {app.quantity}개
-                  </p>
-                  {/* 문구만으로는 포장 상태나 라벨이 맞는지 알 수 없다. 기부자가 등록할 때
-                      올린 사진을 그대로 보여줘 수락 전에 확인할 수 있게 한다. */}
-                  {(app.donation.productImageUrl ||
-                    app.donation.expiryImageUrl) && (
-                    <div className="mt-1.5 flex gap-2">
-                      {app.donation.productImageUrl && (
-                        <a
-                          href={app.donation.productImageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <img
-                            src={app.donation.productImageUrl}
-                            alt="기부자가 올린 제품 사진"
-                            className="h-16 w-16 rounded-lg border border-neutral-200 object-cover"
-                          />
-                        </a>
-                      )}
-                      {app.donation.expiryImageUrl && (
-                        <a
-                          href={app.donation.expiryImageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <img
-                            src={app.donation.expiryImageUrl}
-                            alt="기부자가 올린 유통기한 사진"
-                            className="h-16 w-16 rounded-lg border border-neutral-200 object-cover"
-                          />
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  {app.donation.expiryDate && (
-                    <p className="text-[13px] text-neutral-500">
-                      유통기한: {app.donation.expiryDate}
-                    </p>
-                  )}
-                  {app.confirmedDate ? (
-                    <p className="text-[13px] font-semibold text-success-fg">
-                      확정된 날짜: {formatKoreanDate(app.confirmedDate)}{" "}
-                      {app.confirmedSlot}
-                    </p>
-                  ) : (
-                    <p className="text-[13px] text-neutral-500">
-                      제안 날짜:{" "}
-                      {app.candidateDates
-                        .map((c) => `${formatKoreanDate(c.date)} ${c.slot}`)
-                        .join(" · ")}
-                    </p>
-                  )}
-                  <p className="text-[13px] text-neutral-500">
-                    전달 장소: {app.place}
-                  </p>
-                  <p className="flex items-center gap-1.5 text-[13px] text-neutral-500">
-                    연락처:{" "}
-                    {app.contact ? (
-                      app.contact
-                    ) : (
-                      <button
-                        onClick={() => handleRevealContact(app.id)}
-                        disabled={revealingContactIds.has(app.id)}
-                        className="cursor-pointer border-none bg-transparent p-0 font-bold text-primary-700 hover:text-primary-800"
-                      >
-                        {revealingContactIds.has(app.id)
-                          ? "불러오는 중..."
-                          : "보기"}
-                      </button>
-                    )}
-                  </p>
-                  {app.receiptRequested && (
-                    <p className="mt-1 text-[13px] font-semibold text-success-fg">
-                      기부금 신청서 작성 요청됨
-                    </p>
-                  )}
-                </div>
-                <span className={toneBadge(STATUS_BADGE[app.status].tone)}>
-                  {STATUS_BADGE[app.status].label}
-                </span>
-              </div>
-
-              {app.status === "pending" &&
-                app.need &&
-                app.donation.category !== app.need.category && (
-                  <p className="text-xs text-warning-fg">
-                    카테고리가 달라 수락해도 이 요청의 진행률에는 반영되지
-                    않아요
-                  </p>
-                )}
-
-              {/*
-                카테고리는 같은데 물건이 다른 경우. 지금까지는 기관이 모른 채 수락하고
-                진행률만 올랐다. 받을 수 있는 물건인지는 기관만 판단할 수 있으니
-                여기서는 돌려 말하지 않는다 — 기부자는 이 화면을 보지 않는다.
-              */}
-              {app.status === "pending" &&
-                app.need &&
-                app.donation.category === app.need.category &&
-                !isSameItem(app.donation.itemName, app.need.itemName) && (
-                  <p className="text-xs text-warning-fg">
-                    &apos;{app.need.itemName}&apos; 요청과 다른 물품이에요.
-                    받으실 수 있는지 확인해주세요
-                  </p>
-                )}
-
-              {app.status === "pending" && (
-                <div className="flex flex-col gap-2">
-                  {app.need && app.donation.category === app.need.category && (
-                    <p className="text-xs text-neutral-500">
-                      {(() => {
-                        // 다른 신청이 먼저 수락돼 이미 목표가 다 찼을 수 있다 — 그럴 땐
-                        // 이 신청을 수락해도 실제로는 0만큼만 반영된다.
-                        const gain = Math.min(
-                          app.quantity,
-                          app.need!.remainingQty,
-                        );
-                        return gain > 0
-                          ? `수락하면 진행률 +${gain}`
-                          : "이미 목표를 달성한 요청이에요";
-                      })()}
-                    </p>
-                  )}
-                  <p className="text-xs font-bold text-neutral-500">
-                    제안된 날짜 중 하나를 선택해 수락하세요
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {app.candidateDates.map((c) => (
-                      <button
-                        key={`${c.date}-${c.slot}`}
-                        onClick={() => handleDecision(app.id, "accepted", c)}
-                        className={`${btnOutline} border-primary-500 text-primary-700 hover:border-primary-600`}
-                      >
-                        {formatKoreanDate(c.date)} {c.slot}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => handleDecision(app.id, "rejected")}
-                    className={btnDanger}
-                  >
-                    거절
-                  </button>
-                </div>
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className={sectionTitle}>들어온 신청</h2>
+              {resolvedCount > 0 && (
+                <button
+                  onClick={() =>
+                    setResolvedFilter((f) =>
+                      f === "pending" ? "all" : "pending",
+                    )
+                  }
+                  className="cursor-pointer border-none bg-transparent text-xs font-bold text-primary-700 hover:text-primary-800"
+                >
+                  {resolvedFilter === "pending"
+                    ? `지난 신청도 보기 (${resolvedCount}건)`
+                    : "대기중만 보기"}
+                </button>
               )}
-            </article>
-          ))}
-        </section>
-      </div>
+            </div>
+
+            {visibleApplications.length === 0 && (
+              <div className="flex flex-col items-center gap-4 py-8">
+                <img
+                  src="https://picsum.photos/seed/empty-apply/240/180"
+                  alt="들어온 신청이 없는 상태를 나타내는 이미지"
+                  className="w-60 rounded-2xl opacity-40 grayscale"
+                />
+                <p className="text-[15px] text-neutral-400">
+                  {myApplications.length === 0
+                    ? "아직 들어온 신청이 없어요"
+                    : "대기중인 신청이 없어요"}
+                </p>
+              </div>
+            )}
+
+            {visibleApplications.map((app) => (
+              <article key={app.id} className={card}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-bold">
+                      {app.beneficiary.name}
+                    </p>
+                    {app.need && (
+                      <p className="mt-0.5 text-[13px] font-bold text-primary-700">
+                        {app.need.itemName} 목표 채우기 (현재 {app.need.progress}
+                        %)
+                      </p>
+                    )}
+                    <p className="mt-1.5 text-[13px] text-neutral-600">
+                      {app.donation.itemName} ({app.donation.category}) ·{" "}
+                      {app.quantity}개
+                    </p>
+                    {/* 문구만으로는 포장 상태나 라벨이 맞는지 알 수 없다. 기부자가 등록할 때
+                        올린 사진을 그대로 보여줘 수락 전에 확인할 수 있게 한다. */}
+                    {(app.donation.productImageUrl ||
+                      app.donation.expiryImageUrl) && (
+                      <div className="mt-1.5 flex gap-2">
+                        {app.donation.productImageUrl && (
+                          <a
+                            href={app.donation.productImageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <img
+                              src={app.donation.productImageUrl}
+                              alt="기부자가 올린 제품 사진"
+                              className="h-16 w-16 rounded-lg border border-neutral-200 object-cover"
+                            />
+                          </a>
+                        )}
+                        {app.donation.expiryImageUrl && (
+                          <a
+                            href={app.donation.expiryImageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <img
+                              src={app.donation.expiryImageUrl}
+                              alt="기부자가 올린 유통기한 사진"
+                              className="h-16 w-16 rounded-lg border border-neutral-200 object-cover"
+                            />
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {app.donation.expiryDate && (
+                      <p className="text-[13px] text-neutral-500">
+                        유통기한: {app.donation.expiryDate}
+                      </p>
+                    )}
+                    {app.confirmedDate ? (
+                      <p className="text-[13px] font-semibold text-success-fg">
+                        확정된 날짜: {formatKoreanDate(app.confirmedDate)}{" "}
+                        {app.confirmedSlot}
+                      </p>
+                    ) : (
+                      <p className="text-[13px] text-neutral-500">
+                        제안 날짜:{" "}
+                        {app.candidateDates
+                          .map((c) => `${formatKoreanDate(c.date)} ${c.slot}`)
+                          .join(" · ")}
+                      </p>
+                    )}
+                    <p className="text-[13px] text-neutral-500">
+                      전달 장소: {app.place}
+                    </p>
+                    <p className="flex items-center gap-1.5 text-[13px] text-neutral-500">
+                      연락처:{" "}
+                      {app.contact ? (
+                        app.contact
+                      ) : (
+                        <button
+                          onClick={() => handleRevealContact(app.id)}
+                          disabled={revealingContactIds.has(app.id)}
+                          className="cursor-pointer border-none bg-transparent p-0 font-bold text-primary-700 hover:text-primary-800"
+                        >
+                          {revealingContactIds.has(app.id)
+                            ? "불러오는 중..."
+                            : "보기"}
+                        </button>
+                      )}
+                    </p>
+                    {app.receiptRequested && (
+                      <p className="mt-1 text-[13px] font-semibold text-success-fg">
+                        기부금 신청서 작성 요청됨
+                      </p>
+                    )}
+                  </div>
+                  <span className={toneBadge(STATUS_BADGE[app.status].tone)}>
+                    {STATUS_BADGE[app.status].label}
+                  </span>
+                </div>
+
+                {app.status === "pending" &&
+                  app.need &&
+                  app.donation.category !== app.need.category && (
+                    <p className="text-xs text-warning-fg">
+                      카테고리가 달라 수락해도 이 요청의 진행률에는 반영되지
+                      않아요
+                    </p>
+                  )}
+
+                {/*
+                  카테고리는 같은데 물건이 다른 경우. 지금까지는 기관이 모른 채 수락하고
+                  진행률만 올랐다. 받을 수 있는 물건인지는 기관만 판단할 수 있으니
+                  여기서는 돌려 말하지 않는다 — 기부자는 이 화면을 보지 않는다.
+                */}
+                {app.status === "pending" &&
+                  app.need &&
+                  app.donation.category === app.need.category &&
+                  !isSameItem(app.donation.itemName, app.need.itemName) && (
+                    <p className="text-xs text-warning-fg">
+                      &apos;{app.need.itemName}&apos; 요청과 다른 물품이에요.
+                      받으실 수 있는지 확인해주세요
+                    </p>
+                  )}
+
+                {app.status === "pending" && (
+                  <div className="flex flex-col gap-2">
+                    {app.need && app.donation.category === app.need.category && (
+                      <p className="text-xs text-neutral-500">
+                        {(() => {
+                          // 다른 신청이 먼저 수락돼 이미 목표가 다 찼을 수 있다 — 그럴 땐
+                          // 이 신청을 수락해도 실제로는 0만큼만 반영된다.
+                          const gain = Math.min(
+                            app.quantity,
+                            app.need!.remainingQty,
+                          );
+                          return gain > 0
+                            ? `수락하면 진행률 +${gain}`
+                            : "이미 목표를 달성한 요청이에요";
+                        })()}
+                      </p>
+                    )}
+                    <p className="text-xs font-bold text-neutral-500">
+                      제안된 날짜 중 하나를 선택해 수락하세요
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {app.candidateDates.map((c) => (
+                        <button
+                          key={`${c.date}-${c.slot}`}
+                          onClick={() => handleDecision(app.id, "accepted", c)}
+                          className={`${btnOutline} border-primary-500 text-primary-700 hover:border-primary-600`}
+                        >
+                          {formatKoreanDate(c.date)} {c.slot}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => handleDecision(app.id, "rejected")}
+                      className={btnDanger}
+                    >
+                      거절
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
+          </section>
+        </div>
+      )}
 
       {/*
         모바일에서는 밑에서 올라오는 시트, 넓은 화면에서는 가운데 대화상자로 보인다.
