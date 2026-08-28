@@ -264,7 +264,7 @@ export default function ApplyForm() {
 
   if (loadState === "loading") {
     return (
-      <Loading label="신청 정보" fullPage />
+      <Loading label="신청 정보" size="lg" overlay />
     );
   }
 

@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default function BoardPage() {
   return (
     <PageShell>
-      <Suspense fallback={<Loading label="목록" fullPage />}>
+      <Suspense fallback={<Loading label="목록" size="lg" overlay />}>
         <NeedBoard />
       </Suspense>
     </PageShell>

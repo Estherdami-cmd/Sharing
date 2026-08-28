@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { CATEGORIES, formatRelativeTime } from "@/lib/rules";
 import NeedProgress from "./NeedProgress";
+import Loading from "./Loading";
 import {
   btnGhost,
   btnPrimary,
@@ -595,26 +596,14 @@ export default function NeedBoard() {
       )}
 
       {/*
-        새로고침·포커스 복귀로 다시 불러오는 동안엔 이미 보이던 카드를 그대로 두고
-        조용히 갱신한다. loading만 보고 스켈레톤을 띄우면, 이미 떠 있는 실제 카드
-        위에 스켈레톤이 겹쳐 순간적으로 두 세트가 동시에 보이게 된다.
+        처음 뜨는 중에는 화면을 덮고 정중앙에 스피너만 둔다. 예전에는 카드 3개
+        모양의 스켈레톤을 깔았는데, 제목·통계·필터는 이미 떠 있는데 목록만 빈
+        상태라 "무엇을 기다리는 중인지" 읽히지 않았다.
+
+        needs가 이미 있을 때(새로고침·포커스 복귀로 배경 갱신)는 덮지 않는다.
+        보고 있던 목록을 가리면 그게 더 방해다.
       */}
-      {loading && needs.length === 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className={`${card} animate-pulse`}>
-              {/* 사진 자리(4:3)를 두면, 사진 없는 요청이 대부분이라 데이터가 온
-                  순간 그 자리가 사라져 카드가 위로 튄다. 카드 본체와 같은 줄
-                  구성만 남긴다. */}
-              <div className="h-7 w-16 rounded bg-neutral-200" />
-              <div className="h-5 w-3/4 rounded bg-neutral-200" />
-              <div className="h-4 w-1/2 rounded bg-neutral-200" />
-              <div className="h-2.5 w-full rounded-full bg-neutral-200" />
-              <div className="h-11 w-full rounded-xl bg-neutral-200" />
-            </div>
-          ))}
-        </div>
-      )}
+      {loading && needs.length === 0 && <Loading label="목록" size="lg" overlay />}
 
       {!loading && needs.length === 0 && (
         <div className="flex flex-col items-center gap-3 py-8">

@@ -52,12 +52,44 @@ type Props = {
   /** 로딩 중인 대상. "목록", "신청서"처럼 명사로 넣는다. */
   label?: string;
   size?: keyof typeof SIZE;
-  /** 페이지 전체를 채울 때. 세로 여백을 더 준다. */
+  /**
+   * 페이지가 처음 뜨는 중일 때. 화면을 덮고 정중앙에 스피너를 놓는다.
+   *
+   * 반쪽만 채워진 화면(제목·통계는 떴는데 목록은 비어 있는 상태)을 보여주면
+   * 뭐가 아직 오는 중인지 알 수 없어 고장처럼 보인다. 다 오기 전까지는 한
+   * 군데만 보게 한다.
+   *
+   * 이미 내용이 떠 있는데 배경에서 갱신하는 경우에는 쓰지 않는다 — 보고 있던
+   * 화면을 덮어버리면 그게 더 방해다.
+   */
+  overlay?: boolean;
+  /** 화면을 덮지 않되 세로 여백을 넉넉히 줄 때. */
   fullPage?: boolean;
 };
 
-export default function Loading({ label = "내용", size = "md", fullPage = false }: Props) {
+export default function Loading({
+  label = "내용",
+  size = "md",
+  overlay = false,
+  fullPage = false,
+}: Props) {
   const message = `${label}${objectParticle(label)} 불러오고 있어요`;
+
+  /*
+    z-40은 헤더(z-50) 바로 아래다. 헤더를 덮지 않아서 로딩 중에도 로고와 메뉴가
+    남고, 사용자는 자기가 어느 서비스 어디에 있는지 놓치지 않는다.
+
+    pt-16은 그 헤더 높이(h-16)만큼이다. inset-0 기준으로 정중앙에 두면 헤더에
+    가린 만큼 위로 치우쳐 보이므로, 헤더를 뺀 영역의 가운데로 맞춘다.
+
+    배경은 body와 같은 neutral-50 불투명으로 깐다. 반투명으로 두면 뒤에 반쯤
+    그려진 화면이 비쳐서 덮는 목적이 사라진다.
+  */
+  const shell = overlay
+    ? "fixed inset-0 z-40 bg-neutral-50 pt-16"
+    : fullPage
+      ? "min-h-[50vh] py-16"
+      : "py-10";
 
   return (
     /*
@@ -68,9 +100,7 @@ export default function Loading({ label = "내용", size = "md", fullPage = fals
       role="status"
       aria-live="polite"
       aria-busy="true"
-      className={`flex flex-col items-center justify-center gap-3 ${
-        fullPage ? "min-h-[50vh] py-16" : "py-10"
-      }`}
+      className={`flex flex-col items-center justify-center gap-3 ${shell}`}
     >
       {SPINNER_SRC ? (
         /*
