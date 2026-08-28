@@ -373,7 +373,13 @@ export default function NeedBoard() {
             스크롤바 폭까지 세어 가로 스크롤을 만들 수 있어서, 실제로 넘치지 않는지
             재보고 넣었다.
           */
-          className="ticker-track relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden border-y border-neutral-200/70 bg-white/60 py-2"
+          /*
+            화면 끝까지 닿게 만드는 방법을 left/translate에서 좌우 음수 여백으로
+            바꿨다. sticky는 left를 "고정될 위치"로 해석해서, left-1/2를 함께 쓰면
+            띠가 화면 절반부터 그려지고 나머지는 뚫려 뒤 카드가 비쳤다.
+            여백만 쓰면 위치 계산에 끼어들지 않아 sticky와 같이 쓸 수 있다.
+          */
+          className="ticker-track sticky top-16 z-40 -mt-10 mx-[calc(50%-50vw)] overflow-hidden border-b border-neutral-200/70 bg-neutral-50/85 py-2 backdrop-blur-md"
         >
           <div className="relative flex">
             <div
@@ -538,7 +544,13 @@ export default function NeedBoard() {
       {/* 배경을 거의 비워서 페이지 톤이 그대로 비치게 하고, 블러만으로 스크롤되는
           카드 위에서도 글자가 읽히게 한다 — 색이 꽉 찬 상자로 안 보이면서도
           sticky 상태에서 밑에 지나가는 카드가 뚜렷이 겹쳐 보이진 않아야 한다. */}
-      <div className="sticky top-16 z-30 mt-2 flex flex-col gap-3 rounded-2xl bg-neutral-50/35 px-4 py-4 backdrop-blur-lg sm:px-6">
+      <div
+        /*
+          티커가 헤더 바로 아래(top-16)에 붙으므로, 필터 바는 그 아래에 선다.
+          104px = 헤더 64px + 티커 40px. 둘 다 top-16이면 겹쳐서 티커가 가려진다.
+        */
+        className="sticky top-[104px] z-30 mt-2 flex flex-col gap-3 rounded-2xl bg-neutral-50/35 px-4 py-4 backdrop-blur-lg sm:px-6"
+      >
         <div className="mx-auto w-full max-w-sm">
           <input
             type="text"
@@ -552,21 +564,28 @@ export default function NeedBoard() {
           />
         </div>
 
-        <div className="flex flex-wrap justify-center gap-1.5">
-          {[FILTER_ALL, ...CATEGORIES].map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategoryFilter(c)}
-              className={
-                "cursor-pointer rounded-full border px-4 py-2 text-[13px] font-bold transition-colors " +
-                (categoryFilter === c
-                  ? "border-primary-500 bg-primary-500 text-neutral-900"
-                  : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
-              }
-            >
-              {c}
-            </button>
-          ))}
+        {/*
+          분류가 13개라 칩으로 늘어놓으면 좁은 화면에서 네 줄까지 차지하고, 색이
+          비슷한 알약이 화면을 덮어 정작 검색창과 목록이 묻혔다. 고르는 값이
+          하나뿐이니 드롭다운이 맞다 — 접혀 있어 자리를 안 쓰고, 지금 무엇으로
+          걸러져 있는지도 닫힌 상태에서 그대로 보인다.
+        */}
+        <div className="mx-auto flex w-full max-w-sm items-center gap-2">
+          <label htmlFor="category-filter" className="shrink-0 text-[13px] text-neutral-400">
+            분류
+          </label>
+          <select
+            id="category-filter"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="h-11 min-w-0 flex-1 cursor-pointer rounded-xl border border-neutral-200 bg-white px-3 text-[14px] font-bold text-neutral-700 shadow-sm outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
+          >
+            {[FILTER_ALL, ...CATEGORIES].map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center justify-center gap-1.5 text-[13px] text-neutral-400">
