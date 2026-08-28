@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { FoodBank } from "@/lib/store";
+import type { Beneficiary } from "@/lib/store";
 
 /**
  * 전달 장소를 지도로 보여주고, 길찾기로 넘긴다.
@@ -81,7 +81,11 @@ function loadKakaoSdk(): Promise<void> {
      * 실제 응답: {"errorType":"AccessDeniedError","message":"domain mismatched! ..."}
      */
     script.addEventListener("error", () =>
-      reject(new Error("SDK 로드 실패 — 카카오 콘솔의 사이트 도메인 등록을 확인하세요"))
+      reject(
+        new Error(
+          "SDK 로드 실패 — 카카오 콘솔의 사이트 도메인 등록을 확인하세요",
+        ),
+      ),
     );
   });
 }
@@ -104,7 +108,9 @@ function KakaoMap({
     // 스크립트가 응답 없이 매달려 있는 경우까지 폴백이 걸리게 시간 제한을 둔다.
     const timer = setTimeout(() => {
       if (!cancelled) {
-        console.error("[DeliveryMap] 카카오 지도 로드가 너무 오래 걸려 OSM으로 대체");
+        console.error(
+          "[DeliveryMap] 카카오 지도 로드가 너무 오래 걸려 OSM으로 대체",
+        );
         onFail();
       }
     }, SDK_TIMEOUT_MS);
@@ -115,7 +121,10 @@ function KakaoMap({
         clearTimeout(timer);
         const { kakao } = window;
         const position = new kakao.maps.LatLng(lat, lng);
-        const map = new kakao.maps.Map(boxRef.current, { center: position, level: ZOOM_LEVEL });
+        const map = new kakao.maps.Map(boxRef.current, {
+          center: position,
+          level: ZOOM_LEVEL,
+        });
         // 폼 안에 있는 지도다. 스크롤 중에 확대되면 폼을 벗어나기 어렵다.
         map.setZoomable(false);
 
@@ -127,7 +136,10 @@ function KakaoMap({
       })
       .catch((error) => {
         clearTimeout(timer);
-        console.error("[DeliveryMap] 카카오 지도 실패 —", error?.message ?? error);
+        console.error(
+          "[DeliveryMap] 카카오 지도 실패 —",
+          error?.message ?? error,
+        );
         if (!cancelled) onFail();
       });
 
@@ -140,8 +152,21 @@ function KakaoMap({
   return <div ref={boxRef} className="h-56 w-full" />;
 }
 
-function OsmMap({ lat, lng, name }: { lat: number; lng: number; name: string }) {
-  const bbox = [lng - LNG_SPAN / 2, lat - LAT_SPAN / 2, lng + LNG_SPAN / 2, lat + LAT_SPAN / 2]
+function OsmMap({
+  lat,
+  lng,
+  name,
+}: {
+  lat: number;
+  lng: number;
+  name: string;
+}) {
+  const bbox = [
+    lng - LNG_SPAN / 2,
+    lat - LAT_SPAN / 2,
+    lng + LNG_SPAN / 2,
+    lat + LAT_SPAN / 2,
+  ]
     .map((n) => n.toFixed(6))
     .join(",");
   return (
@@ -156,8 +181,12 @@ function OsmMap({ lat, lng, name }: { lat: number; lng: number; name: string }) 
   );
 }
 
-export default function DeliveryMap({ foodBank }: { foodBank: FoodBank }) {
-  const { lat, lng, name } = foodBank;
+export default function DeliveryMap({
+  beneficiary,
+}: {
+  beneficiary: Beneficiary;
+}) {
+  const { lat, lng, name } = beneficiary;
   const [mapFailed, setMapFailed] = useState(false);
 
   // 공공데이터에 좌표가 없던 기관은 제외했지만, 0,0이 들어온 경우까지 방어한다.
@@ -179,7 +208,12 @@ export default function DeliveryMap({ foodBank }: { foodBank: FoodBank }) {
         {mapFailed ? (
           <OsmMap lat={lat} lng={lng} name={name} />
         ) : (
-          <KakaoMap lat={lat} lng={lng} name={name} onFail={() => setMapFailed(true)} />
+          <KakaoMap
+            lat={lat}
+            lng={lng}
+            name={name}
+            onFail={() => setMapFailed(true)}
+          />
         )}
       </div>
       {/*
@@ -211,7 +245,9 @@ export default function DeliveryMap({ foodBank }: { foodBank: FoodBank }) {
             <path d="M3 11l19-9-9 19-2-8-8-2z" />
           </svg>
         </span>
-        <span className="min-w-0 flex-1 truncate text-[14px]">카카오맵으로 길찾기</span>
+        <span className="min-w-0 flex-1 truncate text-[14px]">
+          카카오맵으로 길찾기
+        </span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"

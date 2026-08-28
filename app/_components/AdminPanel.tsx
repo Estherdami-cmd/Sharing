@@ -1,8 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CATEGORIES, clampTargetQty, formatKoreanDate, isSameItem, withJosa } from "@/lib/rules";
-import type { ApplicationDetail, FoodBank, NeedView } from "@/lib/store";
+import {
+  CATEGORIES,
+  clampTargetQty,
+  formatKoreanDate,
+  isSameItem,
+  withJosa,
+} from "@/lib/rules";
+import type { ApplicationDetail, Beneficiary, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
 import {
@@ -22,7 +28,9 @@ import {
 
 // 목록으로 받을 때는 서버가 연락처를 항상 null로 가려서 보낸다.
 // 카드에서 "보기"를 눌러야 개별 조회(GET /api/applications/:id)로 채워진다.
-type ApplicationRow = Omit<ApplicationDetail, "contact"> & { contact: string | null };
+type ApplicationRow = Omit<ApplicationDetail, "contact"> & {
+  contact: string | null;
+};
 
 const STATUS_BADGE = {
   pending: { tone: "caution", label: "대기중" },
@@ -31,12 +39,12 @@ const STATUS_BADGE = {
 } as const;
 
 export default function AdminPanel() {
-  const [foodBanks, setFoodBanks] = useState<FoodBank[]>([]);
+  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [foodBankId, setFoodBankId] = useState("");
+  const [beneficiaryId, setBeneficiaryId] = useState("");
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   // 타이핑 중에는 빈 칸을 허용해야 한다. 매 키 입력마다 1로 되돌리면 필드를 지울 수 없고,
@@ -60,20 +68,26 @@ export default function AdminPanel() {
   const formDialogRef = useRef<HTMLDialogElement>(null);
   const [formOpen, setFormOpen] = useState(false);
   // 지금 연락처를 불러오는 중인 신청 id들. 버튼을 눌렀는데 아무 반응이 없어 보이지 않게.
-  const [revealingContactIds, setRevealingContactIds] = useState<Set<string>>(new Set());
+  const [revealingContactIds, setRevealingContactIds] = useState<Set<string>>(
+    new Set(),
+  );
   // 한 번 확인한 연락처는 기억해둔다. 목록 API는 항상 연락처를 가려서 주므로,
   // 이 기억이 없으면 포커스가 돌아올 때마다(useRefetchOnFocus) 방금 본 번호가
   // 다시 잠긴다 — 전화 걸려고 다른 앱에 갔다 오는 딱 이 기능의 실제 쓰임에서 계속 걸린다.
   const revealedContactsRef = useRef<Record<string, string>>({});
-  const [resolvedFilter, setResolvedFilter] = useState<"pending" | "all">("pending");
+  const [resolvedFilter, setResolvedFilter] = useState<"pending" | "all">(
+    "pending",
+  );
 
   /*
    * "등록한 요청"은 말 그대로 우리 기관이 등록한 것만 본다. 예전에는 114개 기관의
    * 요청 41건을 전부 뿌려서, 모바일에서 이 목록만 8,497px(페이지의 81%)이었고
    * 남의 기관 이름이 카드에 찍혔다. 섹션 제목과도 맞지 않았다.
    */
-  const myNeeds = needs.filter((need) => need.foodBankId === foodBankId);
-  const selectedFoodBankName = foodBanks.find((fb) => fb.id === foodBankId)?.name;
+  const myNeeds = needs.filter((need) => need.beneficiaryId === beneficiaryId);
+  const selectedBeneficiaryName = beneficiaries.find(
+    (fb) => fb.id === beneficiaryId,
+  )?.name;
 
   async function handleRevealContact(id: string) {
     setRevealingContactIds((prev) => new Set(prev).add(id));
@@ -83,7 +97,9 @@ export default function AdminPanel() {
         const detail = await res.json();
         revealedContactsRef.current[id] = detail.contact;
         setApplications((prev) =>
-          prev.map((app) => (app.id === id ? { ...app, contact: detail.contact } : app))
+          prev.map((app) =>
+            app.id === id ? { ...app, contact: detail.contact } : app,
+          ),
         );
       }
     } finally {
@@ -97,19 +113,22 @@ export default function AdminPanel() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [needsRes, appsRes] = await Promise.all([fetch("/api/needs"), fetch("/api/applications")]);
+    const [needsRes, appsRes] = await Promise.all([
+      fetch("/api/needs"),
+      fetch("/api/applications"),
+    ]);
     if (needsRes.ok) {
       const data = await needsRes.json();
       setNeeds(data.needs);
-      setFoodBanks(data.foodBanks);
+      setBeneficiaries(data.beneficiaries);
       // 기관 114곳 중 80곳은 요청이 0건이다. 그냥 첫 번째를 고르면 화면이 텅 빈
       // 상태로 열려서 뭐가 잘못된 것처럼 보인다. 요청이 있는 기관을 기본값으로 둔다.
-      setFoodBankId((prev) => {
+      setBeneficiaryId((prev) => {
         if (prev) return prev;
-        const withNeeds = data.foodBanks.find((fb: FoodBank) =>
-          data.needs.some((need: NeedView) => need.foodBankId === fb.id)
+        const withNeeds = data.beneficiaries.find((fb: Beneficiary) =>
+          data.needs.some((need: NeedView) => need.beneficiaryId === fb.id),
         );
-        return withNeeds?.id ?? data.foodBanks[0]?.id ?? "";
+        return withNeeds?.id ?? data.beneficiaries[0]?.id ?? "";
       });
     }
     if (appsRes.ok) {
@@ -118,7 +137,7 @@ export default function AdminPanel() {
         data.map((app) => ({
           ...app,
           contact: revealedContactsRef.current[app.id] ?? app.contact,
-        }))
+        })),
       );
     }
     setLoading(false);
@@ -159,8 +178,12 @@ export default function AdminPanel() {
    * 아래 개수들도 같은 범위여야 한다 — "지난 신청도 보기 (N건)"의 N이 남의 기관
    * 신청까지 세면 눌렀을 때 숫자와 목록이 안 맞는다.
    */
-  const myApplications = applications.filter((a) => a.foodBankId === foodBankId);
-  const pendingCount = myApplications.filter((a) => a.status === "pending").length;
+  const myApplications = applications.filter(
+    (a) => a.beneficiaryId === beneficiaryId,
+  );
+  const pendingCount = myApplications.filter(
+    (a) => a.status === "pending",
+  ).length;
   const resolvedCount = myApplications.length - pendingCount;
   // 대기중 신청은 처리해야 할 일이고, 끝난 신청은 기록이다. 계속 쌓이는 기록 사이에
   // 방금 들어온 대기중 신청이 묻히지 않게, 기본은 대기중만 보여준다.
@@ -199,7 +222,7 @@ export default function AdminPanel() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        foodBankId,
+        beneficiaryId,
         itemName,
         category,
         targetQty: targetQtyValue,
@@ -226,12 +249,16 @@ export default function AdminPanel() {
   async function handleDecision(
     id: string,
     status: "accepted" | "rejected",
-    confirmed?: { date: string; slot: string }
+    confirmed?: { date: string; slot: string },
   ) {
     await fetch(`/api/applications/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, confirmedDate: confirmed?.date, confirmedSlot: confirmed?.slot }),
+      body: JSON.stringify({
+        status,
+        confirmedDate: confirmed?.date,
+        confirmedSlot: confirmed?.slot,
+      }),
     });
     load();
   }
@@ -241,7 +268,11 @@ export default function AdminPanel() {
       <header className="text-center">
         <h1 className={pageTitle}>기관 관리</h1>
         <p className={pageDesc}>필요한 물품을 올리고, 들어온 신청을 확인해요</p>
-        <button onClick={load} aria-label="새로고침" className={`${btnGhost} mt-2 inline-flex items-center justify-center`}>
+        <button
+          onClick={load}
+          aria-label="새로고침"
+          className={`${btnGhost} mt-2 inline-flex items-center justify-center`}
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -266,16 +297,16 @@ export default function AdminPanel() {
       */}
       <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200/70 bg-white p-4 sm:flex-row sm:items-end">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <label htmlFor="foodbank-select" className={label}>
+          <label htmlFor="beneficiary-select" className={label}>
             우리 기관
           </label>
           <select
-            id="foodbank-select"
-            value={foodBankId}
-            onChange={(e) => setFoodBankId(e.target.value)}
+            id="beneficiary-select"
+            value={beneficiaryId}
+            onChange={(e) => setBeneficiaryId(e.target.value)}
             className={field}
           >
-            {foodBanks.map((fb) => (
+            {beneficiaries.map((fb) => (
               <option key={fb.id} value={fb.id}>
                 {fb.name}
               </option>
@@ -302,48 +333,57 @@ export default function AdminPanel() {
             <div>
               <h2 className={sectionTitle}>등록한 요청 · 진행률</h2>
               {/* withJosa로 받침을 본다. 그냥 "이"를 붙이면 "경동교회이"가 된다. */}
-              {selectedFoodBankName && (
+              {selectedBeneficiaryName && (
                 <p className={`${caption} mt-1`}>
-                  {withJosa(selectedFoodBankName, "이", "가")} 올린 요청이에요
+                  {withJosa(selectedBeneficiaryName, "이", "가")} 올린
+                  요청이에요
                 </p>
               )}
             </div>
-            {loading && <p className="text-[15px] text-neutral-500">불러오는 중...</p>}
+            {loading && (
+              <p className="text-[15px] text-neutral-500">불러오는 중...</p>
+            )}
             {!loading && myNeeds.length === 0 && (
               <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-6 text-center text-[15px] text-neutral-400">
                 아직 올린 요청이 없어요. 위 버튼으로 필요한 물품을 올려보세요
               </p>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {myNeeds.map((need) => (
-              <article key={need.id} className={card}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 gap-3">
-                    {need.imageUrl && (
-                      <img
-                        src={need.imageUrl}
-                        alt={`${need.itemName} 사진`}
-                        className="size-14 shrink-0 rounded-xl object-cover"
-                      />
-                    )}
-                    <div className="min-w-0">
-                      <h3 className="text-[17px] font-bold tracking-[-0.02em]">
-                        {need.itemName}
-                      </h3>
-                      <p className="text-xs text-neutral-400">{need.category}</p>
+              {myNeeds.map((need) => (
+                <article key={need.id} className={card}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 gap-3">
+                      {need.imageUrl && (
+                        <img
+                          src={need.imageUrl}
+                          alt={`${need.itemName} 사진`}
+                          className="size-14 shrink-0 rounded-xl object-cover"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <h3 className="text-[17px] font-bold tracking-[-0.02em]">
+                          {need.itemName}
+                        </h3>
+                        <p className="text-xs text-neutral-400">
+                          {need.category}
+                        </p>
+                      </div>
                     </div>
+                    {need.urgent && (
+                      <span className={toneBadge("caution")}>
+                        도움이 필요해요
+                      </span>
+                    )}
                   </div>
-                  {need.urgent && <span className={toneBadge("caution")}>도움이 필요해요</span>}
-                </div>
-                <NeedProgress
-                  filledQty={need.filledQty}
-                  targetQty={need.targetQty}
-                  progress={need.progress}
-                  pendingQty={need.pendingQty}
-                />
-                {need.note && <p className={caption}>{need.note}</p>}
-              </article>
-            ))}
+                  <NeedProgress
+                    filledQty={need.filledQty}
+                    targetQty={need.targetQty}
+                    progress={need.progress}
+                    pendingQty={need.pendingQty}
+                  />
+                  {need.note && <p className={caption}>{need.note}</p>}
+                </article>
+              ))}
             </div>
           </section>
         </div>
@@ -353,7 +393,11 @@ export default function AdminPanel() {
             <h2 className={sectionTitle}>들어온 신청</h2>
             {resolvedCount > 0 && (
               <button
-                onClick={() => setResolvedFilter((f) => (f === "pending" ? "all" : "pending"))}
+                onClick={() =>
+                  setResolvedFilter((f) =>
+                    f === "pending" ? "all" : "pending",
+                  )
+                }
                 className="cursor-pointer border-none bg-transparent text-xs font-bold text-primary-700 hover:text-primary-800"
               >
                 {resolvedFilter === "pending"
@@ -382,21 +426,30 @@ export default function AdminPanel() {
             <article key={app.id} className={card}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[15px] font-bold">{app.foodBank.name}</p>
+                  <p className="text-[15px] font-bold">
+                    {app.beneficiary.name}
+                  </p>
                   {app.need && (
                     <p className="mt-0.5 text-[13px] font-bold text-primary-700">
-                      {app.need.itemName} 목표 채우기 (현재 {app.need.progress}%)
+                      {app.need.itemName} 목표 채우기 (현재 {app.need.progress}
+                      %)
                     </p>
                   )}
                   <p className="mt-1.5 text-[13px] text-neutral-600">
-                    {app.donation.itemName} ({app.donation.category}) · {app.quantity}개
+                    {app.donation.itemName} ({app.donation.category}) ·{" "}
+                    {app.quantity}개
                   </p>
                   {/* 문구만으로는 포장 상태나 라벨이 맞는지 알 수 없다. 기부자가 등록할 때
                       올린 사진을 그대로 보여줘 수락 전에 확인할 수 있게 한다. */}
-                  {(app.donation.productImageUrl || app.donation.expiryImageUrl) && (
+                  {(app.donation.productImageUrl ||
+                    app.donation.expiryImageUrl) && (
                     <div className="mt-1.5 flex gap-2">
                       {app.donation.productImageUrl && (
-                        <a href={app.donation.productImageUrl} target="_blank" rel="noopener noreferrer">
+                        <a
+                          href={app.donation.productImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           <img
                             src={app.donation.productImageUrl}
                             alt="기부자가 올린 제품 사진"
@@ -405,7 +458,11 @@ export default function AdminPanel() {
                         </a>
                       )}
                       {app.donation.expiryImageUrl && (
-                        <a href={app.donation.expiryImageUrl} target="_blank" rel="noopener noreferrer">
+                        <a
+                          href={app.donation.expiryImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           <img
                             src={app.donation.expiryImageUrl}
                             alt="기부자가 올린 유통기한 사진"
@@ -422,14 +479,20 @@ export default function AdminPanel() {
                   )}
                   {app.confirmedDate ? (
                     <p className="text-[13px] font-semibold text-success-fg">
-                      확정된 날짜: {formatKoreanDate(app.confirmedDate)} {app.confirmedSlot}
+                      확정된 날짜: {formatKoreanDate(app.confirmedDate)}{" "}
+                      {app.confirmedSlot}
                     </p>
                   ) : (
                     <p className="text-[13px] text-neutral-500">
-                      제안 날짜: {app.candidateDates.map((c) => `${formatKoreanDate(c.date)} ${c.slot}`).join(" · ")}
+                      제안 날짜:{" "}
+                      {app.candidateDates
+                        .map((c) => `${formatKoreanDate(c.date)} ${c.slot}`)
+                        .join(" · ")}
                     </p>
                   )}
-                  <p className="text-[13px] text-neutral-500">전달 장소: {app.place}</p>
+                  <p className="text-[13px] text-neutral-500">
+                    전달 장소: {app.place}
+                  </p>
                   <p className="flex items-center gap-1.5 text-[13px] text-neutral-500">
                     연락처:{" "}
                     {app.contact ? (
@@ -440,7 +503,9 @@ export default function AdminPanel() {
                         disabled={revealingContactIds.has(app.id)}
                         className="cursor-pointer border-none bg-transparent p-0 font-bold text-primary-700 hover:text-primary-800"
                       >
-                        {revealingContactIds.has(app.id) ? "불러오는 중..." : "보기"}
+                        {revealingContactIds.has(app.id)
+                          ? "불러오는 중..."
+                          : "보기"}
                       </button>
                     )}
                   </p>
@@ -455,11 +520,14 @@ export default function AdminPanel() {
                 </span>
               </div>
 
-              {app.status === "pending" && app.need && app.donation.category !== app.need.category && (
-                <p className="text-xs text-warning-fg">
-                  카테고리가 달라 수락해도 이 요청의 진행률에는 반영되지 않아요
-                </p>
-              )}
+              {app.status === "pending" &&
+                app.need &&
+                app.donation.category !== app.need.category && (
+                  <p className="text-xs text-warning-fg">
+                    카테고리가 달라 수락해도 이 요청의 진행률에는 반영되지
+                    않아요
+                  </p>
+                )}
 
               {/*
                 카테고리는 같은데 물건이 다른 경우. 지금까지는 기관이 모른 채 수락하고
@@ -471,8 +539,8 @@ export default function AdminPanel() {
                 app.donation.category === app.need.category &&
                 !isSameItem(app.donation.itemName, app.need.itemName) && (
                   <p className="text-xs text-warning-fg">
-                    &apos;{app.need.itemName}&apos; 요청과 다른 물품이에요. 받으실 수 있는지
-                    확인해주세요
+                    &apos;{app.need.itemName}&apos; 요청과 다른 물품이에요.
+                    받으실 수 있는지 확인해주세요
                   </p>
                 )}
 
@@ -483,8 +551,13 @@ export default function AdminPanel() {
                       {(() => {
                         // 다른 신청이 먼저 수락돼 이미 목표가 다 찼을 수 있다 — 그럴 땐
                         // 이 신청을 수락해도 실제로는 0만큼만 반영된다.
-                        const gain = Math.min(app.quantity, app.need!.remainingQty);
-                        return gain > 0 ? `수락하면 진행률 +${gain}` : "이미 목표를 달성한 요청이에요";
+                        const gain = Math.min(
+                          app.quantity,
+                          app.need!.remainingQty,
+                        );
+                        return gain > 0
+                          ? `수락하면 진행률 +${gain}`
+                          : "이미 목표를 달성한 요청이에요";
                       })()}
                     </p>
                   )}
@@ -502,7 +575,10 @@ export default function AdminPanel() {
                       </button>
                     ))}
                   </div>
-                  <button onClick={() => handleDecision(app.id, "rejected")} className={btnDanger}>
+                  <button
+                    onClick={() => handleDecision(app.id, "rejected")}
+                    className={btnDanger}
+                  >
                     거절
                   </button>
                 </div>
@@ -526,11 +602,16 @@ export default function AdminPanel() {
         className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-2xl border-none bg-white p-5 backdrop:bg-neutral-900/40 sm:inset-0 sm:m-auto sm:h-fit sm:max-w-lg sm:rounded-2xl"
       >
         {/* 폼 안의 클릭이 배경 닫기로 새지 않게 여기서 멈춘다. */}
-        <div className="flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex flex-col gap-3"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className={sectionTitle}>필요 물품 올리기</h2>
-              <p className={`${caption} mt-1`}>목표 수량을 정하면 기부자들이 나눠서 채워요</p>
+              <p className={`${caption} mt-1`}>
+                목표 수량을 정하면 기부자들이 나눠서 채워요
+              </p>
             </div>
             <button
               onClick={() => formDialogRef.current?.close()}
@@ -551,96 +632,115 @@ export default function AdminPanel() {
             </button>
           </div>
 
-            {/*
+          {/*
               기관 선택은 페이지에 있다. 대화상자 안에 또 두면 "지금 보고 있는 기관"과
               "올릴 기관"이 달라질 수 있어 헷갈린다. 여기서는 어디에 올리는지만 알린다.
             */}
-            {selectedFoodBankName && (
-              <p className="rounded-xl bg-primary-50 px-3 py-2 text-[13px] text-primary-800">
-                <b>{selectedFoodBankName}</b>의 요청으로 올라가요
-              </p>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>필요한 품목</label>
-              <input
-                placeholder="예: 성인용 기저귀 대형"
-                value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
-                className={field}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>카테고리</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>목표 수량</label>
-              <input
-                type="number"
-                min={1}
-                value={targetQty}
-                onChange={(e) => setTargetQty(e.target.value === "" ? "" : clampTargetQty(e.target.value))}
-                onBlur={() => setTargetQty(targetQtyValue)}
-                className={field}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>안내 문구 (선택)</label>
-              <input
-                placeholder="예: 요양 어르신 12분께 매주 전달돼요"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className={field}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={label}>대표 사진 (선택)</label>
-              {imageUrl ? (
-                <div className="flex items-center gap-3">
-                  <img
-                    src={imageUrl}
-                    alt="등록할 물품 사진 미리보기"
-                    className="size-20 rounded-xl object-cover"
-                  />
-                  <button onClick={handleClearImage} className={btnGhost}>
-                    지우기
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => imageInputRef.current?.click()} className={btnOutline}>
-                  사진 선택
-                </button>
-              )}
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageSelected(e.target.files?.[0])}
-                className="hidden"
-              />
-              {imageError && <p className="text-[13px] text-danger-fg">{imageError}</p>}
-            </div>
-
-            <p className={caption}>
-              "도움이 필요해요" 표시는 진행률 30% 미만인 요청에 자동으로 붙어요
+          {selectedBeneficiaryName && (
+            <p className="rounded-xl bg-primary-50 px-3 py-2 text-[13px] text-primary-800">
+              <b>{selectedBeneficiaryName}</b>의 요청으로 올라가요
             </p>
+          )}
 
-            {formError && <p className="text-[13px] text-danger-fg">{formError}</p>}
+          <div className="flex flex-col gap-1.5">
+            <label className={label}>필요한 품목</label>
+            <input
+              placeholder="예: 성인용 기저귀 대형"
+              value={itemName}
+              onChange={(e) => setItemName(e.target.value)}
+              className={field}
+            />
+          </div>
 
-            <button onClick={handleCreateNeed} disabled={submitting} className={btnPrimary}>
-              {submitting ? "등록 중..." : "필요 물품 등록"}
-            </button>
+          <div className="flex flex-col gap-1.5">
+            <label className={label}>카테고리</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={field}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className={label}>목표 수량</label>
+            <input
+              type="number"
+              min={1}
+              value={targetQty}
+              onChange={(e) =>
+                setTargetQty(
+                  e.target.value === "" ? "" : clampTargetQty(e.target.value),
+                )
+              }
+              onBlur={() => setTargetQty(targetQtyValue)}
+              className={field}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className={label}>안내 문구 (선택)</label>
+            <input
+              placeholder="예: 요양 어르신 12분께 매주 전달돼요"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className={field}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className={label}>대표 사진 (선택)</label>
+            {imageUrl ? (
+              <div className="flex items-center gap-3">
+                <img
+                  src={imageUrl}
+                  alt="등록할 물품 사진 미리보기"
+                  className="size-20 rounded-xl object-cover"
+                />
+                <button onClick={handleClearImage} className={btnGhost}>
+                  지우기
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                className={btnOutline}
+              >
+                사진 선택
+              </button>
+            )}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageSelected(e.target.files?.[0])}
+              className="hidden"
+            />
+            {imageError && (
+              <p className="text-[13px] text-danger-fg">{imageError}</p>
+            )}
+          </div>
+
+          <p className={caption}>
+            "도움이 필요해요" 표시는 진행률 30% 미만인 요청에 자동으로 붙어요
+          </p>
+
+          {formError && (
+            <p className="text-[13px] text-danger-fg">{formError}</p>
+          )}
+
+          <button
+            onClick={handleCreateNeed}
+            disabled={submitting}
+            className={btnPrimary}
+          >
+            {submitting ? "등록 중..." : "필요 물품 등록"}
+          </button>
         </div>
       </dialog>
     </div>

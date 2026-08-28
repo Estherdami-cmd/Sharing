@@ -15,11 +15,10 @@ const navCta =
   "cursor-pointer items-center justify-center rounded-full bg-primary-700 font-bold text-white transition-all hover:bg-primary-800 active:scale-[0.98]";
 
 const NAV_LINKS = [
-  { href: "/donate", label: "기부하기" },
-  { href: "/board", label: "진행 현황" },
+  { href: "/board", label: "기부 현황" },
   { href: "/lookup", label: "신청 조회" },
+  { href: "/beneficiary", label: "기관 관리" },
   { href: "/service", label: "서비스 소개" },
-  { href: "/foodbank", label: "기관등록" },
 ];
 
 /** 로고(좌) · 메뉴 · 우측 CTA. 모바일은 햄버거로 접힘. 스크롤 시 하단 보더가 생긴다. */
@@ -48,7 +47,11 @@ export default function Header() {
       }
     >
       <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5 md:px-6 lg:px-8">
-        <Link href="/" className="flex cursor-pointer items-center gap-0.5" onClick={() => setMenuOpen(false)}>
+        <Link
+          href="/"
+          className="flex cursor-pointer items-center gap-0.5"
+          onClick={() => setMenuOpen(false)}
+        >
           <BrandMark />
           <Wordmark className="h-5 text-primary-700" />
         </Link>
@@ -70,7 +73,10 @@ export default function Header() {
           ))}
         </nav>
 
-        <Link href="/donate" className={`${navCta} hidden h-10 px-5 text-[14px] md:inline-flex`}>
+        <Link
+          href="/donate"
+          className={`${navCta} hidden h-10 px-5 text-[14px] md:inline-flex`}
+        >
           기부하기
         </Link>
 
@@ -93,7 +99,9 @@ export default function Header() {
               onClick={() => setMenuOpen(false)}
               className={
                 "cursor-pointer rounded-lg px-3 py-2.5 text-[15px] hover:bg-neutral-100 " +
-                (pathname === link.href ? "font-extrabold text-neutral-900" : "font-bold text-neutral-700")
+                (pathname === link.href
+                  ? "font-extrabold text-neutral-900"
+                  : "font-bold text-neutral-700")
               }
             >
               {link.label}
