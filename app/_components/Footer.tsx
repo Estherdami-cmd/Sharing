@@ -43,9 +43,19 @@ export default function Footer() {
               <BrandMark />
               <Wordmark className="h-5 text-primary-700" />
             </div>
-            {/* break-keep으로 되돌아간 적이 있는데, 그럼 다시 두 줄로 나뉜다.
-                한 줄로 고정해달라는 요청이 명확했던 부분이라 whitespace-nowrap을 유지한다. */}
-            <p className="mt-2 whitespace-nowrap text-[13px] leading-relaxed text-neutral-500">
+            {/*
+              한 줄로 보이는 건 유지하되 whitespace-nowrap은 쓰지 않는다.
+
+              전에 break-keep으로 바꿨더니 두 줄이 된 건 같이 붙어 있던 max-w-xs(320px)
+              때문이었다. 폭을 320px로 묶어놨으니 글이 접힐 수밖에 없었다. max-w-xs를
+              빼고 break-keep만 두면, 자리가 있는 한 계속 한 줄이다.
+
+              nowrap은 접힐 수가 없어서 여유가 0이다. 실측하면 기본 13px에서 글자가
+              269px라 320px 화면에 겨우 들어가는데, 사용자가 글자 크기를 키우거나
+              Pretendard가 안 떠서 폴백 폰트로 그려지면 바로 화면 밖으로 나간다
+              (320px 기기에서 15px면 11px, 17px면 53px 넘침).
+            */}
+            <p className="mt-2 break-keep text-[13px] leading-relaxed text-neutral-500">
               사진 한장으로 필요로 하는 곳에 함께 모여 기부합니다.
             </p>
           </div>
