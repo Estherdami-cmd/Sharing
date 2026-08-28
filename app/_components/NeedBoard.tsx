@@ -8,10 +8,11 @@ import NeedProgress from "./NeedProgress";
 import {
   btnGhost,
   btnPrimary,
+  btnPrimaryCompact,
+  caption,
   card,
   cardHighlight,
   cardUrgent,
-  caption,
   pageDesc,
   pageTitle,
   toneBadge,
@@ -445,7 +446,7 @@ export default function NeedBoard() {
                       pendingQty={need.pendingQty}
                       resetKey={countUpResetKey}
                     />
-                    <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} h-11 text-[14px]`}>
+                    <Link href={`/donate?needId=${need.id}`} className={btnPrimaryCompact}>
                       여기에 나눔하기
                     </Link>
                   </article>

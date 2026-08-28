@@ -22,6 +22,7 @@ import {
   btnDanger,
   btnGhost,
   btnOutline,
+  btnOutlineCompact,
   btnPrimary,
   btnSecondary,
   card,
@@ -687,7 +688,7 @@ function PhotoSlot({
         버튼 이름도 같이 바꾼다. PC에서 "갤러리"는 뜻이 안 통한다.
       */}
       <div className="flex gap-2">
-        <button onClick={() => galleryRef.current?.click()} className={`${btnOutline} h-11`}>
+        <button onClick={() => galleryRef.current?.click()} className={btnOutlineCompact}>
           <span className="pointer-coarse:hidden">파일 선택</span>
           <span className="hidden pointer-coarse:inline">갤러리</span>
         </button>
@@ -696,7 +697,7 @@ function PhotoSlot({
           display가 충돌해 숨겨지지 않는다. display 유틸리티가 없는 래퍼로 감싼다.
         */}
         <span className="hidden flex-1 pointer-coarse:flex">
-          <button onClick={() => cameraRef.current?.click()} className={`${btnOutline} h-11`}>
+          <button onClick={() => cameraRef.current?.click()} className={btnOutlineCompact}>
             촬영
           </button>
         </span>

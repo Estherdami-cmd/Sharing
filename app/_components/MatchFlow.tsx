@@ -8,10 +8,11 @@ import {
   btnGhost,
   btnPrimary,
   btnSecondary,
+  caption,
   card,
   cardHighlight,
-  caption,
   field,
+  fieldReadonly,
   label,
   pageDesc,
   pageTitle,
@@ -153,7 +154,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
       <div className={`${card} mx-auto w-full max-w-lg`}>
         <div className="flex flex-col gap-1.5">
           <label className={label}>품목명</label>
-          <p className={`${field} flex items-center bg-neutral-100 text-neutral-700`}>
+          <p className={`${fieldReadonly} flex items-center`}>
             {donation.itemName}
           </p>
         </div>
