@@ -9,7 +9,7 @@ export default function PageShell({ children }: { children: React.ReactNode }) {
       넘쳐 가로 스크롤이 생길 수 있다. clip으로 잘라낸다 — hidden과 달리 스크롤 컨테이너를
       만들지 않아서 바깥 헤더의 sticky가 그대로 동작한다.
     */
-    <main className="flex flex-col items-center overflow-x-clip px-5 py-10 md:px-6 lg:px-8 xl:px-10">
+    <main className="flex flex-1 flex-col items-center overflow-x-clip px-5 py-10 md:px-6 lg:px-8 xl:px-10">
       <div className={shell}>{children}</div>
     </main>
   );
