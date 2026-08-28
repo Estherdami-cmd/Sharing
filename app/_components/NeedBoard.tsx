@@ -34,7 +34,7 @@ type NeedView = {
   note: string;
   imageUrl: string | null;
   createdAt: string;
-  foodBank: { name: string; address: string };
+  beneficiary: { name: string; address: string };
 };
 
 type SortKey = "default" | "newest" | "almost";
@@ -51,7 +51,7 @@ type ActivityItem = {
   status: "pending" | "accepted" | "rejected";
   createdAt: string;
   donation: { itemName: string };
-  foodBank: { name: string };
+  beneficiary: { name: string };
 };
 
 const FILTER_ALL = "전체";
@@ -104,20 +104,20 @@ function NeedCard({
             className="absolute right-2.5 top-2.5 grid size-8 cursor-pointer place-items-center rounded-full bg-neutral-900/70 text-white transition-colors hover:bg-neutral-900"
           >
             <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-4"
-            aria-hidden="true"
-          >
-            <path d="M12 15V4" />
-            <path d="M8 8l4-4 4 4" />
-            <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
-          </svg>
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-4"
+              aria-hidden="true"
+            >
+              <path d="M12 15V4" />
+              <path d="M8 8l4-4 4 4" />
+              <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+            </svg>
           </button>
         </div>
       ) : (
@@ -131,35 +131,43 @@ function NeedCard({
             className="grid size-8 cursor-pointer place-items-center rounded-full border-none bg-neutral-100 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
           >
             <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-4"
-            aria-hidden="true"
-          >
-            <path d="M12 15V4" />
-            <path d="M8 8l4-4 4 4" />
-            <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
-          </svg>
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-4"
+              aria-hidden="true"
+            >
+              <path d="M12 15V4" />
+              <path d="M8 8l4-4 4 4" />
+              <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+            </svg>
           </button>
         </div>
       )}
 
       <div className="flex items-center justify-between gap-2">
-        <span className="tabular text-3xl font-extrabold text-primary-700">{displayedProgress}%</span>
-        {need.urgent && <span className={toneBadge("caution")}>도움이 필요해요</span>}
+        <span className="tabular text-3xl font-extrabold text-primary-700">
+          {displayedProgress}%
+        </span>
+        {need.urgent && (
+          <span className={toneBadge("caution")}>도움이 필요해요</span>
+        )}
       </div>
 
       <div>
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">{need.itemName}</h2>
+        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">
+          {need.itemName}
+        </h2>
         <p className="mt-0.5 text-xs text-neutral-400">
-          {need.foodBank.name} · {need.foodBank.address}
+          {need.beneficiary.name} · {need.beneficiary.address}
         </p>
-        <p className="mt-0.5 text-xs text-neutral-400">{formatRelativeTime(need.createdAt)} 등록</p>
+        <p className="mt-0.5 text-xs text-neutral-400">
+          {formatRelativeTime(need.createdAt)} 등록
+        </p>
       </div>
 
       <NeedProgress
@@ -177,7 +185,10 @@ function NeedCard({
       )}
       {need.note && <p className={caption}>{need.note}</p>}
 
-      <Link href={`/donate?needId=${need.id}`} className={`${btnPrimary} mt-auto`}>
+      <Link
+        href={`/donate?needId=${need.id}`}
+        className={`${btnPrimary} mt-auto`}
+      >
         여기에 나눔하기
       </Link>
     </article>
@@ -199,10 +210,14 @@ export default function NeedBoard() {
     const c = searchParams.get("category");
     return c && CATEGORIES.includes(c) ? c : FILTER_ALL;
   });
-  const [searchQuery, setSearchQueryState] = useState(() => searchParams.get("q") || "");
+  const [searchQuery, setSearchQueryState] = useState(
+    () => searchParams.get("q") || "",
+  );
   const [sortBy, setSortByState] = useState<SortKey>(() => {
     const s = searchParams.get("sort");
-    return SORT_OPTIONS.some((opt) => opt.key === s) ? (s as SortKey) : "default";
+    return SORT_OPTIONS.some((opt) => opt.key === s)
+      ? (s as SortKey)
+      : "default";
   });
 
   function syncQuery(next: { category?: string; q?: string; sort?: SortKey }) {
@@ -239,7 +254,7 @@ export default function NeedBoard() {
   async function shareNeed(need: NeedView) {
     const url = `${window.location.origin}/donate?needId=${need.id}`;
     const shareData = {
-      title: `${need.foodBank.name} · ${need.itemName}`,
+      title: `${need.beneficiary.name} · ${need.itemName}`,
       text: `${need.itemName} ${need.remainingQty}개만 더 있으면 목표를 채워요!`,
       url,
     };
@@ -262,8 +277,12 @@ export default function NeedBoard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [needsRes, appsRes] = await Promise.all([fetch("/api/needs"), fetch("/api/applications")]);
-      if (!needsRes.ok || !appsRes.ok) throw new Error("failed to load board data");
+      const [needsRes, appsRes] = await Promise.all([
+        fetch("/api/needs"),
+        fetch("/api/applications"),
+      ]);
+      if (!needsRes.ok || !appsRes.ok)
+        throw new Error("failed to load board data");
       setNeeds((await needsRes.json()).needs);
       setActivity(await appsRes.json());
       return true;
@@ -287,7 +306,9 @@ export default function NeedBoard() {
     const ok = await load();
     setCountUpResetKey((k) => k + 1);
     showToast(
-      ok ? "최신 정보로 새로고침했어요" : "새로고침에 실패했어요. 잠시 후 다시 시도해주세요",
+      ok
+        ? "최신 정보로 새로고침했어요"
+        : "새로고침에 실패했어요. 잠시 후 다시 시도해주세요",
       ok ? "success" : "error",
     );
   }, [load, showToast]);
@@ -295,17 +316,25 @@ export default function NeedBoard() {
   // 이미 목표를 채운 요청은 "성공 스토리"로 따로 모아 보여주고, 활발히 모금 중인 목록에서는 뺀다.
   const activeNeeds = needs.filter((n) => n.progress < 100);
   const completedNeeds = needs.filter((n) => n.progress >= 100);
-  const almostThereNeeds = activeNeeds.filter((n) => n.progress >= ALMOST_THERE_THRESHOLD);
+  const almostThereNeeds = activeNeeds.filter(
+    (n) => n.progress >= ALMOST_THERE_THRESHOLD,
+  );
 
   const acceptedCount = activity.filter((a) => a.status === "accepted").length;
-  const recentActivity = activity.filter((a) => a.status !== "rejected").slice(0, 5);
+  const recentActivity = activity
+    .filter((a) => a.status !== "rejected")
+    .slice(0, 5);
 
   const totalTarget = needs.reduce((sum, n) => sum + n.targetQty, 0);
   const totalFilled = needs.reduce((sum, n) => sum + n.filledQty, 0);
   const trimmedQuery = searchQuery.trim().toLowerCase();
   const filteredNeeds = activeNeeds
-    .filter((n) => categoryFilter === FILTER_ALL || n.category === categoryFilter)
-    .filter((n) => !trimmedQuery || n.itemName.toLowerCase().includes(trimmedQuery));
+    .filter(
+      (n) => categoryFilter === FILTER_ALL || n.category === categoryFilter,
+    )
+    .filter(
+      (n) => !trimmedQuery || n.itemName.toLowerCase().includes(trimmedQuery),
+    );
   // "추천순"은 서버가 이미 정해준 순서(도움 필요한 것 먼저)를 그대로 쓴다. 따로 정렬하지 않는다.
   const sortedNeeds =
     sortBy === "newest"
@@ -357,13 +386,18 @@ export default function NeedBoard() {
         */}
         {totalTarget > 0 && (
           <div className="mx-auto mt-6 flex w-full max-w-2xl flex-col items-center gap-2 rounded-[28px] bg-primary-50 px-8 py-10 shadow-sm sm:px-12">
-            <p className="text-sm font-bold text-primary-700">지금까지의 나눔</p>
+            <p className="text-sm font-bold text-primary-700">
+              지금까지의 나눔
+            </p>
             <p className="tabular text-4xl font-extrabold text-neutral-900 sm:text-5xl">
-              <span className="text-primary-700">{displayedTotalFilled.toLocaleString()}개</span>가
-              모였어요
+              <span className="text-primary-700">
+                {displayedTotalFilled.toLocaleString()}개
+              </span>
+              가 모였어요
             </p>
             <p className="tabular text-sm font-semibold text-neutral-500 sm:text-[15px]">
-              전체 {totalFilled.toLocaleString()} / {totalTarget.toLocaleString()}개 · 요청{" "}
+              전체 {totalFilled.toLocaleString()} /{" "}
+              {totalTarget.toLocaleString()}개 · 요청{" "}
               {needs.length.toLocaleString()}건
             </p>
             {acceptedCount > 0 && (
@@ -391,7 +425,9 @@ export default function NeedBoard() {
         기대를 주는 빈 상태를 보여준다.
       */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-center text-[13px] font-bold text-neutral-400">최근 나눔 소식</h2>
+        <h2 className="text-center text-[13px] font-bold text-neutral-400">
+          최근 나눔 소식
+        </h2>
         {recentActivity.length > 0 ? (
           <div className="relative">
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -400,9 +436,13 @@ export default function NeedBoard() {
                   key={a.id}
                   className="shrink-0 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[13px] whitespace-nowrap text-neutral-600"
                 >
-                  <span className="font-bold text-neutral-900">{a.foodBank.name}</span>에{" "}
-                  {a.donation.itemName} {a.quantity}개
-                  <span className="ml-1.5 text-neutral-400">· {formatRelativeTime(a.createdAt)}</span>
+                  <span className="font-bold text-neutral-900">
+                    {a.beneficiary.name}
+                  </span>
+                  에 {a.donation.itemName} {a.quantity}개
+                  <span className="ml-1.5 text-neutral-400">
+                    · {formatRelativeTime(a.createdAt)}
+                  </span>
                 </p>
               ))}
             </div>
@@ -437,8 +477,12 @@ export default function NeedBoard() {
                     key={need.id}
                     className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl bg-white p-4 transition-shadow hover:shadow-md"
                   >
-                    <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
-                    <h3 className="text-[15px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
+                    <p className="text-xs font-bold text-primary-700">
+                      {need.beneficiary.name}
+                    </p>
+                    <h3 className="text-[15px] font-bold tracking-[-0.02em]">
+                      {need.itemName}
+                    </h3>
                     <NeedProgress
                       filledQty={need.filledQty}
                       targetQty={need.targetQty}
@@ -446,7 +490,10 @@ export default function NeedBoard() {
                       pendingQty={need.pendingQty}
                       resetKey={countUpResetKey}
                     />
-                    <Link href={`/donate?needId=${need.id}`} className={btnPrimaryCompact}>
+                    <Link
+                      href={`/donate?needId=${need.id}`}
+                      className={btnPrimaryCompact}
+                    >
                       여기에 나눔하기
                     </Link>
                   </article>
@@ -456,7 +503,8 @@ export default function NeedBoard() {
             </div>
           ) : (
             <p className="text-center text-[13px] text-warning-fg/70">
-              아직 {ALMOST_THERE_THRESHOLD}% 넘게 채워진 요청은 없어요. 조금씩 모이면 여기 뜰 거예요
+              아직 {ALMOST_THERE_THRESHOLD}% 넘게 채워진 요청은 없어요. 조금씩
+              모이면 여기 뜰 거예요
             </p>
           )}
         </section>
@@ -509,7 +557,9 @@ export default function NeedBoard() {
               onClick={() => setSortBy(opt.key)}
               className={
                 "cursor-pointer rounded-full px-3 py-1 font-bold transition-colors " +
-                (sortBy === opt.key ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-900")
+                (sortBy === opt.key
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-500 hover:text-neutral-900")
               }
             >
               {opt.label}
@@ -549,14 +599,18 @@ export default function NeedBoard() {
           <span className="text-6xl" role="img" aria-label="빈 상자">
             📭
           </span>
-          <p className="text-[15px] text-neutral-400">아직 등록된 요청이 없어요</p>
+          <p className="text-[15px] text-neutral-400">
+            아직 등록된 요청이 없어요
+          </p>
         </div>
       )}
 
       {!loading && needs.length > 0 && filteredNeeds.length === 0 && (
         <div className="flex flex-col items-center gap-4 py-8">
           <p className="text-[15px] text-neutral-400">
-            {isFiltered ? "조건에 맞는 요청이 없어요" : "아직 등록된 요청이 없어요"}
+            {isFiltered
+              ? "조건에 맞는 요청이 없어요"
+              : "아직 등록된 요청이 없어요"}
           </p>
         </div>
       )}
@@ -586,21 +640,30 @@ export default function NeedBoard() {
           {completedNeeds.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {completedNeeds.map((need) => (
-                <article key={need.id} className={`${cardHighlight} opacity-80`}>
+                <article
+                  key={need.id}
+                  className={`${cardHighlight} opacity-80`}
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-bold text-primary-700">{need.foodBank.name}</p>
+                    <p className="text-xs font-bold text-primary-700">
+                      {need.beneficiary.name}
+                    </p>
                     <span className={toneBadge("ok")}>목표 달성</span>
                   </div>
-                  <h3 className="text-[17px] font-bold tracking-[-0.02em]">{need.itemName}</h3>
+                  <h3 className="text-[17px] font-bold tracking-[-0.02em]">
+                    {need.itemName}
+                  </h3>
                   <p className="text-[13px] text-neutral-500">
-                    {need.targetQty.toLocaleString()}개 목표를 여럿이 나눠서 다 채웠어요
+                    {need.targetQty.toLocaleString()}개 목표를 여럿이 나눠서 다
+                    채웠어요
                   </p>
                 </article>
               ))}
             </div>
           ) : (
             <p className="text-center text-[13px] text-neutral-400">
-              아직 다 채운 목표는 없어요. 여러분의 나눔이 첫 성공 스토리가 될 수 있어요
+              아직 다 채운 목표는 없어요. 여러분의 나눔이 첫 성공 스토리가 될 수
+              있어요
             </p>
           )}
         </section>

@@ -53,7 +53,11 @@ const DEMO_PHOTOS = {
  * 실패하면(브라우저 미지원 등) null을 돌려주고 사진 없이 등록을 계속 진행한다 —
  * 사진 첨부가 등록 자체를 막을 이유는 없다.
  */
-async function resizeImageToDataUrl(file: File, maxDim = 960, quality = 0.72): Promise<string | null> {
+async function resizeImageToDataUrl(
+  file: File,
+  maxDim = 960,
+  quality = 0.72,
+): Promise<string | null> {
   try {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
@@ -96,9 +100,14 @@ function formatWait(seconds: number): string {
  * 목업으로 떨어진 이유별 문구. 제목을 나누는 게 중요하다 —
  * 한도 초과에 "연결하지 못했어요"라고 말하면 배포나 네트워크를 엉뚱하게 뒤지게 된다.
  */
-function failureCopy(failure: RecognizeFailure | null): { title: string; detail: string } {
+function failureCopy(failure: RecognizeFailure | null): {
+  title: string;
+  detail: string;
+} {
   if (failure?.kind === "rate_limit") {
-    const wait = failure.retryAfterSeconds ? formatWait(failure.retryAfterSeconds) : null;
+    const wait = failure.retryAfterSeconds
+      ? formatWait(failure.retryAfterSeconds)
+      : null;
     return {
       title: "오늘 AI 판독 한도를 다 썼어요",
       detail: wait
@@ -124,16 +133,23 @@ export default function RegisterFlow() {
   const presetNeedId = searchParams.get("needId");
 
   // 게시판에서 특정 요청으로 바로 들어온 경우, 등록 화면에 "지금 누굴 돕는지" 안내를 보여준다.
-  const [presetNeed, setPresetNeed] = useState<{ itemName: string; foodBankName: string } | null>(
-    null
-  );
+  const [presetNeed, setPresetNeed] = useState<{
+    itemName: string;
+    beneficiaryName: string;
+  } | null>(null);
   useEffect(() => {
     if (!presetNeedId) return;
     fetch("/api/needs")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        const found = data?.needs?.find((n: { id: string }) => n.id === presetNeedId);
-        if (found) setPresetNeed({ itemName: found.itemName, foodBankName: found.foodBank.name });
+        const found = data?.needs?.find(
+          (n: { id: string }) => n.id === presetNeedId,
+        );
+        if (found)
+          setPresetNeed({
+            itemName: found.itemName,
+            beneficiaryName: found.beneficiary.name,
+          });
       })
       .catch(() => {});
   }, [presetNeedId]);
@@ -156,7 +172,8 @@ export default function RegisterFlow() {
       if (expiryPreview) URL.revokeObjectURL(expiryPreview);
     };
   }, [expiryPreview]);
-  const [recognizeStatus, setRecognizeStatus] = useState<RecognizeStatus>("idle");
+  const [recognizeStatus, setRecognizeStatus] =
+    useState<RecognizeStatus>("idle");
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState("");
   /*
@@ -182,8 +199,12 @@ export default function RegisterFlow() {
    * 일반명은 더 이상 맞지 않는다 — 백미를 찍었다가 "현미 2kg"으로 고쳤는데
    * 일반명이 "쌀"로 남으면, 매칭이 현미 요청을 "바로 그 물건"으로 착각한다.
    */
-  const [generic, setGeneric] = useState<{ forItemName: string; name: string } | null>(null);
-  const genericName = generic && generic.forItemName === itemName ? generic.name : null;
+  const [generic, setGeneric] = useState<{
+    forItemName: string;
+    name: string;
+  } | null>(null);
+  const genericName =
+    generic && generic.forItemName === itemName ? generic.name : null;
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [submittingDonation, setSubmittingDonation] = useState(false);
   const [loadingDemoPhoto, setLoadingDemoPhoto] = useState(false);
@@ -204,15 +225,20 @@ export default function RegisterFlow() {
         : "unknown";
 
   const verdict: ShareVerdict | null =
-    recognizeStatus === "done" ? evaluateShareable(expiryDate, expiryStatus) : null;
+    recognizeStatus === "done"
+      ? evaluateShareable(expiryDate, expiryStatus)
+      : null;
 
-  const canGoNext = Boolean(itemName && category && quantity !== "" && verdict?.shareable);
+  const canGoNext = Boolean(
+    itemName && category && quantity !== "" && verdict?.shareable,
+  );
 
   function handleFileSelected(slot: PhotoSlotKey, selected: File | undefined) {
     if (!selected) return;
 
     const ref = slot === "product" ? productFileRef : expiryFileRef;
-    const setPreview = slot === "product" ? setProductPreview : setExpiryPreview;
+    const setPreview =
+      slot === "product" ? setProductPreview : setExpiryPreview;
     ref.current = selected;
     // 앞서 만든 blob URL은 놔두면 새 사진을 고를 때마다 쌓인다.
     setPreview((old) => {
@@ -251,7 +277,8 @@ export default function RegisterFlow() {
 
   function handleClearSlot(slot: PhotoSlotKey) {
     const ref = slot === "product" ? productFileRef : expiryFileRef;
-    const setPreview = slot === "product" ? setProductPreview : setExpiryPreview;
+    const setPreview =
+      slot === "product" ? setProductPreview : setExpiryPreview;
     ref.current = null;
     setPreview((old) => {
       if (old) URL.revokeObjectURL(old);
@@ -270,7 +297,10 @@ export default function RegisterFlow() {
         const res = await fetch(src);
         if (!res.ok) throw new Error(`demo photo fetch failed: ${slot}`);
         const blob = await res.blob();
-        handleFileSelected(slot, new File([blob], fileName, { type: blob.type || "image/jpeg" }));
+        handleFileSelected(
+          slot,
+          new File([blob], fileName, { type: blob.type || "image/jpeg" }),
+        );
       }
     } catch {
       setRegisterError("예시 사진을 불러오지 못했어요");
@@ -290,14 +320,20 @@ export default function RegisterFlow() {
       const formData = new FormData();
       formData.append("image", productFileRef.current);
       if (kind) formData.append("kind", kind);
-      if (expiryFileRef.current) formData.append("expiryImage", expiryFileRef.current);
+      if (expiryFileRef.current)
+        formData.append("expiryImage", expiryFileRef.current);
 
-      const res = await fetch("/api/recognize", { method: "POST", body: formData });
+      const res = await fetch("/api/recognize", {
+        method: "POST",
+        body: formData,
+      });
       if (!res.ok) {
         // 서버가 이유를 적어 보내면(물품을 못 찾음, 사진이 너무 큼) 그 문장을 그대로 쓴다.
         const body = await res.json().catch(() => null);
         setRecognizeStatus("error");
-        setRegisterError(body?.error ?? "AI 인식에 실패했어요. 다시 시도해주세요");
+        setRegisterError(
+          body?.error ?? "AI 인식에 실패했어요. 다시 시도해주세요",
+        );
         return;
       }
       const data = await res.json();
@@ -312,7 +348,9 @@ export default function RegisterFlow() {
       setSource(data.source ?? null);
       setFailure(data.failure ?? null);
       setGeneric(
-        data.genericName ? { forItemName: data.itemName, name: data.genericName } : null
+        data.genericName
+          ? { forItemName: data.itemName, name: data.genericName }
+          : null,
       );
       setRecognizeStatus("done");
     } catch {
@@ -324,8 +362,12 @@ export default function RegisterFlow() {
   async function handleRegisterNext() {
     setSubmittingDonation(true);
     const [productImageUrl, expiryImageUrl] = await Promise.all([
-      productFileRef.current ? resizeImageToDataUrl(productFileRef.current) : Promise.resolve(null),
-      expiryFileRef.current ? resizeImageToDataUrl(expiryFileRef.current) : Promise.resolve(null),
+      productFileRef.current
+        ? resizeImageToDataUrl(productFileRef.current)
+        : Promise.resolve(null),
+      expiryFileRef.current
+        ? resizeImageToDataUrl(expiryFileRef.current)
+        : Promise.resolve(null),
     ]);
     const res = await fetch("/api/donations", {
       method: "POST",
@@ -352,7 +394,7 @@ export default function RegisterFlow() {
     // from=board는 신청 화면이 "매칭 결과로 돌아가기"처럼, 거치지도 않은 화면으로 안내하지 않게 하는 표시다.
     if (presetNeedId) {
       router.push(
-        `/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=${created.quantity}&from=board`
+        `/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=${created.quantity}&from=board`,
       );
       return;
     }
@@ -389,7 +431,8 @@ export default function RegisterFlow() {
 
       {presetNeed && (
         <p className="rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-center text-[13px] font-semibold text-primary-700">
-          지금 {presetNeed.foodBankName}의 {presetNeed.itemName} 요청에 채워질 물품을 등록해요
+          지금 {presetNeed.beneficiaryName}의 {presetNeed.itemName} 요청에
+          채워질 물품을 등록해요
         </p>
       )}
 
@@ -447,7 +490,11 @@ export default function RegisterFlow() {
         </div>
 
         <div className="flex w-full">
-          <button onClick={handleUseDemoPhoto} disabled={loadingDemoPhoto} className={btnOutline}>
+          <button
+            onClick={handleUseDemoPhoto}
+            disabled={loadingDemoPhoto}
+            className={btnOutline}
+          >
             {loadingDemoPhoto ? "불러오는 중..." : "예시 사진 불러오기 (2장)"}
           </button>
         </div>
@@ -460,13 +507,17 @@ export default function RegisterFlow() {
           {kind === null
             ? "먼저 음식 여부를 골라주세요"
             : recognizeStatus === "loading"
-            ? "사진에서 품목과 유통기한을 읽는 중..."
-            : expiryPreview
-              ? "AI로 확인하기 (사진 2장)"
-              : "AI로 확인하기"}
+              ? "사진에서 품목과 유통기한을 읽는 중..."
+              : expiryPreview
+                ? "AI로 확인하기 (사진 2장)"
+                : "AI로 확인하기"}
         </button>
 
-        {registerError && <p className="text-center text-[13px] text-danger-fg">{registerError}</p>}
+        {registerError && (
+          <p className="text-center text-[13px] text-danger-fg">
+            {registerError}
+          </p>
+        )}
       </div>
 
       {recognizeStatus === "done" && verdict && (
@@ -482,28 +533,40 @@ export default function RegisterFlow() {
                 {failureCopy(failure).title}
               </p>
               <p className="break-keep text-[13px] leading-relaxed text-warning-fg">
-                {failureCopy(failure).detail} 아래 내용은 실제 판독 결과가 아니라{" "}
-                <b>예시 데이터</b>예요. 품목명과 유통기한이 사진과 맞는지 직접 확인하고
-                고쳐주세요.
+                {failureCopy(failure).detail} 아래 내용은 실제 판독 결과가
+                아니라 <b>예시 데이터</b>예요. 품목명과 유통기한이 사진과 맞는지
+                직접 확인하고 고쳐주세요.
               </p>
             </div>
           )}
 
           <div className="flex items-center justify-between">
-            <h2 className="text-[17px] font-bold tracking-[-0.02em]">AI 인식 결과</h2>
-            <span className={toneBadge(verdict.tone)}>{TONE_LABEL[verdict.tone]}</span>
+            <h2 className="text-[17px] font-bold tracking-[-0.02em]">
+              AI 인식 결과
+            </h2>
+            <span className={toneBadge(verdict.tone)}>
+              {TONE_LABEL[verdict.tone]}
+            </span>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className={label}>품목명</label>
-            <input value={itemName} onChange={(e) => setItemName(e.target.value)} className={field} />
+            <input
+              value={itemName}
+              onChange={(e) => setItemName(e.target.value)}
+              className={field}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className={label}>
               세부분류{kind ? ` · ${ITEM_KIND_LABEL[kind]}` : ""}
             </label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={field}
+            >
               <option value="" disabled>
                 카테고리를 선택하세요
               </option>
@@ -540,7 +603,9 @@ export default function RegisterFlow() {
                 max={MAX_DONATION_QUANTITY}
                 value={quantity}
                 onChange={(e) =>
-                  setQuantity(e.target.value === "" ? "" : clampQuantity(e.target.value))
+                  setQuantity(
+                    e.target.value === "" ? "" : clampQuantity(e.target.value),
+                  )
                 }
                 onBlur={() => setQuantity(quantityValue)}
                 className={`${field} text-center`}
@@ -601,7 +666,9 @@ export default function RegisterFlow() {
             </div>
           )}
 
-          <p className={`text-[13px] font-bold ${TONE_TEXT[verdict.tone]}`}>{verdict.reason}</p>
+          <p className={`text-[13px] font-bold ${TONE_TEXT[verdict.tone]}`}>
+            {verdict.reason}
+          </p>
           {confidence !== null && (
             <p className="text-xs text-neutral-400">
               AI 신뢰도 {Math.round(confidence * 100)}%
@@ -610,7 +677,10 @@ export default function RegisterFlow() {
 
           {/* 입력이 필요한 상태는 나눔 불가가 아니다. 다른 물품을 권하면 안 된다. */}
           {!verdict.shareable && !verdict.needsExpiryInput && (
-            <button onClick={handleRestart} className={`${btnDanger} h-12 w-full`}>
+            <button
+              onClick={handleRestart}
+              className={`${btnDanger} h-12 w-full`}
+            >
               다른 물품 등록하기
             </button>
           )}
@@ -658,7 +728,9 @@ function PhotoSlot({
       <div className="flex items-baseline justify-between">
         <p className="text-[13px] font-bold text-neutral-700">
           {title}
-          <span className="ml-1.5 text-xs font-bold text-neutral-400">{requirement}</span>
+          <span className="ml-1.5 text-xs font-bold text-neutral-400">
+            {requirement}
+          </span>
         </p>
         {preview && (
           <button onClick={() => onClear(slot)} className={btnGhost}>
@@ -688,7 +760,10 @@ function PhotoSlot({
         버튼 이름도 같이 바꾼다. PC에서 "갤러리"는 뜻이 안 통한다.
       */}
       <div className="flex gap-2">
-        <button onClick={() => galleryRef.current?.click()} className={btnOutlineCompact}>
+        <button
+          onClick={() => galleryRef.current?.click()}
+          className={btnOutlineCompact}
+        >
           <span className="pointer-coarse:hidden">파일 선택</span>
           <span className="hidden pointer-coarse:inline">갤러리</span>
         </button>
@@ -697,7 +772,10 @@ function PhotoSlot({
           display가 충돌해 숨겨지지 않는다. display 유틸리티가 없는 래퍼로 감싼다.
         */}
         <span className="hidden flex-1 pointer-coarse:flex">
-          <button onClick={() => cameraRef.current?.click()} className={btnOutlineCompact}>
+          <button
+            onClick={() => cameraRef.current?.click()}
+            className={btnOutlineCompact}
+          >
             촬영
           </button>
         </span>

@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { DAY_NAMES, formatKoreanDate, isSameItem, isValidPhone } from "@/lib/rules";
+import {
+  DAY_NAMES,
+  formatKoreanDate,
+  isSameItem,
+  isValidPhone,
+} from "@/lib/rules";
 import type { DateOption, Donation, NeedView } from "@/lib/store";
 import {
   btnGhost,
@@ -35,13 +40,17 @@ export default function ApplyForm() {
   // 게시판에서 특정 요청으로 바로 들어온 경우, 이 사람은 매칭 결과 화면을 거친 적이 없다.
   const fromBoard = searchParams.get("from") === "board";
 
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   const [donation, setDonation] = useState<Donation | null>(null);
   const [selectedNeed, setSelectedNeed] = useState<NeedView | null>(null);
 
   // 요일마다 다른 시간대를 가질 수 있다(월요일은 오전만, 화요일은 오후만 등).
   // 키로 들어있는 요일만 "가능한 요일"이다. 빈 객체 = 아무 요일이나 시간대나 괜찮음.
-  const [donorAvailability, setDonorAvailability] = useState<Record<string, string>>({});
+  const [donorAvailability, setDonorAvailability] = useState<
+    Record<string, string>
+  >({});
   const donorDays = Object.keys(donorAvailability);
   const [dateOptions, setDateOptions] = useState<DateOption[]>([]);
   const [slotMessage, setSlotMessage] = useState<string | null>(null);
@@ -55,7 +64,7 @@ export default function ApplyForm() {
   const [applyError, setApplyError] = useState<string | null>(null);
   const [submittingApplication, setSubmittingApplication] = useState(false);
 
-  const place = selectedNeed?.foodBank.name ?? "";
+  const place = selectedNeed?.beneficiary.name ?? "";
 
   // 제출 조건. 전달 장소는 매칭된 기관명이 자동으로 들어가므로 검사 대상이 아니다.
   const canSubmit = selectedOptions.length > 0 && isValidPhone(contact);
@@ -66,7 +75,9 @@ export default function ApplyForm() {
     남은 목표가 있으면 그 값으로 잠근다 — 목표보다 많이 내겠다는 신청은 만들지 않는다.
   */
   const parsedQuantity = Math.floor(Number(quantityParam));
-  const requestedQuantity = Number.isFinite(parsedQuantity) ? Math.max(1, parsedQuantity) : 1;
+  const requestedQuantity = Number.isFinite(parsedQuantity)
+    ? Math.max(1, parsedQuantity)
+    : 1;
   // 목표가 남아있으면 그만큼으로, 이미 다 찼으면(여유분 받기) 목표 수량만큼으로
   // 상한을 둔다 — 주소창에 quantity=9999처럼 직접 써넣어도 그대로 통과하던 버그가 있었다.
   const maxQuantity = selectedNeed
@@ -80,7 +91,9 @@ export default function ApplyForm() {
   const quantity = quantityOverride === "" ? initialQuantity : quantityOverride;
 
   function setQuantity(value: number) {
-    setQuantityOverride(Math.min(Math.max(1, Math.floor(value) || 1), maxQuantity));
+    setQuantityOverride(
+      Math.min(Math.max(1, Math.floor(value) || 1), maxQuantity),
+    );
   }
 
   // 별도 주소라 새로고침·직접 접속에도 대응해야 하므로 앞 단계의 state에 의존하지 않는다.
@@ -142,11 +155,11 @@ export default function ApplyForm() {
     setSelectedOptions([]);
   }
 
-  const foodBankId = selectedNeed?.foodBank.id;
+  const beneficiaryId = selectedNeed?.beneficiary.id;
   const expiryDate = donation?.expiryDate;
 
   const loadDateOptions = useCallback(async () => {
-    if (!foodBankId) return;
+    if (!beneficiaryId) return;
     setLoadingSlots(true);
     setSlotMessage(null);
 
@@ -157,11 +170,13 @@ export default function ApplyForm() {
     if (expiryDate) query.set("maxDate", expiryDate);
 
     try {
-      const res = await fetch(`/api/slots/${foodBankId}?${query}`);
+      const res = await fetch(`/api/slots/${beneficiaryId}?${query}`);
       if (!res.ok) {
         // 조용히 끝내면 로딩만 멈추고 화면이 그대로라, 버튼이 고장난 것처럼 보인다.
         setDateOptions([]);
-        setSlotMessage("가능한 날짜를 불러오지 못했어요. 잠시 후 다시 시도해주세요");
+        setSlotMessage(
+          "가능한 날짜를 불러오지 못했어요. 잠시 후 다시 시도해주세요",
+        );
         return;
       }
       const data = await res.json();
@@ -174,7 +189,7 @@ export default function ApplyForm() {
     } finally {
       setLoadingSlots(false);
     }
-  }, [foodBankId, donorAvailability, expiryDate]);
+  }, [beneficiaryId, donorAvailability, expiryDate]);
 
   // 요일 미선택·시간대 "상관없음"이 이미 유효한 기본값이다. 버튼을 눌러야만 목록이
   // 뜨면, 안 누른 사용자는 "날짜를 고르라"는 오류만 보고 고를 목록은 못 본다.
@@ -194,7 +209,7 @@ export default function ApplyForm() {
     setSelectedOptions((prev) =>
       prev.some((o) => o.date === option.date)
         ? prev.filter((o) => o.date !== option.date)
-        : [...prev, option]
+        : [...prev, option],
     );
     setApplyError(null);
   }
@@ -211,7 +226,9 @@ export default function ApplyForm() {
     }
     if (!isValidPhone(contact)) {
       setContactTouched(true);
-      setApplyError("연락처를 다시 확인해주세요 (휴대폰 또는 지역번호 포함 유선 번호)");
+      setApplyError(
+        "연락처를 다시 확인해주세요 (휴대폰 또는 지역번호 포함 유선 번호)",
+      );
       return;
     }
 
@@ -223,7 +240,10 @@ export default function ApplyForm() {
         donationId: donation.id,
         needId: selectedNeed.id,
         quantity,
-        candidateDates: selectedOptions.map((o) => ({ date: o.date, slot: o.slot })),
+        candidateDates: selectedOptions.map((o) => ({
+          date: o.date,
+          slot: o.slot,
+        })),
         place,
         contact,
       }),
@@ -242,7 +262,9 @@ export default function ApplyForm() {
   }
 
   if (loadState === "loading") {
-    return <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>;
+    return (
+      <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>
+    );
   }
 
   if (loadState === "error" || !selectedNeed) {
@@ -263,7 +285,8 @@ export default function ApplyForm() {
       <header className="text-center">
         <h1 className={pageTitle}>나눔 신청</h1>
         <p className={pageDesc}>
-          {selectedNeed.foodBank.name}의 {selectedNeed.itemName} 목표를 채워요
+          {selectedNeed.beneficiary.name}의 {selectedNeed.itemName} 목표를
+          채워요
         </p>
       </header>
 
@@ -289,9 +312,11 @@ export default function ApplyForm() {
             <p className="text-xs text-neutral-500">
               이 요청 수치에는 안 들어가지만, 기관에 직접 전달돼요
             </p>
-          ) : donation && !isSameItem(donation.itemName, selectedNeed.itemName) ? (
+          ) : donation &&
+            !isSameItem(donation.itemName, selectedNeed.itemName) ? (
             <p className="text-xs text-neutral-500">
-              &apos;{selectedNeed.itemName}&apos; 요청이지만, 기관에서 확인하고 받아요
+              &apos;{selectedNeed.itemName}&apos; 요청이지만, 기관에서 확인하고
+              받아요
             </p>
           ) : null}
         </div>
@@ -344,15 +369,15 @@ export default function ApplyForm() {
           <div className="flex flex-col gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
             <div className="flex flex-col gap-0.5">
               <p className="text-[15px] font-semibold text-neutral-800">
-                {selectedNeed.foodBank.name}
+                {selectedNeed.beneficiary.name}
               </p>
-              {selectedNeed.foodBank.address && (
+              {selectedNeed.beneficiary.address && (
                 <p className="break-keep text-[13px] leading-relaxed text-neutral-500">
-                  {selectedNeed.foodBank.address}
+                  {selectedNeed.beneficiary.address}
                 </p>
               )}
             </div>
-            <DeliveryMap foodBank={selectedNeed.foodBank} />
+            <DeliveryMap beneficiary={selectedNeed.beneficiary} />
           </div>
         </div>
 
@@ -371,11 +396,15 @@ export default function ApplyForm() {
           </div>
 
           {donorDays.length === 0 ? (
-            <p className="text-xs text-neutral-400">선택 안 하면 아무 요일이나 시간대나 가능한 걸로 봐요</p>
+            <p className="text-xs text-neutral-400">
+              선택 안 하면 아무 요일이나 시간대나 가능한 걸로 봐요
+            </p>
           ) : (
             <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 p-3">
               {/* 월요일은 오전만, 화요일은 오후만처럼 요일마다 다른 시간대를 가질 수 있다. */}
-              <p className="text-xs text-neutral-400">요일마다 다른 시간대를 고를 수 있어요</p>
+              <p className="text-xs text-neutral-400">
+                요일마다 다른 시간대를 고를 수 있어요
+              </p>
               {donorDays.map((day) => (
                 <div key={day} className="flex items-center gap-2">
                   <span className="w-9 shrink-0 text-[13px] font-bold text-neutral-700">
@@ -399,14 +428,18 @@ export default function ApplyForm() {
 
           {/* 공공데이터에 수거시간이 없다. 없는 시간을 지어내지 않고 모른다고 말한다. */}
           <p className="text-xs text-neutral-400">
-            {selectedNeed.foodBank.pickupSlots?.length
-              ? `${selectedNeed.foodBank.name} 수거 시간: ${selectedNeed.foodBank.pickupSlots.join(", ")}`
-              : `${selectedNeed.foodBank.name} 수거 시간은 미확인이에요. 신청 후 기관과 협의해요`}
+            {selectedNeed.beneficiary.pickupSlots?.length
+              ? `${selectedNeed.beneficiary.name} 수거 시간: ${selectedNeed.beneficiary.pickupSlots.join(", ")}`
+              : `${selectedNeed.beneficiary.name} 수거 시간은 미확인이에요. 신청 후 기관과 협의해요`}
           </p>
         </div>
 
         {/* 자동으로 한 번 불러온 뒤에는 이 버튼의 역할이 '조건을 바꿔 다시 찾기'로 바뀐다. */}
-        <button onClick={loadDateOptions} disabled={loadingSlots} className={btnSecondary}>
+        <button
+          onClick={loadDateOptions}
+          disabled={loadingSlots}
+          className={btnSecondary}
+        >
           {loadingSlots
             ? "가능한 날짜를 찾는 중..."
             : autoLoaded
@@ -426,16 +459,21 @@ export default function ApplyForm() {
 
         {dateOptions.length > 0 && (
           <p className="text-xs text-neutral-400">
-            가능한 날짜를 여러 개 골라서 제안해보세요. 기관이 그중 하나를 골라 확정해줘요
+            가능한 날짜를 여러 개 골라서 제안해보세요. 기관이 그중 하나를 골라
+            확정해줘요
             {/* 목록이 길면 몇 개 골랐는지 잊는다. 기관에 무엇을 보내는지가 이 화면의 결과물이다. */}
             {selectedOptions.length > 0 && (
-              <strong className="ml-1 text-primary-700">· {selectedOptions.length}개 선택됨</strong>
+              <strong className="ml-1 text-primary-700">
+                · {selectedOptions.length}개 선택됨
+              </strong>
             )}
           </p>
         )}
 
         {dateOptions.map((option) => {
-          const isSelected = selectedOptions.some((o) => o.date === option.date);
+          const isSelected = selectedOptions.some(
+            (o) => o.date === option.date,
+          );
           return (
             <button
               key={option.date}
@@ -471,7 +509,9 @@ export default function ApplyForm() {
             className={field}
           />
           {contactTouched && contact && !isValidPhone(contact) ? (
-            <p className="text-xs text-danger-fg">휴대폰 또는 지역번호를 포함한 유선 번호로 적어주세요</p>
+            <p className="text-xs text-danger-fg">
+              휴대폰 또는 지역번호를 포함한 유선 번호로 적어주세요
+            </p>
           ) : (
             <p className="text-xs text-neutral-400">
               기관이 전달 일정을 확인할 때 이 번호로 연락해요
@@ -479,7 +519,9 @@ export default function ApplyForm() {
           )}
         </div>
 
-        {applyError && <p className="text-[13px] text-danger-fg">{applyError}</p>}
+        {applyError && (
+          <p className="text-[13px] text-danger-fg">{applyError}</p>
+        )}
 
         {/* 눌러본 뒤에 틀렸다고 하지 않는다 — 조건이 안 맞으면 아예 못 누르게 한다
             (DESIGN_GUIDE 1.1 "실패를 미리 막는다", RegisterFlow의 canGoNext와 같은 방식). */}
@@ -497,7 +539,9 @@ export default function ApplyForm() {
       </div>
 
       <Link
-        href={fromBoard ? "/board" : donationId ? `/match/${donationId}` : "/donate"}
+        href={
+          fromBoard ? "/board" : donationId ? `/match/${donationId}` : "/donate"
+        }
         className={`${btnGhost} mx-auto`}
       >
         {fromBoard ? "← 게시판으로 돌아가기" : "← 매칭 결과로 돌아가기"}

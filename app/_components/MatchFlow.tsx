@@ -39,7 +39,9 @@ const NEED_TEXT: Record<string, string> = {
 export default function MatchFlow({ donationId }: { donationId: string }) {
   const router = useRouter();
 
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   const [donation, setDonation] = useState<Donation | null>(null);
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
@@ -72,9 +74,11 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
     };
   }, [donationId, loadMatches]);
 
-  useRefetchOnFocus(useCallback(() => {
-    loadMatches(donationId);
-  }, [donationId, loadMatches]));
+  useRefetchOnFocus(
+    useCallback(() => {
+      loadMatches(donationId);
+    }, [donationId, loadMatches]),
+  );
 
   async function patchDonation(patch: Record<string, unknown>) {
     if (!donation) return;
@@ -116,19 +120,23 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
 
   const trimmedQuery = searchQuery.trim().toLowerCase();
   const visibleMatches = trimmedQuery
-    ? matches.filter((need) => need.foodBank.name.toLowerCase().includes(trimmedQuery))
+    ? matches.filter((need) =>
+        need.beneficiary.name.toLowerCase().includes(trimmedQuery),
+      )
     : matches;
 
   /** 신청 페이지는 또 다른 주소라 넘길 물품·요청 id·수량을 쿼리로 전달한다. */
   function handleSelectNeed(need: MatchResult) {
     if (!donation) return;
     router.push(
-      `/apply?donationId=${donation.id}&needId=${need.id}&quantity=${getIntendedQuantity(need)}`
+      `/apply?donationId=${donation.id}&needId=${need.id}&quantity=${getIntendedQuantity(need)}`,
     );
   }
 
   if (loadState === "loading") {
-    return <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>;
+    return (
+      <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>
+    );
   }
 
   if (loadState === "error" || !donation) {
@@ -174,12 +182,16 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
         </div>
       </div>
 
-      {matchLoading && <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>}
+      {matchLoading && (
+        <p className="text-center text-[15px] text-neutral-500">
+          불러오는 중...
+        </p>
+      )}
 
       {!matchLoading && matches.length > 0 && !matches[0].exactMatch && (
         <p className="mx-auto w-full max-w-lg rounded-xl border border-warning-fg/20 bg-warning-bg px-4 py-3 text-[13px] leading-relaxed text-warning-fg">
-          {donation.category}를 정확히 요청한 기관이 없어요. 대신 지금 다른 물품을 기다리는 곳을
-          보여드릴게요
+          {donation.category}를 정확히 요청한 기관이 없어요. 대신 지금 다른
+          물품을 기다리는 곳을 보여드릴게요
         </p>
       )}
 
@@ -221,21 +233,28 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {visibleMatches.map((need) => (
-          <article key={need.id} className={need.rank === 1 ? cardHighlight : card}>
+          <article
+            key={need.id}
+            className={need.rank === 1 ? cardHighlight : card}
+          >
             <div className="flex flex-wrap items-center gap-1.5">
               {need.rank === 1 && <span className={rankBadge}>1순위</span>}
-              {need.urgent && <span className={toneBadge("caution")}>도움이 필요해요</span>}
+              {need.urgent && (
+                <span className={toneBadge("caution")}>도움이 필요해요</span>
+              )}
             </div>
             <div>
-              <h2 className="text-[20px] font-bold tracking-[-0.02em]">{need.itemName}</h2>
+              <h2 className="text-[20px] font-bold tracking-[-0.02em]">
+                {need.itemName}
+              </h2>
               <p className="mt-0.5 text-[13px] text-neutral-500">
-                {need.foodBank.name} · {need.distanceKm}km
+                {need.beneficiary.name} · {need.distanceKm}km
               </p>
               {/* 운영일은 공공데이터에 없다. 대신 실제로 있는 기관 종류를 보여준다. */}
               <p className="text-[13px] text-neutral-400">
-                {need.foodBank.operatingDays?.length
-                  ? `운영일: ${need.foodBank.operatingDays.join(", ")}`
-                  : `${need.foodBank.category ?? "기관"} · 운영일은 신청 후 협의`}
+                {need.beneficiary.operatingDays?.length
+                  ? `운영일: ${need.beneficiary.operatingDays.join(", ")}`
+                  : `${need.beneficiary.category ?? "기관"} · 운영일은 신청 후 협의`}
               </p>
             </div>
 
@@ -288,12 +307,17 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
                     <strong className="text-primary-700">
                       {Math.min(
                         100,
-                        Math.round(((need.filledQty + getQuantity(need)) / need.targetQty) * 100)
+                        Math.round(
+                          ((need.filledQty + getQuantity(need)) /
+                            need.targetQty) *
+                            100,
+                        ),
                       )}
                       %
                     </strong>
                     가 돼요
-                    {need.remainingQty > 0 && ` · 남은 목표 ${need.remainingQty}개`}
+                    {need.remainingQty > 0 &&
+                      ` · 남은 목표 ${need.remainingQty}개`}
                   </p>
                   {/* 미리보기를 similar에도 남긴다 — 기관이 수락하면 실제로 반영되므로
                       숨기면 그게 거짓말이 된다. */}
@@ -306,7 +330,10 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
               )}
             </div>
 
-            <button onClick={() => handleSelectNeed(need)} className={btnPrimary}>
+            <button
+              onClick={() => handleSelectNeed(need)}
+              className={btnPrimary}
+            >
               여기에 나눔하기
             </button>
           </article>

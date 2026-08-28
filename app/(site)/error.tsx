@@ -6,7 +6,7 @@ import { btnGhost, btnPrimary, pageDesc, pageTitle } from "@/app/ui";
 /**
  * (site) 그룹 안에서 처리 안 된 예외가 나면 Next.js 기본의 딱딱한
  * "Application error" 화면 대신 이걸 보여준다. 원인을 못 찾았어도
- * 사용자가 최소한 새로고침/홈으로 빠져나갈 수 있게 하는 안전망이다.
+ * 사용자가 최소한 새로고침/신청화면으로 빠져나갈 수 있게 하는 안전망이다.
  */
 export default function SiteError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -24,8 +24,8 @@ export default function SiteError({ error, reset }: { error: Error & { digest?: 
         <button onClick={reset} className={btnPrimary}>
           다시 시도
         </button>
-        <a href="/" className={btnGhost}>
-          홈으로 가기
+        <a href="/donate" className={btnGhost}>
+          신청 화면으로 가기
         </a>
       </div>
 

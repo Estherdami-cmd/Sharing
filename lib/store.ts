@@ -40,7 +40,7 @@ import {
  * operatingDays/pickupSlots는 그 데이터에 없다 — 실존 기관에 없는 운영시간을
  * 지어 붙이면 허위 정보가 되므로, 비어 있으면 화면에서 "미확인"으로 말한다.
  */
-export type FoodBank = {
+export type Beneficiary = {
   id: string;
   name: string;
   address: string;
@@ -58,19 +58,19 @@ export type FoodBank = {
   /**
    * 이 기관이 어느 공공데이터에서 왔는지. 한 출처를 갱신할 때 다른 출처의 기관을
    * 지우지 않기 위해 필요하다.
-   *  - "foodbank": 경상북도_푸드뱅크 현황 (손으로 정리한 5곳)
+   *  - "beneficiary": 경상북도_푸드뱅크 현황 (손으로 정리한 5곳)
    *  - "lvlhmap":  포항시 생활지도 시설현황 (API로 받아오는 109곳)
    */
-  source?: "foodbank" | "lvlhmap";
+  source?: "beneficiary" | "lvlhmap";
 };
 
 /**
- * need/application이 가리키는 foodBankId가 실제로는 없을 때(예: 직접 데이터를 옮기다가
+ * need/application이 가리키는 beneficiaryId가 실제로는 없을 때(예: 직접 데이터를 옮기다가
  * 순간적으로 어긋난 경우) 화면 전체가 죽는 대신 이걸 대신 보여준다.
- * NeedView·ApplicationDetail 어디서든 foodBank는 항상 있다고 가정하고 .name 등을
+ * NeedView·ApplicationDetail 어디서든 beneficiary는 항상 있다고 가정하고 .name 등을
  * 바로 읽는 코드가 많아서, undefined를 그대로 넘기는 대신 여기서 안전한 값으로 막는다.
  */
-const UNKNOWN_FOOD_BANK: FoodBank = {
+const UNKNOWN_BENEFICIARY: Beneficiary = {
   id: "unknown",
   name: "정보를 찾을 수 없는 기관",
   address: "",
@@ -84,7 +84,7 @@ const UNKNOWN_FOOD_BANK: FoodBank = {
 /** 기관이 직접 올리는 "이 물건이 이만큼 필요해요" 한 건. 여럿이 나눠 채운다. */
 export type Need = {
   id: string;
-  foodBankId: string;
+  beneficiaryId: string;
   itemName: string;
   category: string;
   targetQty: number;
@@ -129,7 +129,7 @@ export type Application = {
   id: string;
   donationId: string;
   needId: string;
-  foodBankId: string;
+  beneficiaryId: string;
   quantity: number;
   /** 기부자가 제안한 날짜 후보들. 기관이 이 중 하나를 골라 확정한다. */
   candidateDates: DateCandidate[];
@@ -165,7 +165,7 @@ export type Application = {
  *
  * id는 고정 문자열을 그대로 쓴다 — 이미 만들어진 요청·신청이 이 id를 참조한다.
  */
-const CURATED_FOOD_BANKS: FoodBank[] = [
+const CURATED_BENEFICIARIES: Beneficiary[] = [
   {
     id: "fb1",
     name: "한기장내일을여는집",
@@ -176,7 +176,7 @@ const CURATED_FOOD_BANKS: FoodBank[] = [
     category: "푸드뱅크",
     audience: "식품",
     goodsHint: "쌀·부식·생필품",
-    source: "foodbank",
+    source: "beneficiary",
   },
   {
     id: "fb2",
@@ -188,7 +188,7 @@ const CURATED_FOOD_BANKS: FoodBank[] = [
     category: "푸드뱅크",
     audience: "식품",
     goodsHint: "쌀·부식·생필품",
-    source: "foodbank",
+    source: "beneficiary",
   },
   {
     id: "fb3",
@@ -200,7 +200,7 @@ const CURATED_FOOD_BANKS: FoodBank[] = [
     category: "푸드뱅크",
     audience: "식품",
     goodsHint: "쌀·부식·생필품",
-    source: "foodbank",
+    source: "beneficiary",
   },
   {
     id: "fb4",
@@ -212,7 +212,7 @@ const CURATED_FOOD_BANKS: FoodBank[] = [
     category: "푸드뱅크",
     audience: "식품",
     goodsHint: "쌀·부식·생필품",
-    source: "foodbank",
+    source: "beneficiary",
   },
   {
     id: "fb5",
@@ -224,7 +224,7 @@ const CURATED_FOOD_BANKS: FoodBank[] = [
     category: "푸드마켓",
     audience: "식품",
     goodsHint: "쌀·부식·생필품",
-    source: "foodbank",
+    source: "beneficiary",
   },
 ];
 
@@ -232,27 +232,33 @@ const CURATED_FOOD_BANKS: FoodBank[] = [
  * lib/data/pohang-orgs.json은 /api/admin/sync-orgs?dryRun=1로 공공데이터포털에서
  * 뽑아 커밋해 둔 스냅샷이다. 서비스키가 없는 환경에서도 앱이 뜨게 하는 기본값이다.
  */
-const SNAPSHOT_ORGS: FoodBank[] = orgSnapshot.orgs.map((o) => ({
+const SNAPSHOT_ORGS: Beneficiary[] = orgSnapshot.orgs.map((o) => ({
   ...o,
   source: "lvlhmap" as const,
 }));
 
-const SEED_FOOD_BANKS: FoodBank[] = [...CURATED_FOOD_BANKS, ...SNAPSHOT_ORGS];
+const SEED_BENEFICIARIES: Beneficiary[] = [
+  ...CURATED_BENEFICIARIES,
+  ...SNAPSHOT_ORGS,
+];
 
 /**
  * 화면에 뜨는 기관 수. 서비스 소개에서 "실제 기관 N곳"을 말할 때 쓴다.
  * 숫자를 문구에 직접 적으면 데이터가 늘거나 줄 때 조용히 거짓말이 된다.
  */
-export const ORG_COUNT = SEED_FOOD_BANKS.length;
+export const ORG_COUNT = SEED_BENEFICIARIES.length;
 
 export const ORG_SOURCE = orgSnapshot.source;
 export const ORG_SNAPSHOT = orgSnapshot;
 
 /**
- * foodBankId는 여기 없다 — 씨드를 넣는 시점에 orgCategoryForNeed로 알맞은 종류의
+ * beneficiaryId는 여기 없다 — 씨드를 넣는 시점에 orgCategoryForNeed로 알맞은 종류의
  * 실제 기관을 골라 붙인다(요양원에 학용품이 걸리는 조합을 막는다).
  */
-const SEED_NEEDS: Omit<Need, "id" | "createdAt" | "foodBankId" | "genericName">[] = [
+const SEED_NEEDS: Omit<
+  Need,
+  "id" | "createdAt" | "beneficiaryId" | "genericName"
+>[] = [
   {
     itemName: "성인용 기저귀 대형",
     category: "위생용품",
@@ -587,10 +593,36 @@ const SEED_NEEDS: Omit<Need, "id" | "createdAt" | "foodBankId" | "genericName">[
 export const UNKNOWN_HOURS_LABEL = "미확인 (기관과 협의)";
 export const UNKNOWN_SLOT_LABEL = "시간 협의";
 
+/**
+ * Firestore 문서에 저장돼 있는 필드 이름.
+ *
+ * 코드에서는 기관을 beneficiary로 부르지만, 이미 쌓인 문서에는 기관을 foodBank라
+ * 부르던 시절 이름인 foodBankId로 들어가 있다. 이름을 맞추려면 needs·applications의
+ * 문서를 전부 고쳐 써야 하고, 그동안 옛 코드를 쓰는 화면이 같이 깨진다. 그래서
+ * 문서를 읽고 쓰는 지점에서만 이 이름을 쓴다.
+ *
+ * 이걸 beneficiaryId로 바꿔 읽으면 값이 undefined가 되어 기관을 못 찾고,
+ * 화면에 "정보를 찾을 수 없는 기관"이 뜬다.
+ */
+const BENEFICIARY_ID_FIELD = "foodBankId";
+
+/**
+ * 도메인 객체를 문서 모양으로 바꾼다. beneficiaryId를 저장된 이름으로 되돌리는 게 전부다.
+ * 새로 쓰는 문서도 기존 문서와 같은 필드 이름을 갖게 해서, 읽는 쪽이 한 가지만 알면 되게 한다.
+ */
+function toDocFields<T extends { beneficiaryId: string }>(value: T) {
+  const { beneficiaryId, ...rest } = value;
+  return { ...rest, [BENEFICIARY_ID_FIELD]: beneficiaryId };
+}
+
 const needsCol = collection(db, "needs");
 const donationsCol = collection(db, "donations");
 const applicationsCol = collection(db, "applications");
-const foodBanksCol = collection(db, "foodBanks");
+/*
+ * 기관 컬렉션. 예전엔 "foodBanks"였고, 기관을 beneficiary로 부르기로 하면서 옮겼다.
+ * 문서 id(fb1, ph-66928 …)는 그대로라 요청·신청이 가리키는 값은 손대지 않아도 된다.
+ */
+const beneficiariesCol = collection(db, "beneficiaries");
 
 /**
  * Firestore가 비어 있으면(새로 만든 프로젝트) 씨드 데이터를 한 번 채운다.
@@ -604,18 +636,18 @@ async function ensureSeeded() {
   seedChecked = true;
   const snap = await getDocs(query(needsCol, fsLimit(1)));
   if (!snap.empty) return;
-  const banks = await ensureFoodBanksLoaded();
+  const banks = await ensureBeneficiariesLoaded();
   await Promise.all(
     SEED_NEEDS.map((seed, i) =>
       addDoc(needsCol, {
         ...seed,
-        foodBankId: pickOrgFor(banks, seed.category, seed.itemName, i),
+        [BENEFICIARY_ID_FIELD]: pickOrgFor(banks, seed.category, seed.itemName, i),
         // 씨드에서는 API를 부르지 않는다. 문자열 규칙으로 채워두고,
         // /api/admin/backfill-generic-names가 나중에 AI 값으로 덮는다.
         genericName: canonicalItemName(seed.itemName),
         createdAt: new Date().toISOString(),
-      })
-    )
+      }),
+    ),
   );
 }
 
@@ -623,7 +655,12 @@ async function ensureSeeded() {
  * 요청에 어울리는 종류의 기관을 하나 고른다. 같은 종류 안에서는 순번으로 돌려서
  * 41건이 한 기관에 몰리지 않게 한다. 맞는 종류가 없으면 아무 기관에나 붙인다.
  */
-function pickOrgFor(banks: FoodBank[], category: string, itemName: string, i: number): string {
+function pickOrgFor(
+  banks: Beneficiary[],
+  category: string,
+  itemName: string,
+  i: number,
+): string {
   const wanted = orgCategoriesForNeed(category, itemName);
   const pool = banks.filter((b) => b.category && wanted.includes(b.category));
   const from = pool.length > 0 ? pool : banks;
@@ -636,24 +673,31 @@ function pickOrgFor(banks: FoodBank[], category: string, itemName: string, i: nu
  * 문서 id는 공공데이터의 행 번호에서 만든 고정값(ph-64621 등)이라, 다시 동기화해도
  * 같은 기관이 같은 id를 유지한다 — 이미 걸린 요청·신청이 끊기지 않는다.
  */
-let foodBanksCache: FoodBank[] | null = null;
-async function ensureFoodBanksLoaded(): Promise<FoodBank[]> {
-  if (foodBanksCache) return foodBanksCache;
-  let snap = await getDocs(foodBanksCol);
+let beneficiariesCache: Beneficiary[] | null = null;
+async function ensureBeneficiariesLoaded(): Promise<Beneficiary[]> {
+  if (beneficiariesCache) return beneficiariesCache;
+  let snap = await getDocs(beneficiariesCol);
   if (snap.empty) {
-    await Promise.all(SEED_FOOD_BANKS.map((fb) => setDoc(doc(foodBanksCol, fb.id), fb)));
-    snap = await getDocs(foodBanksCol);
+    await Promise.all(
+      SEED_BENEFICIARIES.map((fb) => setDoc(doc(beneficiariesCol, fb.id), fb)),
+    );
+    snap = await getDocs(beneficiariesCol);
   }
-  foodBanksCache = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<FoodBank, "id">) }));
-  return foodBanksCache;
+  beneficiariesCache = snap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as Omit<Beneficiary, "id">),
+  }));
+  return beneficiariesCache;
 }
 
-export async function getFoodBanks(): Promise<FoodBank[]> {
-  return ensureFoodBanksLoaded();
+export async function getBeneficiaries(): Promise<Beneficiary[]> {
+  return ensureBeneficiariesLoaded();
 }
 
-export async function getFoodBank(id: string): Promise<FoodBank | undefined> {
-  const banks = await ensureFoodBanksLoaded();
+export async function getBeneficiary(
+  id: string,
+): Promise<Beneficiary | undefined> {
+  const banks = await ensureBeneficiariesLoaded();
   return banks.find((fb) => fb.id === id);
 }
 
@@ -661,28 +705,36 @@ export async function getFoodBank(id: string): Promise<FoodBank | undefined> {
  * 공공데이터에서 새로 받은 기관 목록을 Firestore에 반영한다(/api/admin/sync-orgs).
  *
  * 목록에서 사라진 기관 문서는 지우는데, 그 기관을 참조하던 요청이 남아 있으면
- * 화면이 깨진다(getFoodBank가 undefined). 그래서 지우기 전에 그 요청들을 같은
+ * 화면이 깨진다(getBeneficiary가 undefined). 그래서 지우기 전에 그 요청들을 같은
  * 종류의 살아있는 기관으로 옮긴다. 하드코딩 시절의 fb1~fb3도 이 경로로 정리된다.
  */
-export async function syncOrgs(orgs: FoodBank[], options: { redistribute?: boolean } = {}) {
+export async function syncOrgs(
+  orgs: Beneficiary[],
+  options: { redistribute?: boolean } = {},
+) {
   // 손으로 정리한 푸드뱅크 5곳도 같이 덮어쓴다 — 예전에 넣어둔 임시 운영시간이
   // Firestore에 남아 있으면 화면에서 계속 사실처럼 보인다.
   // 이 경로로 들어오는 기관은 항상 생활지도 API 출신이다. 호출하는 쪽이 source를
   // 빼먹어도 정리 기준이 틀어지지 않게 여기서 못 박는다.
-  const incoming: FoodBank[] = orgs.map((o) => ({ ...o, source: "lvlhmap" as const }));
-  const writing = [...CURATED_FOOD_BANKS, ...incoming];
-  await Promise.all(writing.map((o) => setDoc(doc(foodBanksCol, o.id), o)));
+  const incoming: Beneficiary[] = orgs.map((o) => ({
+    ...o,
+    source: "lvlhmap" as const,
+  }));
+  const writing = [...CURATED_BENEFICIARIES, ...incoming];
+  await Promise.all(writing.map((o) => setDoc(doc(beneficiariesCol, o.id), o)));
 
   const alive = new Set(writing.map((o) => o.id));
-  const existing = await getDocs(foodBanksCol);
+  const existing = await getDocs(beneficiariesCol);
   // 이번에 갱신한 출처의 기관만 정리 대상이다. 다른 출처는 건드리지 않는다.
   const syncedSources = new Set<string>(["lvlhmap"]);
   const stale = existing.docs
     .filter((d) => !alive.has(d.id))
-    .filter((d) => syncedSources.has((d.data().source as string | undefined) ?? "lvlhmap"))
+    .filter((d) =>
+      syncedSources.has((d.data().source as string | undefined) ?? "lvlhmap"),
+    )
     .map((d) => d.id);
 
-  // 지울 기관을 참조하는 요청이 남으면 화면이 깨진다(getFoodBank가 undefined).
+  // 지울 기관을 참조하는 요청이 남으면 화면이 깨진다(getBeneficiary가 undefined).
   // 지우기 전에 같은 종류의 살아있는 기관으로 옮긴다.
   const staleSet = new Set(stale);
   const needsSnap = await getDocs(needsCol);
@@ -690,21 +742,26 @@ export async function syncOrgs(orgs: FoodBank[], options: { redistribute?: boole
   // 늘어난 뒤 요청이 예전 5곳에만 몰려 있으면, 새로 들어온 기관은 화면에 안 나온다.
   const orphaned = needsSnap.docs.filter((d) => {
     if (options.redistribute) return true;
-    const id = d.data().foodBankId as string;
+    const id = d.data()[BENEFICIARY_ID_FIELD] as string;
     return staleSet.has(id) || !alive.has(id);
   });
   await Promise.all(
     orphaned.map((d, i) => {
       const data = d.data();
       return updateDoc(doc(needsCol, d.id), {
-        foodBankId: pickOrgFor(writing, data.category as string, data.itemName as string, i),
+        [BENEFICIARY_ID_FIELD]: pickOrgFor(
+          writing,
+          data.category as string,
+          data.itemName as string,
+          i,
+        ),
       });
-    })
+    }),
   );
 
-  await Promise.all(stale.map((id) => deleteDoc(doc(foodBanksCol, id))));
+  await Promise.all(stale.map((id) => deleteDoc(doc(beneficiariesCol, id))));
 
-  foodBanksCache = null;
+  beneficiariesCache = null;
   return {
     orgsWritten: writing.length,
     staleRemoved: stale.length,
@@ -712,11 +769,10 @@ export async function syncOrgs(orgs: FoodBank[], options: { redistribute?: boole
   };
 }
 
-
 function needFromDoc(id: string, data: Record<string, unknown>): Need {
   return {
     id,
-    foodBankId: data.foodBankId as string,
+    beneficiaryId: data[BENEFICIARY_ID_FIELD] as string,
     itemName: data.itemName as string,
     category: data.category as string,
     targetQty: data.targetQty as number,
@@ -745,12 +801,15 @@ function donationFromDoc(id: string, data: Record<string, unknown>): Donation {
   };
 }
 
-function applicationFromDoc(id: string, data: Record<string, unknown>): Application {
+function applicationFromDoc(
+  id: string,
+  data: Record<string, unknown>,
+): Application {
   return {
     id,
     donationId: data.donationId as string,
     needId: data.needId as string,
-    foodBankId: data.foodBankId as string,
+    beneficiaryId: data[BENEFICIARY_ID_FIELD] as string,
     quantity: data.quantity as number,
     candidateDates: (data.candidateDates as DateCandidate[]) ?? [],
     confirmedDate: (data.confirmedDate as string | null) ?? null,
@@ -771,7 +830,7 @@ export async function getNeed(id: string): Promise<Need | undefined> {
 }
 
 export async function createNeed(input: {
-  foodBankId: string;
+  beneficiaryId: string;
   itemName: string;
   category: string;
   targetQty: number;
@@ -785,7 +844,7 @@ export async function createNeed(input: {
     filledQty: 0,
     createdAt: new Date().toISOString(),
   };
-  const ref = await addDoc(needsCol, data);
+  const ref = await addDoc(needsCol, toDocFields(data));
   return { id: ref.id, ...data };
 }
 
@@ -800,13 +859,16 @@ export async function createNeed(input: {
  */
 export async function backfillGenericNames(
   derive: (names: string[]) => Promise<Map<string, string>>,
-  force = false
+  force = false,
 ) {
   const snap = await getDocs(needsCol);
   const targets = snap.docs.filter((d) => force || !d.data().genericName);
-  if (targets.length === 0) return { scanned: snap.size, updated: 0, distinctNames: 0, names: {} };
+  if (targets.length === 0)
+    return { scanned: snap.size, updated: 0, distinctNames: 0, names: {} };
 
-  const distinct = [...new Set(targets.map((d) => d.data().itemName as string))];
+  const distinct = [
+    ...new Set(targets.map((d) => d.data().itemName as string)),
+  ];
   const derived = await derive(distinct);
 
   await Promise.all(
@@ -815,7 +877,7 @@ export async function backfillGenericNames(
       const value = derived.get(itemName);
       if (!value) return Promise.resolve();
       return updateDoc(doc(needsCol, d.id), { genericName: value });
-    })
+    }),
   );
 
   return {
@@ -827,15 +889,18 @@ export async function backfillGenericNames(
 }
 
 export type NeedView = Need & {
-  foodBank: FoodBank;
+  beneficiary: Beneficiary;
   progress: number;
   remainingQty: number;
   pendingQty: number;
   urgent: boolean;
 };
 
-/** need 하나와, 이미 불러온 관련 데이터를 조합한다. foodBank만 Firestore(캐시)를 본다. */
-async function computeNeedView(need: Need, pendingQty: number): Promise<NeedView> {
+/** need 하나와, 이미 불러온 관련 데이터를 조합한다. beneficiary만 Firestore(캐시)를 본다. */
+async function computeNeedView(
+  need: Need,
+  pendingQty: number,
+): Promise<NeedView> {
   // Math.round는 99.5%도 100%로 올려버려서, 1개가 남았는데도 "목표 달성"으로
   // 보이는 경우가 생긴다. 실제로 다 채워졌을 때(filledQty >= targetQty)만 100%를 준다.
   const progress =
@@ -845,7 +910,8 @@ async function computeNeedView(need: Need, pendingQty: number): Promise<NeedView
 
   return {
     ...need,
-    foodBank: (await getFoodBank(need.foodBankId)) ?? UNKNOWN_FOOD_BANK,
+    beneficiary:
+      (await getBeneficiary(need.beneficiaryId)) ?? UNKNOWN_BENEFICIARY,
     progress,
     remainingQty: Math.max(0, need.targetQty - need.filledQty),
     pendingQty,
@@ -859,14 +925,18 @@ async function computeNeedView(need: Need, pendingQty: number): Promise<NeedView
  * need마다 따로 물어보면(N+1) Firestore 왕복이 요청 수만큼 늘어나니 한 번에 처리한다.
  */
 async function pendingQtyByNeed(needs: Need[]): Promise<Map<string, number>> {
-  const pendingSnap = await getDocs(query(applicationsCol, where("status", "==", "pending")));
-  const pendingApps = pendingSnap.docs.map((d) => applicationFromDoc(d.id, d.data()));
+  const pendingSnap = await getDocs(
+    query(applicationsCol, where("status", "==", "pending")),
+  );
+  const pendingApps = pendingSnap.docs.map((d) =>
+    applicationFromDoc(d.id, d.data()),
+  );
   if (pendingApps.length === 0) return new Map();
 
   const donationIds = Array.from(new Set(pendingApps.map((a) => a.donationId)));
   const donations = await Promise.all(donationIds.map((id) => getDonation(id)));
   const categoryByDonationId = new Map(
-    donations.filter(Boolean).map((d) => [d!.id, d!.category])
+    donations.filter(Boolean).map((d) => [d!.id, d!.category]),
   );
 
   const needCategoryById = new Map(needs.map((n) => [n.id, n.category]));
@@ -888,9 +958,13 @@ export async function listNeeds(): Promise<NeedView[]> {
   const pendingByNeed = await pendingQtyByNeed(needsList);
 
   const views = await Promise.all(
-    needsList.map((need) => computeNeedView(need, pendingByNeed.get(need.id) ?? 0))
+    needsList.map((need) =>
+      computeNeedView(need, pendingByNeed.get(need.id) ?? 0),
+    ),
   );
-  return views.sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.progress - b.progress);
+  return views.sort(
+    (a, b) => Number(b.urgent) - Number(a.urgent) || a.progress - b.progress,
+  );
 }
 
 /** 신청 상세(describeApplication)처럼 need 하나만 필요한 자리용. */
@@ -914,7 +988,11 @@ export type NeedMatch = NeedView & {
 };
 
 /** 정렬용. 요청한 바로 그 물건 → 같은 분류의 다른 물건 → 분류가 다른 물건 순. */
-const GRADE_ORDER: Record<MatchGrade, number> = { exact: 0, similar: 1, different: 2 };
+const GRADE_ORDER: Record<MatchGrade, number> = {
+  exact: 0,
+  similar: 1,
+  different: 2,
+};
 
 function needLabelOf(score: number) {
   if (score >= 70) return "매우 필요";
@@ -933,64 +1011,68 @@ export async function matchNeeds(
   itemName: string,
   regionName: string,
   /** 기부 물품의 일반명. 사진 판독 때 모델이 뽑아준 값. 없으면 품목명으로 비교한다. */
-  genericName: string | null = null
+  genericName: string | null = null,
 ): Promise<NeedMatch[]> {
   const origin = getRegion(regionName || DEFAULT_REGION);
   const all = await listNeeds();
 
-  return all
-    .map((need) => {
-      const isExact = need.category === category;
-      // 카테고리가 맞아도 물건이 다를 수 있다 — 즉석밥 요청에 라면을 내는 경우다.
-      // 이걸 구분해야 "같은 분류라 함께 받는다"는 사실을 화면에서 말할 수 있다.
-      const matchGrade: MatchGrade = !isExact
-        ? "different"
-        : isSameItemBy({ itemName, genericName }, need)
-          ? "exact"
-          : "similar";
-      const distance = distanceKm(origin, need.foodBank);
-      const shortage = need.remainingQty / need.targetQty;
+  return (
+    all
+      .map((need) => {
+        const isExact = need.category === category;
+        // 카테고리가 맞아도 물건이 다를 수 있다 — 즉석밥 요청에 라면을 내는 경우다.
+        // 이걸 구분해야 "같은 분류라 함께 받는다"는 사실을 화면에서 말할 수 있다.
+        const matchGrade: MatchGrade = !isExact
+          ? "different"
+          : isSameItemBy({ itemName, genericName }, need)
+            ? "exact"
+            : "similar";
+        const distance = distanceKm(origin, need.beneficiary);
+        const shortage = need.remainingQty / need.targetQty;
 
-      const base = Math.round(shortage * 60);
-      const urgentBonus = need.urgent ? 25 : 0;
-      const proximity = distance <= 3 ? 15 : distance <= 7 ? 8 : 0;
-      const raw = isExact ? base + urgentBonus + proximity : Math.round((base + proximity) * 0.5);
-      const needScore = Math.max(0, Math.min(100, raw));
+        const base = Math.round(shortage * 60);
+        const urgentBonus = need.urgent ? 25 : 0;
+        const proximity = distance <= 3 ? 15 : distance <= 7 ? 8 : 0;
+        const raw = isExact
+          ? base + urgentBonus + proximity
+          : Math.round((base + proximity) * 0.5);
+        const needScore = Math.max(0, Math.min(100, raw));
 
-      const needReason =
-        matchGrade === "different"
-          ? `${category} 요청은 아니지만 ${need.foodBank.name}에서 다른 물품을 기다려요`
-          : matchGrade === "similar"
-            ? // 품목명이 "즉석밥 210g"처럼 한글로 안 끝나면 withJosa가 받침을 못 읽는다.
-              // 단위마다 읽는 법이 달라(그램→을, 리터→를) 규칙으로 풀기 어려우니
-              // 조사가 필요 없는 문장으로 쓴다.
-              `${need.itemName} 요청이지만, 같은 분류라 함께 받아요`
-            : need.remainingQty === 0
-              ? "목표를 이미 채웠어요. 여유분으로 받아요"
-              : need.urgent
-                ? `${withJosa(need.itemName, "이", "가")} ${need.remainingQty}개 더 필요해요. 도움이 필요해요`
-                : `${need.remainingQty}개만 더 모으면 목표를 채워요`;
+        const needReason =
+          matchGrade === "different"
+            ? `${category} 요청은 아니지만 ${need.beneficiary.name}에서 다른 물품을 기다려요`
+            : matchGrade === "similar"
+              ? // 품목명이 "즉석밥 210g"처럼 한글로 안 끝나면 withJosa가 받침을 못 읽는다.
+                // 단위마다 읽는 법이 달라(그램→을, 리터→를) 규칙으로 풀기 어려우니
+                // 조사가 필요 없는 문장으로 쓴다.
+                `${need.itemName} 요청이지만, 같은 분류라 함께 받아요`
+              : need.remainingQty === 0
+                ? "목표를 이미 채웠어요. 여유분으로 받아요"
+                : need.urgent
+                  ? `${withJosa(need.itemName, "이", "가")} ${need.remainingQty}개 더 필요해요. 도움이 필요해요`
+                  : `${need.remainingQty}개만 더 모으면 목표를 채워요`;
 
-      return {
-        ...need,
-        needScore,
-        needLabel: needLabelOf(needScore),
-        needReason,
-        distanceKm: distance,
-        rank: 0,
-        exactMatch: isExact,
-        matchGrade,
-      };
-    })
-    // 요청한 바로 그 물건을 먼저 보여준다. 점수만으로 정렬하면 분류가 다른데
-    // 아주 급한 요청이 딱 맞는 요청보다 위로 올 수 있다.
-    .sort(
-      (a, b) =>
-        GRADE_ORDER[a.matchGrade] - GRADE_ORDER[b.matchGrade] ||
-        b.needScore - a.needScore ||
-        a.distanceKm - b.distanceKm
-    )
-    .map((n, i) => ({ ...n, rank: i + 1 }));
+        return {
+          ...need,
+          needScore,
+          needLabel: needLabelOf(needScore),
+          needReason,
+          distanceKm: distance,
+          rank: 0,
+          exactMatch: isExact,
+          matchGrade,
+        };
+      })
+      // 요청한 바로 그 물건을 먼저 보여준다. 점수만으로 정렬하면 분류가 다른데
+      // 아주 급한 요청이 딱 맞는 요청보다 위로 올 수 있다.
+      .sort(
+        (a, b) =>
+          GRADE_ORDER[a.matchGrade] - GRADE_ORDER[b.matchGrade] ||
+          b.needScore - a.needScore ||
+          a.distanceKm - b.distanceKm,
+      )
+      .map((n, i) => ({ ...n, rank: i + 1 }))
+  );
 }
 
 export type DateOption = {
@@ -1009,20 +1091,21 @@ export type DateRecommendation = {
 /**
  * 기관 운영일 ∩ 기부자 가능 요일 ∩ 시간대 교집합.
  * "양쪽 모두 가능한 시간대만 걸러서 날짜 추천"의 실제 구현.
- * FoodBank를 조회하는 부분만 Firestore(캐시)를 본다. 나머지는 순수 계산.
+ * Beneficiary를 조회하는 부분만 Firestore(캐시)를 본다. 나머지는 순수 계산.
  *
  * donorAvailability는 요일마다 다른 시간대를 가질 수 있다(예: 월요일은 오전만,
  * 화요일은 오후만 가능). 키로 들어있는 요일만 "가능한 요일"이고, 값은 그 요일의
  * 시간대("상관없음"|"오전"|"오후")다. 빈 객체는 "아무 요일이나 시간대나 괜찮다"는 뜻이다.
  */
 export async function recommendDates(
-  foodBankId: string,
+  beneficiaryId: string,
   donorAvailability: Record<string, string>,
   maxDateISO?: string | null,
-  limit = 3
+  limit = 3,
 ): Promise<DateRecommendation> {
-  const fb = await getFoodBank(foodBankId);
-  if (!fb) return { ok: false, message: "기관 정보를 찾을 수 없어요", options: [] };
+  const fb = await getBeneficiary(beneficiaryId);
+  if (!fb)
+    return { ok: false, message: "기관 정보를 찾을 수 없어요", options: [] };
 
   // 공공데이터에는 기관 운영일·수거시간이 없다. 없는 걸 지어내면 실존 기관에 대한
   // 허위 정보가 되므로, 모르면 "모른다"로 두고 회원님 가능 요일만 제약으로 쓴다.
@@ -1070,10 +1153,18 @@ export async function recommendDates(
   }
 
   if (options.length > 0) {
-    return { ok: true, message: `양쪽 모두 가능한 날짜 ${options.length}개를 찾았어요`, options };
+    return {
+      ok: true,
+      message: `양쪽 모두 가능한 날짜 ${options.length}개를 찾았어요`,
+      options,
+    };
   }
   if (blockedByExpiry) {
-    return { ok: false, message: "유통기한 전에 양쪽 모두 가능한 날이 없어요", options: [] };
+    return {
+      ok: false,
+      message: "유통기한 전에 양쪽 모두 가능한 날이 없어요",
+      options: [],
+    };
   }
   return {
     ok: false,
@@ -1122,7 +1213,12 @@ export async function getDonation(id: string): Promise<Donation | undefined> {
 
 export async function updateDonation(
   id: string,
-  patch: Partial<Pick<Donation, "itemName" | "category" | "quantity" | "expiryDate" | "region">>
+  patch: Partial<
+    Pick<
+      Donation,
+      "itemName" | "category" | "quantity" | "expiryDate" | "region"
+    >
+  >,
 ): Promise<Donation | undefined> {
   const donation = await getDonation(id);
   if (!donation) return undefined;
@@ -1130,7 +1226,8 @@ export async function updateDonation(
   const update: Record<string, unknown> = {};
   if (patch.itemName !== undefined) update.itemName = patch.itemName;
   if (patch.category !== undefined) update.category = patch.category;
-  if (patch.quantity !== undefined) update.quantity = clampQuantity(patch.quantity);
+  if (patch.quantity !== undefined)
+    update.quantity = clampQuantity(patch.quantity);
   if (patch.region !== undefined) update.region = patch.region;
   if (patch.expiryDate !== undefined) {
     update.expiryDate = patch.expiryDate;
@@ -1143,7 +1240,15 @@ export async function updateDonation(
 }
 
 export async function createApplication(
-  input: Pick<Application, "donationId" | "needId" | "quantity" | "candidateDates" | "place" | "contact">
+  input: Pick<
+    Application,
+    | "donationId"
+    | "needId"
+    | "quantity"
+    | "candidateDates"
+    | "place"
+    | "contact"
+  >,
 ): Promise<Application | undefined> {
   const need = await getNeed(input.needId);
   if (!need) return undefined;
@@ -1152,23 +1257,27 @@ export async function createApplication(
     ...input,
     confirmedDate: null,
     confirmedSlot: null,
-    foodBankId: need.foodBankId,
+    beneficiaryId: need.beneficiaryId,
     status: "pending" as const,
     receiptRequested: false,
     createdAt: new Date().toISOString(),
   };
-  const ref = await addDoc(applicationsCol, data);
+  const ref = await addDoc(applicationsCol, toDocFields(data));
   return { id: ref.id, ...data };
 }
 
-export async function getApplication(id: string): Promise<Application | undefined> {
+export async function getApplication(
+  id: string,
+): Promise<Application | undefined> {
   const snap = await getDoc(doc(applicationsCol, id));
   if (!snap.exists()) return undefined;
   return applicationFromDoc(snap.id, snap.data());
 }
 
 export async function listApplications(): Promise<Application[]> {
-  const snap = await getDocs(query(applicationsCol, orderBy("createdAt", "desc")));
+  const snap = await getDocs(
+    query(applicationsCol, orderBy("createdAt", "desc")),
+  );
   return snap.docs.map((d) => applicationFromDoc(d.id, d.data()));
 }
 
@@ -1189,7 +1298,7 @@ export async function listApplications(): Promise<Application[]> {
 export async function updateApplicationStatus(
   id: string,
   status: Application["status"],
-  confirmed?: DateCandidate
+  confirmed?: DateCandidate,
 ): Promise<Application | undefined> {
   return runTransaction(db, async (tx) => {
     const appRef = doc(applicationsCol, id);
@@ -1199,17 +1308,28 @@ export async function updateApplicationStatus(
 
     if (status === "accepted") {
       const isValidCandidate = confirmed
-        ? application.candidateDates.some((c) => c.date === confirmed.date && c.slot === confirmed.slot)
+        ? application.candidateDates.some(
+            (c) => c.date === confirmed.date && c.slot === confirmed.slot,
+          )
         : false;
       if (!isValidCandidate) return undefined;
     }
 
     const needRef = doc(needsCol, application.needId);
     const donationRef = doc(donationsCol, application.donationId);
-    const [needSnap, donationSnap] = await Promise.all([tx.get(needRef), tx.get(donationRef)]);
-    const need = needSnap.exists() ? needFromDoc(needSnap.id, needSnap.data()) : undefined;
-    const donation = donationSnap.exists() ? donationFromDoc(donationSnap.id, donationSnap.data()) : undefined;
-    const countsTowardProgress = Boolean(need && donation && need.category === donation.category);
+    const [needSnap, donationSnap] = await Promise.all([
+      tx.get(needRef),
+      tx.get(donationRef),
+    ]);
+    const need = needSnap.exists()
+      ? needFromDoc(needSnap.id, needSnap.data())
+      : undefined;
+    const donation = donationSnap.exists()
+      ? donationFromDoc(donationSnap.id, donationSnap.data())
+      : undefined;
+    const countsTowardProgress = Boolean(
+      need && donation && need.category === donation.category,
+    );
 
     if (need && countsTowardProgress) {
       let filledQty = need.filledQty;
@@ -1235,7 +1355,9 @@ export async function updateApplicationStatus(
   });
 }
 
-export async function requestReceipt(id: string): Promise<Application | undefined> {
+export async function requestReceipt(
+  id: string,
+): Promise<Application | undefined> {
   const application = await getApplication(id);
   if (!application) return undefined;
   await updateDoc(doc(applicationsCol, id), { receiptRequested: true });
@@ -1243,17 +1365,17 @@ export async function requestReceipt(id: string): Promise<Application | undefine
 }
 
 export async function describeApplication(application: Application) {
-  const [donation, needView, foodBank] = await Promise.all([
+  const [donation, needView, beneficiary] = await Promise.all([
     getDonation(application.donationId),
     getNeedView(application.needId),
-    getFoodBank(application.foodBankId),
+    getBeneficiary(application.beneficiaryId),
   ]);
   return {
     ...application,
-    // 삭제 기능이 없어 신청이 참조하는 donation/foodBank는 항상 존재한다는 가정.
+    // 삭제 기능이 없어 신청이 참조하는 donation/beneficiary는 항상 존재한다는 가정.
     // 나중에 삭제 경로가 생기면 이 단언이 깨진다.
     donation: donation!,
-    foodBank: foodBank ?? UNKNOWN_FOOD_BANK,
+    beneficiary: beneficiary ?? UNKNOWN_BENEFICIARY,
     need: needView,
   };
 }

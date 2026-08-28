@@ -49,8 +49,14 @@ const STATUS_DESC: Record<ApplicationDetail["status"], string> = {
  * 신청 완료 화면. /apply의 한 단계가 아니라 /complete/[id]라는 독립 페이지다.
  * 주소를 갖는 덕에 새로고침해도 유지되고, 나중에 다시 들어와 상태를 확인할 수 있다.
  */
-export default function CompleteView({ applicationId }: { applicationId: string }) {
-  const [application, setApplication] = useState<ApplicationDetail | null>(null);
+export default function CompleteView({
+  applicationId,
+}: {
+  applicationId: string;
+}) {
+  const [application, setApplication] = useState<ApplicationDetail | null>(
+    null,
+  );
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
@@ -154,7 +160,9 @@ export default function CompleteView({ applicationId }: { applicationId: string 
   }
 
   if (loadState === "loading") {
-    return <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>;
+    return (
+      <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>
+    );
   }
 
   // 서버는 살아 있는데 못 불러온 경우. 다시 시작하라고 하면 안 된다 — 신청은 남아 있으니
@@ -169,7 +177,10 @@ export default function CompleteView({ applicationId }: { applicationId: string 
           잠시 후 다시 시도해주세요.
         </p>
         <div className="mt-2 w-full max-w-xs">
-          <button onClick={() => setReloadKey((n) => n + 1)} className={btnSecondary}>
+          <button
+            onClick={() => setReloadKey((n) => n + 1)}
+            className={btnSecondary}
+          >
             다시 시도
           </button>
         </div>
@@ -203,10 +214,14 @@ export default function CompleteView({ applicationId }: { applicationId: string 
   const need = application.need;
   // 카테고리가 요청과 다르면 수락돼도 진행률에 반영되지 않는다 — 그런 경우엔
   // 미리보기 숫자를 보여주지 않는다(실제로 그 값이 되지 않으니까).
-  const categoryMatches = need ? application.donation.category === need.category : false;
+  const categoryMatches = need
+    ? application.donation.category === need.category
+    : false;
   // 분류는 같은데 물건이 다른 경우. 기관이 판단하는 중이라는 사실만 담담히 알린다 —
   // "받을 수 있는지 확인 중"처럼 쓰면 이미 신청을 마친 사람을 불안하게 만든다.
-  const sameItem = need ? isSameItem(application.donation.itemName, need.itemName) : true;
+  const sameItem = need
+    ? isSameItem(application.donation.itemName, need.itemName)
+    : true;
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
@@ -249,9 +264,9 @@ export default function CompleteView({ applicationId }: { applicationId: string 
               {application.confirmedSlot && ` ${application.confirmedSlot}`}
             </p>
             <p className="mt-1.5 text-[13px] leading-relaxed text-neutral-600">
-              {application.foodBank.name}
+              {application.beneficiary.name}
               <br />
-              {application.foodBank.address}
+              {application.beneficiary.address}
             </p>
             {/* 날짜를 화면에 적어두는 것과 잊지 않는 것은 다른 문제다.
                 약속이 정해진 이 자리에서 바로 달력으로 옮길 수 있게 한다. */}
@@ -260,12 +275,16 @@ export default function CompleteView({ applicationId }: { applicationId: string 
                 달력에 추가
               </button>
             </div>
-            {calendarError && <p className="mt-2 text-[13px] text-danger-fg">{calendarError}</p>}
+            {calendarError && (
+              <p className="mt-2 text-[13px] text-danger-fg">{calendarError}</p>
+            )}
           </div>
         ) : (
           <div
             className={`rounded-xl px-4 py-3.5 ${
-              application.status === "rejected" ? "bg-neutral-50" : "bg-warning-bg"
+              application.status === "rejected"
+                ? "bg-neutral-50"
+                : "bg-warning-bg"
             }`}
           >
             <p className={label}>제안한 날짜</p>
@@ -311,11 +330,13 @@ export default function CompleteView({ applicationId }: { applicationId: string 
                 이 요청 수치에는 안 들어가지만, 기관에 직접 전달돼요
               </p>
             )}
-            {application.status === "pending" && categoryMatches && !sameItem && (
-              <p className="text-xs text-neutral-500">
-                &apos;{need.itemName}&apos; 요청이라, 기관이 확인하고 있어요
-              </p>
-            )}
+            {application.status === "pending" &&
+              categoryMatches &&
+              !sameItem && (
+                <p className="text-xs text-neutral-500">
+                  &apos;{need.itemName}&apos; 요청이라, 기관이 확인하고 있어요
+                </p>
+              )}
           </div>
         )}
 
@@ -325,7 +346,9 @@ export default function CompleteView({ applicationId }: { applicationId: string 
         <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 border-t border-neutral-100 pt-4">
           <div>
             <p className={label}>나눔 품목</p>
-            <p className="mt-1 text-[15px] leading-snug">{application.donation.itemName}</p>
+            <p className="mt-1 text-[15px] leading-snug">
+              {application.donation.itemName}
+            </p>
             <p className={caption}>{application.donation.category}</p>
           </div>
 
@@ -334,7 +357,9 @@ export default function CompleteView({ applicationId }: { applicationId: string 
             <p className="mt-1 text-[15px]">{application.quantity}개</p>
             {application.donation.expiryDate && (
               // 화면의 다른 날짜는 전부 "8월 25일"인데 여기만 2027-03-09이면 눈에 걸린다.
-              <p className={caption}>~{formatExpiry(application.donation.expiryDate)}</p>
+              <p className={caption}>
+                ~{formatExpiry(application.donation.expiryDate)}
+              </p>
             )}
           </div>
 
@@ -343,13 +368,12 @@ export default function CompleteView({ applicationId }: { applicationId: string 
             <div className="col-span-2">
               <p className={label}>받는 곳</p>
               <p className="mt-1 text-[15px] leading-snug">
-                {application.foodBank.name}
+                {application.beneficiary.name}
                 {need && ` · ${need.itemName}`}
               </p>
-              <p className={caption}>{application.foodBank.address}</p>
+              <p className={caption}>{application.beneficiary.address}</p>
             </div>
           )}
-
         </div>
       </div>
 
@@ -360,13 +384,20 @@ export default function CompleteView({ applicationId }: { applicationId: string 
         {/* 거절은 끝이 아니다. 같은 물품으로 다른 기관을 찾는 게 다음 행동인데
             그 길(/match/[donationId])이 화면에 없었다. */}
         {application.status === "rejected" && (
-          <Link href={`/match/${application.donationId}`} className={btnSecondary}>
+          <Link
+            href={`/match/${application.donationId}`}
+            className={btnSecondary}
+          >
             이 물품으로 다른 곳 찾아보기
           </Link>
         )}
         <Link
           href="/board"
-          className={application.status === "rejected" ? `${btnGhost} mx-auto` : btnSecondary}
+          className={
+            application.status === "rejected"
+              ? `${btnGhost} mx-auto`
+              : btnSecondary
+          }
         >
           다른 요청도 채워보기
         </Link>
@@ -403,7 +434,11 @@ function parseSlotHours(slot: string | null) {
 
 /** ics 값에는 쉼표·세미콜론·역슬래시·줄바꿈이 그대로 들어가면 안 된다. */
 function escapeIcsText(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
 }
 
 function pad(n: number) {
@@ -417,7 +452,8 @@ function buildCalendarFile(application: ApplicationDetail) {
   const date = application.confirmedDate!;
   const compactDate = date.replace(/-/g, "");
   const hours = parseSlotHours(application.confirmedSlot);
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const stamp =
+    new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 
   const when = hours
     ? [
@@ -428,7 +464,7 @@ function buildCalendarFile(application: ApplicationDetail) {
 
   const title = `${application.donation.itemName} ${application.quantity}개 전달`;
   const detail = [
-    `${application.foodBank.name}에 나눔 물품을 전달하는 날이에요.`,
+    `${application.beneficiary.name}에 나눔 물품을 전달하는 날이에요.`,
     application.confirmedSlot ? `수거 시간: ${application.confirmedSlot}` : "",
   ]
     .filter(Boolean)
@@ -444,7 +480,7 @@ function buildCalendarFile(application: ApplicationDetail) {
     `DTSTAMP:${stamp}`,
     ...when,
     `SUMMARY:${escapeIcsText(title)}`,
-    `LOCATION:${escapeIcsText(application.foodBank.address)}`,
+    `LOCATION:${escapeIcsText(application.beneficiary.address)}`,
     `DESCRIPTION:${escapeIcsText(detail)}`,
     "END:VEVENT",
     "END:VCALENDAR",
