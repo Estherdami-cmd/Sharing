@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import NeedBoard from "@/app/_components/NeedBoard";
+import Loading from "@/app/_components/Loading";
 import PageShell from "@/app/_components/PageShell";
 
 const TITLE = "지금 필요한 것들 — 여러시";
@@ -22,9 +23,7 @@ export const metadata: Metadata = {
 export default function BoardPage() {
   return (
     <PageShell>
-      <Suspense
-        fallback={<p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>}
-      >
+      <Suspense fallback={<Loading label="목록" fullPage />}>
         <NeedBoard />
       </Suspense>
     </PageShell>
