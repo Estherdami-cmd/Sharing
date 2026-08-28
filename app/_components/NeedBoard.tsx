@@ -354,6 +354,54 @@ export default function NeedBoard() {
   return (
     <div className="flex flex-col gap-8">
       <ToastViewport toast={toast} />
+      {/*
+        최근 나눔 소식: "지금 실제로 돌아가는 서비스"라는 느낌을 주는 활동 로그.
+        주식 시세판처럼 화면 맨 위에서 옆으로 흘러간다 — 페이지에 들어오자마자
+        무언가 오가고 있다는 게 먼저 보이게 제목보다 위에 둔다.
+
+        같은 목록을 두 벌 그려서 -50%까지 밀면 이음매 없이 이어진다(globals.css의
+        ticker-scroll). 두 번째 벌은 화면 낭독기가 같은 내용을 두 번 읽지 않도록
+        aria-hidden으로 가린다.
+
+        신청 기록이 하나도 없어도 자리를 비우지 않는다 — 통째로 사라지면 화면이
+        허전해 보인다.
+      */}
+      {recentActivity.length > 0 ? (
+        <div
+          /*
+            시세판처럼 화면 끝까지 닿게 컨테이너 밖으로 빼낸다. 100vw는 세로
+            스크롤바 폭까지 세어 가로 스크롤을 만들 수 있어서, 실제로 넘치지 않는지
+            재보고 넣었다.
+          */
+          className="ticker-track relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden border-y border-neutral-200/70 bg-white/60 py-2"
+        >
+          <div className="relative flex">
+            <div
+              className="animate-ticker flex shrink-0 items-center gap-6 pr-6"
+              // 항목이 많을수록 길어지므로 같은 속도로 흐르도록 개수에 맞춰 늘린다.
+              style={{ ["--ticker-duration" as string]: `${Math.max(24, recentActivity.length * 6)}s` }}
+            >
+              {[...recentActivity, ...recentActivity].map((a, i) => (
+                <p
+                  key={`${a.id}-${i}`}
+                  aria-hidden={i >= recentActivity.length}
+                  className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[13px] text-neutral-600"
+                >
+                  <span aria-hidden className="text-primary-600">
+                    ●
+                  </span>
+                  <span className="font-bold text-neutral-900">{a.beneficiary.name}</span>
+                  <span>
+                    {a.donation.itemName} {a.quantity}개
+                  </span>
+                  <span className="text-neutral-400">{formatRelativeTime(a.createdAt)}</span>
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <header className="flex flex-col items-center pb-2 pt-1 text-center">
         <h1 className={pageTitle}>지금 필요한 것들</h1>
         <p className={pageDesc}>기관이 올린 목표를 여럿이 나눠 채우고 있어요</p>
@@ -429,44 +477,6 @@ export default function NeedBoard() {
           </Link>
         </div>
       </header>
-
-      {/*
-        최근 나눔 소식: "지금 실제로 돌아가는 서비스"라는 느낌을 주는 활동 로그.
-        신청 기록이 하나도 없어도(서버가 막 리셋됐을 때 등) 섹션 자체를 숨기지
-        않는다 — 통째로 사라지면 화면이 허전해 보인다. 대신 곧 채워질 거라는
-        기대를 주는 빈 상태를 보여준다.
-      */}
-      <section className="flex flex-col gap-2">
-        <h2 className="text-center text-[13px] font-bold text-neutral-400">
-          최근 나눔 소식
-        </h2>
-        {recentActivity.length > 0 ? (
-          <div className="relative">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {recentActivity.map((a) => (
-                <p
-                  key={a.id}
-                  className="shrink-0 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[13px] whitespace-nowrap text-neutral-600"
-                >
-                  <span className="font-bold text-neutral-900">
-                    {a.beneficiary.name}
-                  </span>
-                  에 {a.donation.itemName} {a.quantity}개
-                  <span className="ml-1.5 text-neutral-400">
-                    · {formatRelativeTime(a.createdAt)}
-                  </span>
-                </p>
-              ))}
-            </div>
-            {/* 가로로 더 스크롤할 게 있다는 걸 은은하게 알려준다. */}
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-neutral-50 to-transparent" />
-          </div>
-        ) : loading ? null : (
-          <p className="text-center text-[13px] text-neutral-400">
-            아직 나눔 소식이 없어요. 첫 나눔의 주인공이 되어보세요!
-          </p>
-        )}
-      </section>
 
       {/* 목표 임박 하이라이트: "여럿이 나눠서 채운다"가 가장 눈에 보이는 순간. */}
       {activeNeeds.length > 0 && (
