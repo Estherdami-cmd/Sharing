@@ -373,7 +373,7 @@ export default function NeedBoard() {
             스크롤바 폭까지 세어 가로 스크롤을 만들 수 있어서, 실제로 넘치지 않는지
             재보고 넣었다.
           */
-          className="ticker-track relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden border-y border-neutral-200/70 bg-white/60 py-2"
+          className="ticker-track relative left-1/2 -mt-10 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden border-b border-neutral-200/70 bg-white/60 py-2"
         >
           <div className="relative flex">
             <div
@@ -552,21 +552,28 @@ export default function NeedBoard() {
           />
         </div>
 
-        <div className="flex flex-wrap justify-center gap-1.5">
-          {[FILTER_ALL, ...CATEGORIES].map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategoryFilter(c)}
-              className={
-                "cursor-pointer rounded-full border px-4 py-2 text-[13px] font-bold transition-colors " +
-                (categoryFilter === c
-                  ? "border-primary-500 bg-primary-500 text-neutral-900"
-                  : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
-              }
-            >
-              {c}
-            </button>
-          ))}
+        {/*
+          분류가 13개라 칩으로 늘어놓으면 좁은 화면에서 네 줄까지 차지하고, 색이
+          비슷한 알약이 화면을 덮어 정작 검색창과 목록이 묻혔다. 고르는 값이
+          하나뿐이니 드롭다운이 맞다 — 접혀 있어 자리를 안 쓰고, 지금 무엇으로
+          걸러져 있는지도 닫힌 상태에서 그대로 보인다.
+        */}
+        <div className="mx-auto flex w-full max-w-sm items-center gap-2">
+          <label htmlFor="category-filter" className="shrink-0 text-[13px] text-neutral-400">
+            분류
+          </label>
+          <select
+            id="category-filter"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="h-11 min-w-0 flex-1 cursor-pointer rounded-xl border border-neutral-200 bg-white px-3 text-[14px] font-bold text-neutral-700 shadow-sm outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
+          >
+            {[FILTER_ALL, ...CATEGORIES].map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center justify-center gap-1.5 text-[13px] text-neutral-400">
