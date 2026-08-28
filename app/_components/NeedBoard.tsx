@@ -369,17 +369,11 @@ export default function NeedBoard() {
       {recentActivity.length > 0 ? (
         <div
           /*
-            시세판처럼 화면 끝까지 닿게 컨테이너 밖으로 빼낸다. 100vw는 세로
-            스크롤바 폭까지 세어 가로 스크롤을 만들 수 있어서, 실제로 넘치지 않는지
-            재보고 넣었다.
+            시세판처럼 화면 끝까지 닿게 컨테이너 밖으로 빼낸다. w-screen은 세로
+            스크롤바 폭까지 세어 가로 스크롤을 만들 수 있어서, 폭 대신 좌우 음수
+            여백으로 넓힌다. 실제로 넘치지 않는지 재보고 넣었다.
           */
-          /*
-            화면 끝까지 닿게 만드는 방법을 left/translate에서 좌우 음수 여백으로
-            바꿨다. sticky는 left를 "고정될 위치"로 해석해서, left-1/2를 함께 쓰면
-            띠가 화면 절반부터 그려지고 나머지는 뚫려 뒤 카드가 비쳤다.
-            여백만 쓰면 위치 계산에 끼어들지 않아 sticky와 같이 쓸 수 있다.
-          */
-          className="ticker-track sticky top-16 z-40 -mt-10 mx-[calc(50%-50vw)] overflow-hidden border-b border-neutral-200/70 bg-neutral-50/85 py-2 backdrop-blur-md"
+          className="ticker-track -mt-10 mx-[calc(50%-50vw)] overflow-hidden border-b border-neutral-200/70 bg-neutral-50 py-2"
         >
           <div className="relative flex">
             <div
@@ -537,29 +531,21 @@ export default function NeedBoard() {
       )}
 
       {/*
-        검색·필터·정렬은 카드가 많아질수록 스크롤해서 다시 위로 올라와야 하는
-        번거로움이 커진다. 헤더 바로 아래에 붙여서 목록을 내려보다가도 바로
-        조건을 바꿀 수 있게 한다.
+        검색·필터·정렬을 한 덩어리로 묶어 목록 바로 위에 둔다.
+
+        한동안 티커와 이 바를 화면에 고정해 뒀는데, 스크롤하는 내내 위쪽 두 줄이
+        따라다녀 어지러웠다. 목록을 읽는 동안에는 화면이 조용한 편이 낫다.
       */}
-      {/* 배경을 거의 비워서 페이지 톤이 그대로 비치게 하고, 블러만으로 스크롤되는
-          카드 위에서도 글자가 읽히게 한다 — 색이 꽉 찬 상자로 안 보이면서도
-          sticky 상태에서 밑에 지나가는 카드가 뚜렷이 겹쳐 보이진 않아야 한다. */}
-      <div
-        /*
-          티커가 헤더 바로 아래(top-16)에 붙으므로, 필터 바는 그 아래에 선다.
-          104px = 헤더 64px + 티커 40px. 둘 다 top-16이면 겹쳐서 티커가 가려진다.
-        */
-        className="sticky top-[104px] z-30 mt-2 flex flex-col gap-3 rounded-2xl bg-neutral-50/35 px-4 py-4 backdrop-blur-lg sm:px-6"
-      >
+      <div className="mt-2 flex flex-col gap-3 rounded-2xl px-4 py-4 sm:px-6">
         <div className="mx-auto w-full max-w-sm">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="품목명으로 검색 (예: 기저귀)"
-            // 이 검색창은 공용 field와 달리 sticky 바 안에 떠 있는 자리라, 폼 입력처럼
-            // 진한 테두리로 두면 상자가 붕 떠 보인다. 테두리를 옅게 낮추고 그림자를
-            // 얹어 다른 카드들처럼 "떠 있는" 느낌으로 맞춘다.
+            // 이 검색창은 공용 field와 달리 카드 목록 위에 홀로 놓이는 자리라, 폼
+            // 입력처럼 진한 테두리로 두면 상자가 붕 떠 보인다. 테두리를 옅게 낮추고
+            // 그림자를 얹어 다른 카드들처럼 "떠 있는" 느낌으로 맞춘다.
             className="h-12 w-full rounded-xl border border-neutral-200 bg-white px-4 text-[15px] text-neutral-900 shadow-sm outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
           />
         </div>
