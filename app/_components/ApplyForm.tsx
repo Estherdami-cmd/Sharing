@@ -22,6 +22,7 @@ import {
   pageTitle,
 } from "../ui";
 import DeliveryMap from "./DeliveryMap";
+import Loading from "./Loading";
 import NeedProgress from "./NeedProgress";
 
 const SLOT_CHOICES = ["상관없음", "오전", "오후"];
@@ -263,7 +264,7 @@ export default function ApplyForm() {
 
   if (loadState === "loading") {
     return (
-      <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>
+      <Loading label="신청 정보" fullPage />
     );
   }
 

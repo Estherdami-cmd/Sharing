@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { formatKoreanDate, isSameItem } from "@/lib/rules";
 import type { ApplicationDetail } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
+import Loading from "./Loading";
 import {
   btnGhost,
   btnOutline,
@@ -161,7 +162,7 @@ export default function CompleteView({
 
   if (loadState === "loading") {
     return (
-      <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>
+      <Loading label="신청 내역" fullPage />
     );
   }
 

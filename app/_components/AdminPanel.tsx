@@ -10,6 +10,7 @@ import {
 } from "@/lib/rules";
 import type { ApplicationDetail, Beneficiary, NeedView } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
+import Loading from "./Loading";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
 import {
   btnDanger,
@@ -341,7 +342,7 @@ export default function AdminPanel() {
               )}
             </div>
             {loading && (
-              <p className="text-[15px] text-neutral-500">불러오는 중...</p>
+              <Loading label="신청 목록" />
             )}
             {!loading && myNeeds.length === 0 && (
               <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-6 text-center text-[15px] text-neutral-400">

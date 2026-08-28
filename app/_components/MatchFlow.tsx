@@ -20,6 +20,7 @@ import {
   toneBadge,
 } from "../ui";
 import NeedProgress from "./NeedProgress";
+import Loading from "./Loading";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
 
 type MatchResult = NeedMatch;
@@ -135,7 +136,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
 
   if (loadState === "loading") {
     return (
-      <p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>
+      <Loading label="기관 정보" fullPage />
     );
   }
 
@@ -182,11 +183,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
         </div>
       </div>
 
-      {matchLoading && (
-        <p className="text-center text-[15px] text-neutral-500">
-          불러오는 중...
-        </p>
-      )}
+      {matchLoading && <Loading label="맞는 기관" />}
 
       {!matchLoading && matches.length > 0 && !matches[0].exactMatch && (
         <p className="mx-auto w-full max-w-lg rounded-xl border border-warning-fg/20 bg-warning-bg px-4 py-3 text-[13px] leading-relaxed text-warning-fg">

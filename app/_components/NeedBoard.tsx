@@ -101,7 +101,7 @@ function NeedCard({
           <button
             onClick={() => onShare(need)}
             aria-label="이 요청 공유하기"
-            className="absolute right-2.5 top-2.5 grid size-8 cursor-pointer place-items-center rounded-full bg-neutral-900/70 text-white transition-colors hover:bg-neutral-900"
+            className="absolute right-2.5 top-2.5 grid size-8 cursor-pointer place-items-center rounded-full bg-neutral-900/70 text-white transition-colors hover:bg-neutral-900 after:absolute after:-inset-1.5 after:content-['']"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -128,7 +128,7 @@ function NeedCard({
           <button
             onClick={() => onShare(need)}
             aria-label="이 요청 공유하기"
-            className="ml-auto grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-none bg-neutral-100 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+            className="relative ml-auto grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-none bg-neutral-100 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700 after:absolute after:-inset-1.5 after:content-['']"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -184,18 +184,13 @@ function NeedCard({
         compact
       />
 
-      {need.remainingQty > 0 && (
-        <p className="break-keep text-[15px] font-semibold text-neutral-900">
-          {need.remainingQty.toLocaleString()}개만 더 모으면 목표를 채워요
-        </p>
-      )}
       {need.note && <p className={caption}>{need.note}</p>}
 
       <Link
         href={`/donate?needId=${need.id}`}
         className={`${btnPrimary} mt-auto`}
       >
-        여기에 나눔하기
+        나눔하기
       </Link>
     </article>
   );
@@ -608,7 +603,9 @@ export default function NeedBoard() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className={`${card} animate-pulse`}>
-              <div className="-mx-5 -mt-5 aspect-4/3 rounded-t-2xl bg-neutral-200" />
+              {/* 사진 자리(4:3)를 두면, 사진 없는 요청이 대부분이라 데이터가 온
+                  순간 그 자리가 사라져 카드가 위로 튄다. 카드 본체와 같은 줄
+                  구성만 남긴다. */}
               <div className="h-7 w-16 rounded bg-neutral-200" />
               <div className="h-5 w-3/4 rounded bg-neutral-200" />
               <div className="h-4 w-1/2 rounded bg-neutral-200" />

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Loading from "@/app/_components/Loading";
 import PageShell from "@/app/_components/PageShell";
 import RegisterFlow from "@/app/_components/RegisterFlow";
 
@@ -6,7 +7,7 @@ import RegisterFlow from "@/app/_components/RegisterFlow";
 export default function DonatePage() {
   return (
     <PageShell>
-      <Suspense fallback={<p className="text-center text-[15px] text-neutral-500">불러오는 중...</p>}>
+      <Suspense fallback={<Loading label="물품 정보" fullPage />}>
         <RegisterFlow />
       </Suspense>
     </PageShell>
