@@ -35,6 +35,7 @@ export default function NeedProgress({
   mineQty,
   mineCounted = false,
   resetKey,
+  compact = false,
 }: {
   filledQty: number;
   targetQty: number;
@@ -50,6 +51,9 @@ export default function NeedProgress({
   mineCounted?: boolean;
   /** 값이 바뀔 때만 카운트업을 0부터 다시(느리게) 재생하고 싶을 때(예: 새로고침) 넘긴다. */
   resetKey?: unknown;
+  /** 좁은 카드에서 쓴다. "30개 채워짐"의 "채워짐"이 두 줄로 쪼개지는 걸 막으려고
+   *  단위 문구를 줄인다. 게시판 카드처럼 폭이 170px 남짓인 곳에서만 켠다. */
+  compact?: boolean;
 }) {
   const pendingWidth = Math.min(100 - progress, Math.round((pendingQty / targetQty) * 100));
   const mineShare = mineQty == null ? 0 : Math.round((mineQty / targetQty) * 100);
@@ -103,12 +107,16 @@ export default function NeedProgress({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between">
-        <p className="text-[13px] text-neutral-500">
-          <span className="tabular text-2xl font-extrabold tracking-[-0.02em] text-neutral-900">
+        <p className={`${compact ? "whitespace-nowrap text-xs" : "text-[13px]"} text-neutral-500`}>
+          <span
+            className={`tabular font-extrabold tracking-[-0.02em] text-neutral-900 ${
+              compact ? "text-xl" : "text-2xl"
+            }`}
+          >
             {displayedFilled.toLocaleString()}
           </span>
           <span className="mx-1">/</span>
-          {targetQty.toLocaleString()}개 채워짐
+          {targetQty.toLocaleString()}개{compact ? "" : " 채워짐"}
         </p>
         <span className={`tabular text-[17px] font-extrabold ${textClass(progress)}`}>
           {displayedProgress}%

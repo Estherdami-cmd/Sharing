@@ -34,7 +34,7 @@ type NeedView = {
   note: string;
   imageUrl: string | null;
   createdAt: string;
-  beneficiary: { name: string; address: string };
+  beneficiary: { name: string; address: string; region: string };
 };
 
 type SortKey = "default" | "newest" | "almost";
@@ -121,14 +121,14 @@ function NeedCard({
           </button>
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-2">
-          <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-bold text-neutral-500">
+        <div className="flex items-center gap-1.5">
+          <span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-bold text-neutral-500">
             {need.category}
           </span>
           <button
             onClick={() => onShare(need)}
             aria-label="이 요청 공유하기"
-            className="grid size-8 cursor-pointer place-items-center rounded-full border-none bg-neutral-100 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+            className="ml-auto grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-none bg-neutral-100 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -149,24 +149,29 @@ function NeedCard({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2">
-        <span className="tabular text-3xl font-extrabold text-primary-700">
-          {displayedProgress}%
-        </span>
-        {need.urgent && (
-          <span className={toneBadge("caution")}>도움이 필요해요</span>
-        )}
-      </div>
+      {/*
+        진행률은 아래 NeedProgress가 "4 / 30개 채워짐"과 "13%"를 이미 보여준다.
+        여기 큰 글씨로 한 번 더 찍으면 같은 값이 다른 색으로 두 번 나와, 서로 다른
+        수치처럼 읽힌다. 그래서 카드에서는 빼고 막대 쪽에만 남긴다.
 
+        기관 주소는 전체 주소 대신 지역만 쓴다. 카드가 좁아지면 "포항시 북구
+        삼흥로74번길 7-7"이 두 줄로 접혀 카드가 그만큼 길어진다. 정확한 주소는
+        신청 화면의 전달 장소에서 지도와 함께 보여준다.
+      */}
       <div>
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">
+        {/* 모바일은 카드가 두 줄로 놓여 폭이 좁다. break-keep이 없으면 "스테인리스
+            밀폐용기 세트"가 "밀폐용/기 세트"처럼 단어 중간에서 끊긴다. */}
+        <h2 className="break-keep text-[17px] font-bold tracking-[-0.02em] text-neutral-900">
           {need.itemName}
         </h2>
-        <p className="mt-0.5 text-xs text-neutral-400">
-          {need.beneficiary.name} · {need.beneficiary.address}
-        </p>
-        <p className="mt-0.5 text-xs text-neutral-400">
-          {formatRelativeTime(need.createdAt)} 등록
+        {/* 급한 표시는 좁은 카드에서 분류 배지 옆에 두면 "도…"로 잘린다. 제목 아래
+            한 줄을 통째로 주면 어느 폭에서도 온전히 읽힌다. */}
+        {need.urgent && (
+          <span className={`${toneBadge("caution")} mt-1 inline-block`}>도움이 필요해요</span>
+        )}
+        <p className="mt-1 break-keep text-xs leading-relaxed text-neutral-400">
+          {need.beneficiary.name} · {need.beneficiary.region} ·{" "}
+          {formatRelativeTime(need.createdAt)}
         </p>
       </div>
 
@@ -176,10 +181,11 @@ function NeedCard({
         progress={need.progress}
         pendingQty={need.pendingQty}
         resetKey={countUpResetKey}
+        compact
       />
 
       {need.remainingQty > 0 && (
-        <p className="text-[15px] font-semibold text-neutral-900">
+        <p className="break-keep text-[15px] font-semibold text-neutral-900">
           {need.remainingQty.toLocaleString()}개만 더 모으면 목표를 채워요
         </p>
       )}
@@ -385,26 +391,32 @@ export default function NeedBoard() {
           실제 신청 기록이 있을 때만 보조 문장으로 따로 보여준다.
         */}
         {totalTarget > 0 && (
-          <div className="mx-auto mt-6 flex w-full max-w-2xl flex-col items-center gap-2 rounded-[28px] bg-primary-50 px-8 py-10 shadow-sm sm:px-12">
-            <p className="text-sm font-bold text-primary-700">
-              지금까지의 나눔
-            </p>
-            <p className="tabular text-4xl font-extrabold text-neutral-900 sm:text-5xl">
-              <span className="text-primary-700">
-                {displayedTotalFilled.toLocaleString()}개
-              </span>
-              가 모였어요
-            </p>
-            <p className="tabular text-sm font-semibold text-neutral-500 sm:text-[15px]">
-              전체 {totalFilled.toLocaleString()} /{" "}
-              {totalTarget.toLocaleString()}개 · 요청{" "}
-              {needs.length.toLocaleString()}건
-            </p>
-            {acceptedCount > 0 && (
-              <p className="text-sm text-neutral-500">
-                이 중 {acceptedCount}건은 이 서비스를 통해 오갔어요
+          /*
+            숫자 세 개를 세로로 쌓아 213px을 쓰던 자리다. 첫 화면이 통계로 다 차서
+            정작 요청 카드가 한 장도 안 보였다. 가로로 나눠 담아 높이를 줄인다.
+            좁은 화면에서도 세 칸이 들어가도록 숫자는 크게, 라벨은 작게 둔다.
+          */
+          <div className="mx-auto mt-5 grid w-full max-w-2xl grid-cols-3 divide-x divide-primary-700/10 rounded-2xl bg-primary-50 px-2 py-4 shadow-sm">
+            <div className="flex flex-col items-center gap-0.5 px-1">
+              <p className="tabular text-2xl font-extrabold text-primary-700 sm:text-3xl">
+                {displayedTotalFilled.toLocaleString()}
               </p>
-            )}
+              <p className="text-xs font-bold text-neutral-500">모인 물품</p>
+            </div>
+            <div className="flex flex-col items-center gap-0.5 px-1">
+              <p className="tabular text-2xl font-extrabold text-neutral-900 sm:text-3xl">
+                {needs.length.toLocaleString()}
+              </p>
+              <p className="text-xs font-bold text-neutral-500">열린 요청</p>
+            </div>
+            <div className="flex flex-col items-center gap-0.5 px-1">
+              <p className="tabular text-2xl font-extrabold text-neutral-900 sm:text-3xl">
+                {totalTarget.toLocaleString()}
+              </p>
+              <p className="break-keep text-center text-xs font-bold text-neutral-500">
+                목표 수량
+              </p>
+            </div>
           </div>
         )}
 
@@ -473,30 +485,28 @@ export default function NeedBoard() {
               */}
               <div className="flex justify-[safe_center] gap-3 overflow-x-auto pb-1">
                 {almostThereNeeds.map((need) => (
-                  <article
+                  /*
+                    예전에는 여기에도 진행바와 버튼이 달린 미니 카드를 놓았다. 아래
+                    그리드에 있는 요청을 카드 모양 그대로 한 번 더 그리는 셈이라
+                    257px을 쓰면서 첫 화면에서 정작 그리드를 밀어냈다.
+                    한 줄 칩으로 줄인다 — "무엇이 몇 개 남았는지"만 보이면 되고,
+                    누르면 바로 나눔 화면으로 간다.
+                  */
+                  <Link
                     key={need.id}
-                    className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl bg-white p-4 transition-shadow hover:shadow-md"
+                    href={`/donate?needId=${need.id}`}
+                    className="flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2.5 shadow-sm transition-shadow hover:shadow-md"
                   >
-                    <p className="text-xs font-bold text-primary-700">
-                      {need.beneficiary.name}
-                    </p>
-                    <h3 className="text-[15px] font-bold tracking-[-0.02em]">
+                    <span className="whitespace-nowrap text-[14px] font-bold text-neutral-900">
                       {need.itemName}
-                    </h3>
-                    <NeedProgress
-                      filledQty={need.filledQty}
-                      targetQty={need.targetQty}
-                      progress={need.progress}
-                      pendingQty={need.pendingQty}
-                      resetKey={countUpResetKey}
-                    />
-                    <Link
-                      href={`/donate?needId=${need.id}`}
-                      className={btnPrimaryCompact}
-                    >
-                      여기에 나눔하기
-                    </Link>
-                  </article>
+                    </span>
+                    <span className="whitespace-nowrap text-xs text-neutral-400">
+                      {need.beneficiary.name}
+                    </span>
+                    <span className="tabular whitespace-nowrap text-[13px] font-extrabold text-warning-fg">
+                      {need.remainingQty.toLocaleString()}개 남음
+                    </span>
+                  </Link>
                 ))}
               </div>
               <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-warning-bg to-transparent" />
@@ -580,7 +590,7 @@ export default function NeedBoard() {
         위에 스켈레톤이 겹쳐 순간적으로 두 세트가 동시에 보이게 된다.
       */}
       {loading && needs.length === 0 && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className={`${card} animate-pulse`}>
               <div className="-mx-5 -mt-5 aspect-4/3 rounded-t-2xl bg-neutral-200" />
@@ -615,7 +625,7 @@ export default function NeedBoard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sortedNeeds.map((need, i) => (
           <NeedCard
             key={need.id}
@@ -638,7 +648,7 @@ export default function NeedBoard() {
             🎉 목표를 채운 요청들
           </h2>
           {completedNeeds.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {completedNeeds.map((need) => (
                 <article
                   key={need.id}
