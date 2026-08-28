@@ -7,7 +7,7 @@ import PageShell from "@/app/_components/PageShell";
 export default function ApplyPage() {
   return (
     <PageShell>
-      <Suspense fallback={<Loading label="신청서" fullPage />}>
+      <Suspense fallback={<Loading label="신청서" size="lg" overlay />}>
         <ApplyForm />
       </Suspense>
     </PageShell>

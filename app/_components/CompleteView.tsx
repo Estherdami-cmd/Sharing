@@ -162,7 +162,7 @@ export default function CompleteView({
 
   if (loadState === "loading") {
     return (
-      <Loading label="신청 내역" fullPage />
+      <Loading label="신청 내역" size="lg" overlay />
     );
   }
 

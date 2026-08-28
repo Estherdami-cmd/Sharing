@@ -7,7 +7,7 @@ import RegisterFlow from "@/app/_components/RegisterFlow";
 export default function DonatePage() {
   return (
     <PageShell>
-      <Suspense fallback={<Loading label="물품 정보" fullPage />}>
+      <Suspense fallback={<Loading label="물품 정보" size="lg" overlay />}>
         <RegisterFlow />
       </Suspense>
     </PageShell>
