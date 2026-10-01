@@ -17,6 +17,7 @@ import {
   btnGhost,
   btnOutline,
   btnPrimary,
+  btnPrimaryCompact,
   card,
   caption,
   field,
@@ -32,6 +33,17 @@ import {
 type ApplicationRow = Omit<ApplicationDetail, "contact"> & {
   contact: string | null;
 };
+
+// 기관 관리 코드는 탭을 닫으면 잊는다. 공용 PC에서 다음 사람에게 남지 않게.
+const ADMIN_TOKEN_KEY = "sharing.adminToken";
+
+function readStoredToken(): string {
+  try {
+    return sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
 
 const STATUS_BADGE = {
   pending: { tone: "caution", label: "대기중" },
@@ -76,6 +88,14 @@ export default function AdminPanel() {
   // 이 기억이 없으면 포커스가 돌아올 때마다(useRefetchOnFocus) 방금 본 번호가
   // 다시 잠긴다 — 전화 걸려고 다른 앱에 갔다 오는 딱 이 기능의 실제 쓰임에서 계속 걸린다.
   const revealedContactsRef = useRef<Record<string, string>>({});
+  /*
+   * 기관 관리 코드. 처음부터 묻지 않고 서버가 401을 줄 때만 입력란을 띄운다 —
+   * 코드가 설정되지 않은 로컬 개발에서는 입력란이 아예 안 보인다.
+   */
+  const adminTokenRef = useRef("");
+  const [codeRequired, setCodeRequired] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [resolvedFilter, setResolvedFilter] = useState<"pending" | "all">(
     "pending",
   );
@@ -90,12 +110,52 @@ export default function AdminPanel() {
     (fb) => fb.id === beneficiaryId,
   )?.name;
 
+  useEffect(() => {
+    adminTokenRef.current = readStoredToken();
+  }, []);
+
+  /** 관리 코드를 실어 보낸다. 401이면 코드가 없거나 틀린 것이라 입력란을 띄운다. */
+  async function adminFetch(url: string, init: RequestInit = {}) {
+    const headers = new Headers(init.headers);
+    if (adminTokenRef.current) headers.set("x-admin-token", adminTokenRef.current);
+    const res = await fetch(url, { ...init, headers });
+    if (res.status === 401) askForCode();
+    return res;
+  }
+
+  function askForCode() {
+    setCodeError(adminTokenRef.current ? "코드가 맞지 않아요. 다시 입력해주세요" : null);
+    adminTokenRef.current = "";
+    try {
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    } catch {}
+    setCodeRequired(true);
+  }
+
+  function handleSubmitCode() {
+    const code = codeInput.trim();
+    if (!code) return;
+    adminTokenRef.current = code;
+    try {
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, code);
+    } catch {}
+    setCodeInput("");
+    setCodeError(null);
+    setCodeRequired(false);
+  }
+
   async function handleRevealContact(id: string) {
     setRevealingContactIds((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`/api/applications/${id}`);
+      const res = await adminFetch(`/api/applications/${id}`);
       if (res.ok) {
         const detail = await res.json();
+        // 개별 조회는 기부자 완료 화면도 쓰므로 자격이 없어도 401이 아니라
+        // 연락처만 가린 200을 준다. 가려져 왔으면 코드가 없거나 틀린 것이다.
+        if (!detail.contact) {
+          askForCode();
+          return;
+        }
         revealedContactsRef.current[id] = detail.contact;
         setApplications((prev) =>
           prev.map((app) =>
@@ -219,7 +279,7 @@ export default function AdminPanel() {
       return;
     }
     setSubmitting(true);
-    const res = await fetch("/api/needs", {
+    const res = await adminFetch("/api/needs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -252,7 +312,7 @@ export default function AdminPanel() {
     status: "accepted" | "rejected",
     confirmed?: { date: string; slot: string },
   ) {
-    await fetch(`/api/applications/${id}`, {
+    await adminFetch(`/api/applications/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -263,6 +323,41 @@ export default function AdminPanel() {
     });
     load();
   }
+
+  const codeForm = codeRequired && (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmitCode();
+      }}
+      className="flex flex-col gap-2 rounded-2xl border border-neutral-200/70 bg-white p-4"
+    >
+      <label htmlFor="admin-code" className={label}>
+        기관 관리 코드
+      </label>
+      <p className={caption}>
+        신청 수락·거절, 연락처 보기, 요청 등록은 관리 코드가 있어야 할 수 있어요
+      </p>
+      <div className="flex gap-2">
+        <input
+          id="admin-code"
+          type="password"
+          autoComplete="off"
+          value={codeInput}
+          onChange={(e) => setCodeInput(e.target.value)}
+          className={`${field} min-w-0 flex-1`}
+        />
+        <button
+          type="submit"
+          disabled={!codeInput.trim()}
+          className={`${btnPrimaryCompact} w-auto! shrink-0 px-5`}
+        >
+          확인
+        </button>
+      </div>
+      {codeError && <p className="text-[13px] text-danger-fg">{codeError}</p>}
+    </form>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -291,6 +386,8 @@ export default function AdminPanel() {
           </svg>
         </button>
       </header>
+
+      {codeForm}
 
       {/*
         기관 선택은 이 화면 전체의 범위를 정한다 — 아래 "등록한 요청"과 "들어온 신청"이
@@ -752,6 +849,8 @@ export default function AdminPanel() {
           {formError && (
             <p className="text-[13px] text-danger-fg">{formError}</p>
           )}
+          {/* 대화상자는 모달이라 페이지의 코드 입력란에 손이 닿지 않는다. 여기에도 띄운다. */}
+          {codeForm}
 
           <button
             onClick={handleCreateNeed}

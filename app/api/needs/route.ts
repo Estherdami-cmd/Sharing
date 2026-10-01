@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CATEGORIES, clampTargetQty } from "@/lib/rules";
 import { deriveGenericNames } from "@/lib/generic-name";
+import { requireAdmin } from "@/lib/admin-auth";
 import {
   createNeed,
   getBeneficiary,
@@ -20,6 +21,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+
   let body: any;
   try {
     body = await request.json();
