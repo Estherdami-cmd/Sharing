@@ -89,11 +89,22 @@ export default function AdminPanel() {
   // 다시 잠긴다 — 전화 걸려고 다른 앱에 갔다 오는 딱 이 기능의 실제 쓰임에서 계속 걸린다.
   const revealedContactsRef = useRef<Record<string, string>>({});
   /*
-   * 기관 관리 코드. 처음부터 묻지 않고 서버가 401을 줄 때만 입력란을 띄운다 —
-   * 코드가 설정되지 않은 로컬 개발에서는 입력란이 아예 안 보인다.
+   * 기관 관리 코드. 숨겨두고 버튼을 눌러야 띄웠더니 "코드를 어디에 넣지?"가 안
+   * 보였다. 그래서 처음부터 기관 선택 상자에 입력란을 둔다.
+   *   checking  들어오자마자 서버에 코드가 필요한지 묻는 중
+   *   open      코드가 설정되지 않은 로컬 개발. 입력란을 안 보인다
+   *   needed    코드가 없거나 틀렸다. 입력란을 보인다
+   *   verified  맞는 코드를 넣었다. "확인됨 · 변경"으로 줄인다
    */
   const adminTokenRef = useRef("");
-  const [codeRequired, setCodeRequired] = useState(false);
+  const [codeState, setCodeState] = useState<
+    "checking" | "open" | "needed" | "verified"
+  >("checking");
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  // 동작 중에 코드가 막혔을 때만 입력란으로 데려간다. 처음 들어왔을 때 포커스를
+  // 주면 모바일에서 키보드가 바로 올라와 화면을 가린다.
+  const [codeFocusRequest, setCodeFocusRequest] = useState(0);
+  const codeRequired = codeState === "needed";
   const [codeInput, setCodeInput] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
   // 코드 때문에 막힌 동작. 코드를 넣으면 같은 버튼을 다시 누르게 하지 않고 이어서 한다.
@@ -112,8 +123,40 @@ export default function AdminPanel() {
     (fb) => fb.id === beneficiaryId,
   )?.name;
 
+  function storeToken(code: string) {
+    adminTokenRef.current = code;
+    try {
+      if (code) sessionStorage.setItem(ADMIN_TOKEN_KEY, code);
+      else sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    } catch {}
+  }
+
+  /** 서버에 이 코드가 맞는지 묻는다. 빈 코드로 물으면 "코드가 필요한 서버인지"를 알 수 있다. */
+  async function verifyCode(code: string) {
+    const res = await fetch("/api/admin/verify", {
+      headers: code ? { "x-admin-token": code } : {},
+    }).catch(() => null);
+    if (!res) return { ok: false, error: "서버에 연결하지 못했어요. 다시 시도해주세요" };
+    if (res.ok) return { ok: true, error: null };
+    if (res.status === 401) {
+      return { ok: false, error: code ? "코드가 맞지 않아요. 다시 입력해주세요" : null };
+    }
+    const body = await res.json().catch(() => null);
+    return { ok: false, error: body?.error ?? "코드를 확인하지 못했어요" };
+  }
+
   useEffect(() => {
-    adminTokenRef.current = readStoredToken();
+    const stored = readStoredToken();
+    verifyCode(stored).then(({ ok, error }) => {
+      if (ok) {
+        storeToken(stored);
+        setCodeState(stored ? "verified" : "open");
+        return;
+      }
+      storeToken("");
+      setCodeError(error);
+      setCodeState("needed");
+    });
   }, []);
 
   /**
@@ -131,39 +174,48 @@ export default function AdminPanel() {
   function askForCode(retry: () => void) {
     retryAfterCodeRef.current = retry;
     setCodeError(adminTokenRef.current ? "코드가 맞지 않아요. 다시 입력해주세요" : null);
-    adminTokenRef.current = "";
-    try {
-      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-    } catch {}
-    setCodeRequired(true);
+    storeToken("");
+    setCodeState("needed");
+    setCodeFocusRequest((n) => n + 1);
   }
 
-  function handleSubmitCode() {
+  async function handleSubmitCode() {
     const code = codeInput.trim();
-    if (!code) return;
-    adminTokenRef.current = code;
-    try {
-      sessionStorage.setItem(ADMIN_TOKEN_KEY, code);
-    } catch {}
+    if (!code || verifyingCode) return;
+    setVerifyingCode(true);
+    const { ok, error } = await verifyCode(code);
+    setVerifyingCode(false);
+    if (!ok) {
+      setCodeError(error ?? "코드가 맞지 않아요. 다시 입력해주세요");
+      return;
+    }
+    storeToken(code);
     setCodeInput("");
     setCodeError(null);
-    setCodeRequired(false);
+    setCodeState("verified");
     const retry = retryAfterCodeRef.current;
     retryAfterCodeRef.current = null;
     retry?.();
   }
 
+  function handleChangeCode() {
+    storeToken("");
+    setCodeError(null);
+    setCodeState("needed");
+    setCodeFocusRequest((n) => n + 1);
+  }
+
   /*
-   * 입력란은 페이지 맨 위(또는 열린 대화상자 안)에 뜨는데, 코드를 요구하는 버튼은
+   * 입력란은 페이지 위쪽(또는 열린 대화상자 안)에 있는데, 코드를 요구하는 버튼은
    * 대개 한참 아래의 신청 카드에 있다. 옮겨 주지 않으면 눌러도 아무 일이 없는
-   * 것처럼 보인다(실측: 모바일에서 입력란이 화면 위 291px 밖에 떴다).
+   * 것처럼 보인다(실측: 모바일에서 입력란이 화면 위 291px 밖에 있었다).
    */
   useEffect(() => {
-    if (!codeRequired) return;
+    if (codeFocusRequest === 0) return;
     const input = document.getElementById("admin-code");
     input?.scrollIntoView({ behavior: "smooth", block: "center" });
     input?.focus({ preventScroll: true });
-  }, [codeRequired, formOpen]);
+  }, [codeFocusRequest]);
 
   async function handleRevealContact(id: string) {
     setRevealingContactIds((prev) => new Set(prev).add(id));
@@ -346,41 +398,64 @@ export default function AdminPanel() {
     load();
   }
 
-  // 대화상자가 열려 있으면 그 안에만, 아니면 페이지에만 띄운다 — 같은 id가 두 번 생기지 않게.
-  const codeForm = (inDialog: boolean) => codeRequired && inDialog === formOpen && (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSubmitCode();
-      }}
-      className="flex flex-col gap-2 rounded-2xl border border-neutral-200/70 bg-white p-4"
-    >
-      <label htmlFor="admin-code" className={label}>
-        기관 관리 코드
-      </label>
-      <p className={caption}>
-        신청 수락·거절, 연락처 보기, 요청 등록은 관리 코드가 있어야 할 수 있어요
-      </p>
-      <div className="flex gap-2">
-        <input
-          id="admin-code"
-          type="password"
-          autoComplete="off"
-          value={codeInput}
-          onChange={(e) => setCodeInput(e.target.value)}
-          className={`${field} min-w-0 flex-1`}
-        />
-        <button
-          type="submit"
-          disabled={!codeInput.trim()}
-          className={`${btnPrimaryCompact} w-auto! shrink-0 px-5`}
-        >
-          확인
-        </button>
-      </div>
-      {codeError && <p className="text-[13px] text-danger-fg">{codeError}</p>}
-    </form>
-  );
+  // 대화상자가 열려 있으면 그 안에만, 아니면 페이지에만 그린다 — 같은 id가 두 번 생기지 않게.
+  // 대화상자는 모달이라 열려 있는 동안 페이지의 입력란에 손이 닿지 않는다.
+  const codeField = (inDialog: boolean) => {
+    if (inDialog !== formOpen) return null;
+    if (codeState === "verified" && !inDialog) {
+      return (
+        <p className="flex items-center gap-2 text-[13px] text-neutral-500">
+          <span className="font-semibold text-success-fg">✓ 관리 코드 확인됨</span>
+          <button
+            type="button"
+            onClick={handleChangeCode}
+            className="cursor-pointer border-none bg-transparent p-0 font-bold text-primary-700 hover:text-primary-800"
+          >
+            변경
+          </button>
+        </p>
+      );
+    }
+    if (!codeRequired) return null;
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmitCode();
+        }}
+        className="flex flex-col gap-1.5"
+      >
+        <label htmlFor="admin-code" className={label}>
+          관리 코드
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="admin-code"
+            type="password"
+            autoComplete="off"
+            placeholder="기관 관리 코드를 입력해주세요"
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value)}
+            className={`${field} min-w-0 flex-1`}
+          />
+          <button
+            type="submit"
+            disabled={!codeInput.trim() || verifyingCode}
+            className={`${btnPrimaryCompact} w-auto! shrink-0 px-5`}
+          >
+            {verifyingCode ? "확인 중" : "확인"}
+          </button>
+        </div>
+        {codeError ? (
+          <p className="text-[13px] text-danger-fg">{codeError}</p>
+        ) : (
+          <p className={caption}>
+            신청 수락·거절, 연락처 보기, 요청 등록에 필요해요
+          </p>
+        )}
+      </form>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -410,51 +485,52 @@ export default function AdminPanel() {
         </button>
       </header>
 
-      {codeForm(false)}
-
       {/*
         기관 선택은 이 화면 전체의 범위를 정한다 — 아래 "등록한 요청"과 "들어온 신청"이
         모두 여기서 고른 기관 것이다. 그래서 대화상자 안이 아니라 페이지에 둔다.
       */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200/70 bg-white p-4 sm:flex-row sm:items-end">
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <label htmlFor="beneficiary-select" className={label}>
-            우리 기관
-          </label>
-          {/*
-            기관 목록도 같이 불러오므로 처음에는 비어 있다. 빈 선택 상자는
-            "고를 게 없다"로 읽혀서, 목록이 오기 전까지는 그렇게 말해준다.
-          */}
-          <select
-            id="beneficiary-select"
-            value={beneficiaryId}
-            onChange={(e) => setBeneficiaryId(e.target.value)}
-            disabled={beneficiaries.length === 0}
-            className={field}
+      <div className="flex flex-col gap-4 rounded-2xl border border-neutral-200/70 bg-white p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <label htmlFor="beneficiary-select" className={label}>
+              우리 기관
+            </label>
+            {/*
+              기관 목록도 같이 불러오므로 처음에는 비어 있다. 빈 선택 상자는
+              "고를 게 없다"로 읽혀서, 목록이 오기 전까지는 그렇게 말해준다.
+            */}
+            <select
+              id="beneficiary-select"
+              value={beneficiaryId}
+              onChange={(e) => setBeneficiaryId(e.target.value)}
+              disabled={beneficiaries.length === 0}
+              className={field}
+            >
+              {beneficiaries.length === 0 ? (
+                <option value="">기관 목록을 불러오고 있어요</option>
+              ) : (
+                beneficiaries.map((fb) => (
+                  <option key={fb.id} value={fb.id}>
+                    {fb.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+          <button
+            onClick={() => {
+              setFormOpen(true);
+              formDialogRef.current?.showModal();
+            }}
+            className={`${btnPrimary} flex shrink-0 items-center justify-center gap-1.5 sm:w-auto sm:px-5`}
           >
-            {beneficiaries.length === 0 ? (
-              <option value="">기관 목록을 불러오고 있어요</option>
-            ) : (
-              beneficiaries.map((fb) => (
-                <option key={fb.id} value={fb.id}>
-                  {fb.name}
-                </option>
-              ))
-            )}
-          </select>
+            <span aria-hidden className="text-[18px] leading-none">
+              +
+            </span>
+            필요 물품 올리기
+          </button>
         </div>
-        <button
-          onClick={() => {
-            setFormOpen(true);
-            formDialogRef.current?.showModal();
-          }}
-          className={`${btnPrimary} flex shrink-0 items-center justify-center gap-1.5 sm:w-auto sm:px-5`}
-        >
-          <span aria-hidden className="text-[18px] leading-none">
-            +
-          </span>
-          필요 물품 올리기
-        </button>
+        {codeField(false)}
       </div>
 
       {/*
@@ -873,7 +949,7 @@ export default function AdminPanel() {
             <p className="text-[13px] text-danger-fg">{formError}</p>
           )}
           {/* 대화상자는 모달이라 페이지의 코드 입력란에 손이 닿지 않는다. 여기에도 띄운다. */}
-          {codeForm(true)}
+          {codeField(true)}
 
           <button
             onClick={handleCreateNeed}
