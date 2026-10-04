@@ -96,6 +96,8 @@ export default function AdminPanel() {
   const [codeRequired, setCodeRequired] = useState(false);
   const [codeInput, setCodeInput] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
+  // 코드 때문에 막힌 동작. 코드를 넣으면 같은 버튼을 다시 누르게 하지 않고 이어서 한다.
+  const retryAfterCodeRef = useRef<(() => void) | null>(null);
   const [resolvedFilter, setResolvedFilter] = useState<"pending" | "all">(
     "pending",
   );
@@ -114,16 +116,20 @@ export default function AdminPanel() {
     adminTokenRef.current = readStoredToken();
   }, []);
 
-  /** 관리 코드를 실어 보낸다. 401이면 코드가 없거나 틀린 것이라 입력란을 띄운다. */
-  async function adminFetch(url: string, init: RequestInit = {}) {
+  /**
+   * 관리 코드를 실어 보낸다. 401이면 코드가 없거나 틀린 것이라 입력란을 띄우고,
+   * 코드를 넣은 뒤 retry로 막힌 동작을 이어서 한다.
+   */
+  async function adminFetch(url: string, init: RequestInit, retry: () => void) {
     const headers = new Headers(init.headers);
     if (adminTokenRef.current) headers.set("x-admin-token", adminTokenRef.current);
     const res = await fetch(url, { ...init, headers });
-    if (res.status === 401) askForCode();
+    if (res.status === 401) askForCode(retry);
     return res;
   }
 
-  function askForCode() {
+  function askForCode(retry: () => void) {
+    retryAfterCodeRef.current = retry;
     setCodeError(adminTokenRef.current ? "코드가 맞지 않아요. 다시 입력해주세요" : null);
     adminTokenRef.current = "";
     try {
@@ -142,18 +148,34 @@ export default function AdminPanel() {
     setCodeInput("");
     setCodeError(null);
     setCodeRequired(false);
+    const retry = retryAfterCodeRef.current;
+    retryAfterCodeRef.current = null;
+    retry?.();
   }
+
+  /*
+   * 입력란은 페이지 맨 위(또는 열린 대화상자 안)에 뜨는데, 코드를 요구하는 버튼은
+   * 대개 한참 아래의 신청 카드에 있다. 옮겨 주지 않으면 눌러도 아무 일이 없는
+   * 것처럼 보인다(실측: 모바일에서 입력란이 화면 위 291px 밖에 떴다).
+   */
+  useEffect(() => {
+    if (!codeRequired) return;
+    const input = document.getElementById("admin-code");
+    input?.scrollIntoView({ behavior: "smooth", block: "center" });
+    input?.focus({ preventScroll: true });
+  }, [codeRequired, formOpen]);
 
   async function handleRevealContact(id: string) {
     setRevealingContactIds((prev) => new Set(prev).add(id));
     try {
-      const res = await adminFetch(`/api/applications/${id}`);
+      const retry = () => handleRevealContact(id);
+      const res = await adminFetch(`/api/applications/${id}`, {}, retry);
       if (res.ok) {
         const detail = await res.json();
         // 개별 조회는 기부자 완료 화면도 쓰므로 자격이 없어도 401이 아니라
         // 연락처만 가린 200을 준다. 가려져 왔으면 코드가 없거나 틀린 것이다.
         if (!detail.contact) {
-          askForCode();
+          askForCode(retry);
           return;
         }
         revealedContactsRef.current[id] = detail.contact;
@@ -290,7 +312,7 @@ export default function AdminPanel() {
         note,
         imageUrl,
       }),
-    });
+    }, handleCreateNeed);
     setSubmitting(false);
     if (!res.ok) {
       // 서버가 이유를 구체적으로 적어 보내면(카테고리 오류, 이미지 용량 초과 등)
@@ -320,11 +342,12 @@ export default function AdminPanel() {
         confirmedDate: confirmed?.date,
         confirmedSlot: confirmed?.slot,
       }),
-    });
+    }, () => handleDecision(id, status, confirmed));
     load();
   }
 
-  const codeForm = codeRequired && (
+  // 대화상자가 열려 있으면 그 안에만, 아니면 페이지에만 띄운다 — 같은 id가 두 번 생기지 않게.
+  const codeForm = (inDialog: boolean) => codeRequired && inDialog === formOpen && (
     <form
       onSubmit={(e) => {
         e.preventDefault();
@@ -387,7 +410,7 @@ export default function AdminPanel() {
         </button>
       </header>
 
-      {codeForm}
+      {codeForm(false)}
 
       {/*
         기관 선택은 이 화면 전체의 범위를 정한다 — 아래 "등록한 요청"과 "들어온 신청"이
@@ -850,7 +873,7 @@ export default function AdminPanel() {
             <p className="text-[13px] text-danger-fg">{formError}</p>
           )}
           {/* 대화상자는 모달이라 페이지의 코드 입력란에 손이 닿지 않는다. 여기에도 띄운다. */}
-          {codeForm}
+          {codeForm(true)}
 
           <button
             onClick={handleCreateNeed}
