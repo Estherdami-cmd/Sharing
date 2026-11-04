@@ -23,7 +23,7 @@ const LINKS: { href: string; label: string }[] = [
  * 역할(대표·PM·QA…)을 같이 적으면 한 사람이 두 줄을 쓴다. 여섯 명이면 항목이
  * 12개가 되어 푸터에서 가장 큰 덩어리가 됐다. 이름만 한 줄로 늘어놓는다.
  */
-const MAKERS = ["정유담", "황수진", "김성진", "이하나", "김기우", "김원진"];
+const MAKERS = ["정유담", "김성진", "이하나", "김기우", "김원진"];
 
 export default function Footer() {
   return (
