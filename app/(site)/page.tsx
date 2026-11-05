@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toneBadge } from "@/app/ui";
 import styles from "./Hero.module.css";
 
@@ -66,6 +66,28 @@ function categoryIcon(category: string) {
 export default function Home() {
   const [needs, setNeeds] = useState<PreviewNeed[]>([]);
   const [floatItems, setFloatItems] = useState<PreviewNeed[]>([]);
+
+  // 히어로 정중앙의 기부 버튼이 화면 밖으로 나가면 하단 고정 버튼을 띄운다.
+  // 히어로 버튼이 보이는 동안, 그리고 푸터가 보이는 동안에는 숨긴다 — 버튼이 두 개
+  // 겹쳐 보이거나 고정 버튼이 푸터 글자를 가리지 않게 하려는 것이다.
+  const heroCtaRef = useRef<HTMLAnchorElement>(null);
+  const [heroCtaVisible, setHeroCtaVisible] = useState(true);
+  const [footerVisible, setFooterVisible] = useState(false);
+  const showFloatingCta = !heroCtaVisible && !footerVisible;
+
+  useEffect(() => {
+    const hero = heroCtaRef.current;
+    const footer = document.querySelector("footer");
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === hero) setHeroCtaVisible(entry.isIntersecting);
+        else setFooterVisible(entry.isIntersecting);
+      }
+    });
+    if (hero) observer.observe(hero);
+    if (footer) observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
 
   // 아래 섹션의 미리보기 카드 3장, 히어로에 둥둥 떠다니는 칩 최대 6개 모두 같은
   // 실제 데이터에서 가져온다 — /api/needs가 이미 긴급도·진행률 순으로 정렬해서 내려준다.
@@ -269,6 +291,7 @@ export default function Home() {
 
           {/* 워드마크가 자리를 비운 정중앙에 기부 버튼이 나타난다 — 누르면 바로 기부하기로. */}
           <Link
+            ref={heroCtaRef}
             href="/donate"
             className={`${styles.ctaReveal} absolute left-1/2 top-1/2 whitespace-nowrap rounded-full bg-[#F9FAFB] px-11 py-5 text-[17px] font-extrabold tracking-[-0.01em] text-primary-800 shadow-lg transition-transform active:scale-[0.98]`}
           >
@@ -453,6 +476,20 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* 스크롤해도 계속 보이는 기부 버튼. 히어로 버튼이 화면 밖으로 나갔을 때만 나타난다. */}
+      <Link
+        href="/donate"
+        aria-hidden={!showFloatingCta}
+        tabIndex={showFloatingCta ? 0 : -1}
+        className={`fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary-800 px-9 py-4 text-[16px] font-extrabold tracking-[-0.01em] text-[#F9FAFB] shadow-lg transition-all duration-300 active:scale-[0.98] ${
+          showFloatingCta
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-4 opacity-0"
+        }`}
+      >
+        사진으로 기부하기
+      </Link>
     </>
   );
 }
