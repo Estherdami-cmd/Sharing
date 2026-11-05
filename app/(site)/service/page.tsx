@@ -80,10 +80,9 @@ export default function ServicePage() {
         <div className={mediaRow}>
           <img
             src="/service/admin.png"
-            alt="기관 관리 화면. 필요 물품을 올리는 폼과 들어온 신청 목록을 함께 보여준다"
-            /* 이 사진만 거의 정사각형이라, 다른 사진처럼 h-auto로 두면 옆 사진들보다
-               훨씬 커져버린다. 높이를 다른 사진들과 비슷하게 고정하고, 잘라내는
-               object-cover 대신 object-contain으로 잘림 없이 다 보이게 한다. */
+            alt="기관 홈 화면. 처리할 신청 수와 들어온 신청, 요청별 진행률을 함께 보여준다"
+            /* 다른 사진처럼 h-auto로 두면 옆 사진들보다 커질 수 있다. 높이를 다른 사진들과
+               비슷하게 고정하고, 잘라내는 object-cover 대신 object-contain으로 잘림 없이 다 보이게 한다. */
             className="h-64 w-full rounded-xl object-contain object-top sm:min-w-0 sm:flex-[2]"
           />
           <div className="flex flex-col gap-2 sm:flex-1">

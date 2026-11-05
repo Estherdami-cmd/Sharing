@@ -13,13 +13,14 @@ export default function ContactPage() {
         <div className={card}>
           <div>
             <p className={label}>이메일</p>
-            <p className="mt-1 text-[15px]">contact@nanumgotgan.example</p>
+            <a
+              href="mailto:yeoreosi@gmail.com"
+              className="mt-1 inline-block text-[15px] font-bold text-primary-700 hover:text-primary-800"
+            >
+              yeoreosi@gmail.com
+            </a>
           </div>
-          <div>
-            <p className={label}>운영 시간</p>
-            <p className="mt-1 text-[15px]">평일 10:00 ~ 18:00 (주말·공휴일 제외)</p>
-          </div>
-          <p className={caption}>데모 프로젝트라 실제 응답은 어려워요. 양해 부탁드려요.</p>
+          <p className={caption}>해커톤 프로젝트라 답변이 늦어질 수 있어요.</p>
         </div>
       </div>
     </PageShell>

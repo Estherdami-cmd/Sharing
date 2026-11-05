@@ -1,10 +1,10 @@
-import AdminPanel from "@/app/_components/AdminPanel";
+import OrgEntry from "@/app/_components/OrgEntry";
 import PageShell from "@/app/_components/PageShell";
 
-export default function BeneficiaryAdminPage() {
+export default function BeneficiaryEntryPage() {
   return (
     <PageShell>
-      <AdminPanel />
+      <OrgEntry />
     </PageShell>
   );
 }
