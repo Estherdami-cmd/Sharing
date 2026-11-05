@@ -35,19 +35,50 @@ export default function Header() {
   useEffect(() => {
     function onScroll() {
       setScrolled(window.scrollY > 0);
-      // 모바일 메뉴가 펼쳐진 채로 스크롤하면, 늘어난 헤더 높이가 아래 페이지의
-      // sticky 요소(예: 게시판 필터바)를 가려버린다. 스크롤 시작하면 메뉴를 닫는다.
-      setMenuOpen((open) => (open ? false : open));
     }
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  /*
+   * 모바일 메뉴가 열려 있는 동안 배경 스크롤을 잠근다.
+   *
+   * 예전에는 메뉴가 헤더 높이를 늘렸고, 스크롤하면 메뉴를 닫았다. 그러면 스크롤을
+   * 내린 뒤 열 때 늘어난 높이가 페이지를 밀어 스크롤 이벤트를 일으키고, 그 이벤트가
+   * 방금 연 메뉴를 바로 닫았다. 지금은 메뉴를 페이지 위에 겹쳐 띄워 밀지 않고,
+   * 관성 스크롤 중에 눌러도 닫히지 않도록 스크롤로 닫는 동작을 없앴다.
+   *
+   * 메뉴를 연 채 넓은 화면으로 바뀌면 메뉴는 안 보이는데 잠금만 남으므로 함께 닫는다.
+   */
+  useEffect(() => {
+    if (!menuOpen) return;
+    const root = document.documentElement;
+    const prevOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    const desktop = window.matchMedia("(min-width: 768px)");
+    function closeOnDesktop() {
+      if (desktop.matches) setMenuOpen(false);
+    }
+    function closeOnEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    desktop.addEventListener("change", closeOnDesktop);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      root.style.overflow = prevOverflow;
+      desktop.removeEventListener("change", closeOnDesktop);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
   return (
+    <>
     <header
       className={
-        "sticky top-0 z-50 border-b bg-neutral-50/85 backdrop-blur-md transition-colors " +
+        "sticky top-0 z-50 border-b transition-colors " +
+        // 메뉴가 열리면 어두운 배경이 헤더에 비치지 않게 불투명하게 둔다.
+        (menuOpen ? "bg-neutral-50 " : "bg-neutral-50/85 backdrop-blur-md ") +
         (scrolled ? "border-neutral-200/70" : "border-transparent")
       }
     >
@@ -87,7 +118,7 @@ export default function Header() {
 
         <button
           onClick={() => setMenuOpen((v) => !v)}
-          aria-label="메뉴 열기"
+          aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
           aria-expanded={menuOpen}
           className="grid size-10 cursor-pointer place-items-center rounded-lg border-none bg-transparent text-2xl text-neutral-700 md:hidden"
         >
@@ -96,7 +127,7 @@ export default function Header() {
       </div>
 
       {menuOpen && (
-        <nav className="flex flex-col gap-1 border-t border-neutral-200/70 bg-neutral-50 px-5 py-3 md:hidden">
+        <nav className="absolute inset-x-0 top-full flex max-h-[calc(100dvh-4rem)] flex-col gap-1 overflow-y-auto border-y border-neutral-200/70 bg-neutral-50 px-5 py-3 md:hidden">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -122,5 +153,16 @@ export default function Header() {
         </nav>
       )}
     </header>
+    {/* 헤더의 backdrop-blur가 fixed 자식의 기준을 헤더로 바꾸므로, 배경은 헤더 밖에 둔다. */}
+    {menuOpen && (
+      <button
+        type="button"
+        aria-label="메뉴 닫기"
+        tabIndex={-1}
+        onClick={() => setMenuOpen(false)}
+        className="fixed inset-0 z-40 cursor-default border-none bg-neutral-900/30 md:hidden"
+      />
+    )}
+    </>
   );
 }
