@@ -23,6 +23,7 @@ import {
 } from "../ui";
 import DeliveryMap from "./DeliveryMap";
 import Loading from "./Loading";
+import StepHeader from "./StepHeader";
 import NeedProgress from "./NeedProgress";
 
 const SLOT_CHOICES = ["상관없음", "오전", "오후"];
@@ -283,6 +284,10 @@ export default function ApplyForm() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
+      <StepHeader
+        step={3}
+        backHref={fromBoard ? `/donate?needId=${needId}` : `/match/${donationId}`}
+      />
       <header className="text-center">
         <h1 className={pageTitle}>나눔 신청</h1>
         <p className={pageDesc}>

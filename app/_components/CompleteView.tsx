@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { formatKoreanDate, isSameItem } from "@/lib/rules";
 import type { ApplicationDetail } from "@/lib/store";
 import NeedProgress from "./NeedProgress";
+import StepHeader from "./StepHeader";
 import Loading from "./Loading";
 import {
   btnGhost,
@@ -226,6 +227,7 @@ export default function CompleteView({
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
+      <StepHeader step={4} />
       <header className="text-center">
         <h1 className={pageTitle}>신청 완료</h1>
         <p className={pageDesc}>{STATUS_DESC[application.status]}</p>

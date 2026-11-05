@@ -32,6 +32,7 @@ import {
   pageTitle,
   toneBadge,
 } from "../ui";
+import StepHeader from "./StepHeader";
 
 type PhotoSlotKey = "product" | "expiry";
 type RecognizeStatus = "idle" | "loading" | "done" | "error";
@@ -421,6 +422,7 @@ export default function RegisterFlow() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
+      <StepHeader step={1} backHref={presetNeedId ? "/board" : "/"} />
       <header className="text-center">
         <h1 className={pageTitle}>나눔할 물품을 등록해주세요</h1>
         <p className={pageDesc}>

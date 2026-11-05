@@ -21,6 +21,7 @@ import {
 } from "../ui";
 import NeedProgress from "./NeedProgress";
 import Loading from "./Loading";
+import StepHeader from "./StepHeader";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
 
 type MatchResult = NeedMatch;
@@ -155,6 +156,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <StepHeader step={2} backHref="/donate" />
       <header className="text-center">
         <h1 className={pageTitle}>어디에 나눔할까요?</h1>
         <p className={pageDesc}>이 물건이 가장 필요한 곳 순으로 정렬했어요</p>
