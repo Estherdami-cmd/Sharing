@@ -429,6 +429,25 @@ export default function RegisterFlow() {
     router.push(`/match/${created.id}`);
   }
 
+  /**
+   * 입력 카드를 닫고 사진 단계로 돌아간다. 사진은 그대로 둔다 —
+   * 품목명을 잘못 적어서 다시 하는 건데 사진까지 지우면 다시 올려야 한다.
+   */
+  function handleBackToPhotos() {
+    setRecognizeStatus("idle");
+    setItemName("");
+    setGeneric(null);
+    setCategory("");
+    setQuantity(1);
+    setExpiryDate(null);
+    setExpiryKnown("has");
+    setManufacturedOn(null);
+    setConfidence(null);
+    setSource(null);
+    setFailure(null);
+    setRegisterError(null);
+  }
+
   function handleRestart() {
     handleClearSlot("product");
     handleClearSlot("expiry");
@@ -745,6 +764,13 @@ export default function RegisterFlow() {
               다른 물품 등록하기
             </button>
           )}
+
+          <button
+            onClick={handleBackToPhotos}
+            className={`${btnGhost} mx-auto`}
+          >
+            ← 사진 단계로 돌아가기
+          </button>
         </div>
       )}
 
