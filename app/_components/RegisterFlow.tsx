@@ -448,6 +448,13 @@ export default function RegisterFlow() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
+      <Link
+        href={presetNeedId ? "/board" : "/"}
+        className={`${btnGhost} -mb-2 self-start`}
+      >
+        {presetNeedId ? "← 게시판으로 돌아가기" : "← 처음으로 돌아가기"}
+      </Link>
+
       <header className="text-center">
         <h1 className={pageTitle}>나눔할 물품을 등록해주세요</h1>
         <p className={pageDesc}>
@@ -752,13 +759,6 @@ export default function RegisterFlow() {
             ? "다음: 신청 정보 입력"
             : "다음: 매칭 결과 확인"}
       </button>
-
-      <Link
-        href={presetNeedId ? "/board" : "/"}
-        className={`${btnGhost} mx-auto`}
-      >
-        {presetNeedId ? "← 게시판으로 돌아가기" : "← 처음으로 돌아가기"}
-      </Link>
     </div>
   );
 }
