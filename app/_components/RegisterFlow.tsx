@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -399,7 +400,8 @@ export default function RegisterFlow() {
         itemName,
         category,
         quantity: quantityValue,
-        expiryDate,
+        // "기한 없는 품목"에 체크했으면 남아 있는 날짜는 보내지 않는다.
+        expiryDate: expiryStatus === "none" ? null : expiryDate,
         region: DEFAULT_REGION,
         genericName,
         productImageUrl,
@@ -407,8 +409,9 @@ export default function RegisterFlow() {
       }),
     });
     if (!res.ok) {
+      const body = await res.json().catch(() => null);
       setSubmittingDonation(false);
-      setRegisterError("등록에 실패했어요. 다시 시도해주세요");
+      setRegisterError(body?.error ?? "등록에 실패했어요. 다시 시도해주세요");
       return;
     }
     const created = await res.json();
@@ -706,9 +709,9 @@ export default function RegisterFlow() {
                   onChange={() => {
                     // 이벤트 값 대신 현재 상태를 뒤집는다. 날짜 입력을 비우는 것도
                     // 같은 분기에서 처리해 체크와 날짜가 어긋나지 않게 한다.
-                    const next = expiryKnown === "none" ? "has" : "none";
-                    setExpiryKnown(next);
-                    if (next === "none") setExpiryDate(null);
+                    // 날짜는 지우지 않는다 — 실수로 체크했다 풀면 입력한 날짜가 그대로 돌아온다.
+                    // 체크된 동안은 expiryStatus가 "none"이라 날짜는 판정·등록에 쓰이지 않는다.
+                    setExpiryKnown(expiryKnown === "none" ? "has" : "none");
                   }}
                   className="size-4 cursor-pointer accent-primary-700"
                 />
@@ -749,6 +752,13 @@ export default function RegisterFlow() {
             ? "다음: 신청 정보 입력"
             : "다음: 매칭 결과 확인"}
       </button>
+
+      <Link
+        href={presetNeedId ? "/board" : "/"}
+        className={`${btnGhost} mx-auto`}
+      >
+        {presetNeedId ? "← 게시판으로 돌아가기" : "← 처음으로 돌아가기"}
+      </Link>
     </div>
   );
 }
