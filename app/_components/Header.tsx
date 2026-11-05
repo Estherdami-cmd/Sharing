@@ -21,6 +21,11 @@ const NAV_LINKS = [
   { href: "/service", label: "서비스 소개" },
 ];
 
+/** 기관 관리처럼 아래에 페이지가 더 있는 메뉴는 그 안에 있을 때도 켜 둔다. */
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 /** 로고(좌) · 메뉴 · 우측 CTA. 모바일은 햄버거로 접힘. 스크롤 시 하단 보더가 생긴다. */
 export default function Header() {
   const pathname = usePathname();
@@ -63,7 +68,7 @@ export default function Header() {
               href={link.href}
               className={
                 "cursor-pointer rounded-lg px-3 py-2 text-[14px] transition-colors " +
-                (pathname === link.href
+                (isActive(pathname, link.href)
                   ? "font-extrabold text-neutral-900"
                   : "font-bold text-neutral-600 hover:text-neutral-900")
               }
@@ -99,7 +104,7 @@ export default function Header() {
               onClick={() => setMenuOpen(false)}
               className={
                 "cursor-pointer rounded-lg px-3 py-2.5 text-[15px] hover:bg-neutral-100 " +
-                (pathname === link.href
+                (isActive(pathname, link.href)
                   ? "font-extrabold text-neutral-900"
                   : "font-bold text-neutral-700")
               }
