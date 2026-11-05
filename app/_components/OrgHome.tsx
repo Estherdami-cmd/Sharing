@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatKoreanDate } from "@/lib/rules";
 import type { Beneficiary, NeedView } from "@/lib/store";
+import { needPeriodLabel } from "@/lib/period";
 import { AdminCodeField, useAdminCode } from "./AdminCode";
 import Loading from "./Loading";
 import NeedProgress from "./NeedProgress";
@@ -238,6 +239,9 @@ export default function OrgHome({ orgId }: { orgId: string }) {
                 progress={need.progress}
                 pendingQty={need.pendingQty}
               />
+              {needPeriodLabel(need) && (
+                <p className="text-xs text-neutral-500">{needPeriodLabel(need)}</p>
+              )}
               {need.note && <p className={caption}>{need.note}</p>}
             </article>
           ))}

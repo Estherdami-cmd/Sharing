@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { Donation, NeedMatch } from "@/lib/store";
+import { needPeriodLabel } from "@/lib/period";
 import {
   btnGhost,
   btnPrimary,
@@ -261,6 +262,9 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
               progress={need.progress}
               pendingQty={need.pendingQty}
             />
+            {needPeriodLabel(need) && (
+              <p className="text-xs text-neutral-500">{needPeriodLabel(need)}</p>
+            )}
 
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="text-neutral-500">필요도</span>

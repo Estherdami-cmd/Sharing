@@ -19,6 +19,21 @@ import {
   pageTitle,
 } from "../ui";
 
+/** 날짜를 <input type="date">가 쓰는 "YYYY-MM-DD"로 바꾼다(브라우저 현지 시간 기준). */
+function toDateInput(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** 모집 마감일 기본값: 오늘부터 30일 뒤. 기관이 대부분 그대로 두도록 미리 채워둔다. */
+function defaultDeadline() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return toDateInput(date);
+}
+
 export default function NeedForm({ orgId }: { orgId: string }) {
   const admin = useAdminCode();
   const homePath = orgHomePath(orgId);
@@ -32,6 +47,7 @@ export default function NeedForm({ orgId }: { orgId: string }) {
   const [targetQty, setTargetQty] = useState<number | "">(50);
   const targetQtyValue = targetQty === "" ? 1 : targetQty;
   const [note, setNote] = useState("");
+  const [deadline, setDeadline] = useState(defaultDeadline);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -74,6 +90,10 @@ export default function NeedForm({ orgId }: { orgId: string }) {
       setFormError("품목명을 입력해주세요");
       return;
     }
+    if (!deadline) {
+      setFormError("모집 마감일을 선택해주세요");
+      return;
+    }
     setSubmitting(true);
     const res = await admin
       .adminFetch(
@@ -88,6 +108,7 @@ export default function NeedForm({ orgId }: { orgId: string }) {
             targetQty: targetQtyValue,
             note,
             imageUrl,
+            deadline,
           }),
         },
         handleSubmit,
@@ -112,6 +133,7 @@ export default function NeedForm({ orgId }: { orgId: string }) {
     setItemName("");
     setTargetQty(50);
     setNote("");
+    setDeadline(defaultDeadline());
     handleClearImage();
   }
 
@@ -216,6 +238,23 @@ export default function NeedForm({ orgId }: { orgId: string }) {
             onBlur={() => setTargetQty(targetQtyValue)}
             className={field}
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="need-deadline" className={label}>
+            모집 마감일
+          </label>
+          <input
+            id="need-deadline"
+            type="date"
+            min={toDateInput(new Date())}
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className={field}
+          />
+          <span className={caption}>
+            기본은 오늘부터 30일 뒤예요. 필요하면 바꿔주세요.
+          </span>
         </div>
 
         <div className="flex flex-col gap-1.5">

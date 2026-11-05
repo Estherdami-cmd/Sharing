@@ -12,6 +12,12 @@ import {
 /** data URL은 base64라 원본의 4/3배가 된다. Firestore 문서 하나가 너무 커지지 않게 막아둔다. */
 const MAX_IMAGE_DATA_URL_LENGTH = 3 * 1024 * 1024;
 const IMAGE_DATA_URL = /^data:image\/(png|jpe?g|webp|gif);base64,/;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 한국 시간 기준 오늘 날짜("YYYY-MM-DD"). 서버는 UTC로 돌아서 그냥 쓰면 오전 9시 전엔 하루 밀린다. */
+function todayInKorea() {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+}
 
 export async function GET() {
   return NextResponse.json({
@@ -83,6 +89,23 @@ export async function POST(request: Request) {
    * 쓰게 된다. 요청 등록은 기관이 어쩌다 하는 일이라 호출량이 문제되지 않는다.
    * 실패하면 문자열 규칙으로 채워지므로 등록 자체가 막히지는 않는다.
    */
+  // 모집 마감일은 선택 항목이다. 보내지 않으면 null로 두고, 보냈다면 형식과 날짜를 확인한다.
+  const deadline: string | null = body.deadline || null;
+  if (deadline) {
+    if (!DATE_ONLY.test(deadline) || Number.isNaN(Date.parse(deadline))) {
+      return NextResponse.json(
+        { error: "모집 마감일 형식이 올바르지 않습니다" },
+        { status: 400 },
+      );
+    }
+    if (deadline < todayInKorea()) {
+      return NextResponse.json(
+        { error: "모집 마감일은 오늘 이후로 정해주세요" },
+        { status: 400 },
+      );
+    }
+  }
+
   const generics = await deriveGenericNames([itemName]);
 
   const need = await createNeed({
@@ -93,6 +116,7 @@ export async function POST(request: Request) {
     note: body.note ?? "",
     imageUrl,
     genericName: generics.get(itemName) ?? null,
+    deadline,
   });
   return NextResponse.json(need);
 }
