@@ -189,16 +189,16 @@ export default function CompleteView({
     );
   }
 
-  // 저장소가 서버 메모리에 있어서 서버가 재시작되면 신청 id가 사라진다.
+  // 주소를 잘못 열었거나 신청이 삭제되면 id를 찾을 수 없다.
   // 저장해둔 주소로 들어왔을 때 빈 화면을 보여주지 않고 사유를 말한다.
   if (loadState === "notfound" || !application) {
     return (
       <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-4 py-16 text-center">
         <h1 className={pageTitle}>신청 내역을 찾을 수 없어요</h1>
         <p className="text-[15px] leading-relaxed text-neutral-500">
-          데모 서버가 초기화되면서 신청 기록이 사라졌어요.
+          주소가 잘못됐거나 삭제된 신청이에요.
           <br />
-          아래에서 다시 시작해주세요.
+          신청 조회에서 찾아보거나 아래에서 다시 시작해주세요.
         </p>
         <div className="mt-2 flex w-full max-w-xs flex-col gap-3">
           <Link href="/board" className={btnSecondary}>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import PageShell from "@/app/_components/PageShell";
 import { caption, pageDesc, pageTitle, sectionTitle } from "@/app/ui";
 
@@ -8,7 +9,7 @@ export default function TermsPage() {
         <header className="text-center">
           <h1 className={pageTitle}>이용약관</h1>
           <p className={pageDesc}>
-            이 페이지는 데모 프로젝트용 안내 문구예요. 실제 서비스 약관이 아니에요.
+            해커톤 데모 프로젝트의 안내 문구예요. 정식 서비스의 약관이 아니에요.
           </p>
         </header>
 
@@ -23,8 +24,11 @@ export default function TermsPage() {
           <section>
             <h2 className={sectionTitle}>2. 데이터 보관</h2>
             <p className={`${caption} mt-1`}>
-              입력한 정보는 서버 메모리에만 저장되며, 서버가 재시작되면 초기화돼요. 실제 개인정보
-              수집·보관 목적으로 사용되지 않아요.
+              입력한 정보는 데이터베이스에 저장되고, 지울 때까지 보관돼요. 자세한 내용은{" "}
+              <Link href="/privacy" className="font-bold text-primary-700 hover:text-primary-800">
+                개인정보처리방침
+              </Link>
+              을 확인해주세요.
             </p>
           </section>
           <section>

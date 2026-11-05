@@ -17,8 +17,7 @@ export default function SiteError({ error, reset }: { error: Error & { digest?: 
     <main className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-5 py-16 text-center">
       <h1 className={pageTitle}>문제가 생겼어요</h1>
       <p className={pageDesc}>
-        화면을 불러오는 중 오류가 났어요. 데모 서버 데이터가 방금 초기화됐거나, 일시적인
-        문제일 수 있어요.
+        화면을 불러오는 중 오류가 났어요. 일시적인 문제일 수 있으니 다시 시도해주세요.
       </p>
       <div className="mt-2 flex w-full max-w-xs flex-col gap-3">
         <button onClick={reset} className={btnPrimary}>
