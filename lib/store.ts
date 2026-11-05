@@ -99,6 +99,11 @@ export type Need = {
   /** data URL(base64). 파일 스토리지가 따로 없어 Firestore 문서에 그대로 둔다. */
   imageUrl: string | null;
   createdAt: string;
+  /**
+   * 모집 마감일("YYYY-MM-DD"). 모집 기간은 등록일(createdAt) ~ 이 날짜다.
+   * 이 필드가 생기기 전에 등록된 요청은 null이고, 화면에서는 기간을 표시하지 않는다.
+   */
+  deadline: string | null;
 };
 
 export type Donation = {
@@ -257,7 +262,7 @@ export const ORG_SNAPSHOT = orgSnapshot;
  */
 const SEED_NEEDS: Omit<
   Need,
-  "id" | "createdAt" | "beneficiaryId" | "genericName"
+  "id" | "createdAt" | "beneficiaryId" | "genericName" | "deadline"
 >[] = [
   {
     itemName: "성인용 기저귀 대형",
@@ -781,6 +786,7 @@ function needFromDoc(id: string, data: Record<string, unknown>): Need {
     imageUrl: (data.imageUrl as string | null) ?? null,
     genericName: (data.genericName as string | null) ?? null,
     createdAt: data.createdAt as string,
+    deadline: (data.deadline as string | null) ?? null,
   };
 }
 
@@ -837,10 +843,12 @@ export async function createNeed(input: {
   note: string;
   imageUrl: string | null;
   genericName?: string | null;
+  deadline?: string | null;
 }): Promise<Need> {
   const data = {
     ...input,
     genericName: input.genericName ?? null,
+    deadline: input.deadline ?? null,
     filledQty: 0,
     createdAt: new Date().toISOString(),
   };

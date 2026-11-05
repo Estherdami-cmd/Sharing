@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { CATEGORIES, formatRelativeTime } from "@/lib/rules";
+import { displayCreatedAt, needPeriodLabel } from "@/lib/period";
 import NeedProgress from "./NeedProgress";
 import Loading from "./Loading";
 import {
@@ -35,6 +36,7 @@ type NeedView = {
   note: string;
   imageUrl: string | null;
   createdAt: string;
+  deadline: string | null;
   beneficiary: { name: string; address: string; region: string };
 };
 
@@ -172,7 +174,7 @@ function NeedCard({
         )}
         <p className="mt-1 break-keep text-xs leading-relaxed text-neutral-400">
           {need.beneficiary.name} · {need.beneficiary.region} ·{" "}
-          {formatRelativeTime(need.createdAt)}
+          {formatRelativeTime(displayCreatedAt(need))}
         </p>
       </div>
 
@@ -184,6 +186,10 @@ function NeedCard({
         resetKey={countUpResetKey}
         compact
       />
+
+      {needPeriodLabel(need) && (
+        <p className="text-xs text-neutral-500">{needPeriodLabel(need)}</p>
+      )}
 
       {need.note && <p className={caption}>{need.note}</p>}
 
@@ -340,7 +346,9 @@ export default function NeedBoard() {
   // "추천순"은 서버가 이미 정해준 순서(도움 필요한 것 먼저)를 그대로 쓴다. 따로 정렬하지 않는다.
   const sortedNeeds =
     sortBy === "newest"
-      ? [...filteredNeeds].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      ? [...filteredNeeds].sort((a, b) =>
+          displayCreatedAt(a) < displayCreatedAt(b) ? 1 : -1,
+        )
       : sortBy === "almost"
         ? [...filteredNeeds].sort((a, b) => b.progress - a.progress)
         : filteredNeeds;

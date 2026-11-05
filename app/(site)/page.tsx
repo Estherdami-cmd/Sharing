@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toneBadge } from "@/app/ui";
+import { needPeriodLabel } from "@/lib/period";
 import styles from "./Hero.module.css";
 
 type PreviewNeed = {
@@ -13,6 +14,9 @@ type PreviewNeed = {
   progress: number;
   remainingQty: number;
   beneficiary: { name: string };
+  createdAt: string;
+  /** 모집 마감일("YYYY-MM-DD"). 기능 추가 전에 등록된 요청은 null이다. */
+  deadline: string | null;
 };
 
 /** 진행률에 따라 손그림 미리보기 카드의 바 색을 정한다. NeedProgress와 같은 기준. */
@@ -382,6 +386,11 @@ export default function Home() {
               {need.remainingQty > 0 && (
                 <div className="text-xs text-neutral-400">
                   {need.remainingQty}개만 더 모으면 목표를 채워요
+                </div>
+              )}
+              {needPeriodLabel(need) && (
+                <div className="text-xs text-neutral-500">
+                  {needPeriodLabel(need)}
                 </div>
               )}
             </div>
