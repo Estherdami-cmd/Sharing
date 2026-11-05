@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Beneficiary } from "@/lib/store";
 
 /**
@@ -104,7 +104,10 @@ function KakaoMap({
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
     let cancelled = false;
+    let clearOverlays: (() => void) | undefined;
     // 스크립트가 응답 없이 매달려 있는 경우까지 폴백이 걸리게 시간 제한을 둔다.
     const timer = setTimeout(() => {
       if (!cancelled) {
@@ -117,11 +120,11 @@ function KakaoMap({
 
     loadKakaoSdk()
       .then(() => {
-        if (cancelled || !boxRef.current) return;
+        if (cancelled) return;
         clearTimeout(timer);
         const { kakao } = window;
         const position = new kakao.maps.LatLng(lat, lng);
-        const map = new kakao.maps.Map(boxRef.current, {
+        const map = new kakao.maps.Map(box, {
           center: position,
           level: ZOOM_LEVEL,
         });
@@ -130,9 +133,14 @@ function KakaoMap({
 
         const marker = new kakao.maps.Marker({ position, map });
         // 이름표를 함께 띄운다. 좌표만 찍힌 핀은 "여기가 어디지"로 남는다.
-        new kakao.maps.InfoWindow({
+        const infoWindow = new kakao.maps.InfoWindow({
           content: `<div style="padding:6px 10px;font-size:13px;font-weight:700;white-space:nowrap">${name}</div>`,
-        }).open(map, marker);
+        });
+        clearOverlays = () => {
+          infoWindow.close();
+          marker.setMap(null);
+        };
+        infoWindow.open(map, marker);
       })
       .catch((error) => {
         clearTimeout(timer);
@@ -146,6 +154,9 @@ function KakaoMap({
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      clearOverlays?.();
+      // 좌표 변경이나 재마운트 때 이전 지도 DOM을 남기지 않는다.
+      box.replaceChildren();
     };
   }, [lat, lng, name, onFail]);
 
@@ -188,6 +199,8 @@ export default function DeliveryMap({
 }) {
   const { lat, lng, name } = beneficiary;
   const [mapFailed, setMapFailed] = useState(false);
+  // 폼 입력으로 다시 렌더링돼도 지도를 만들던 effect를 재실행하지 않는다.
+  const handleMapFail = useCallback(() => setMapFailed(true), []);
 
   // 공공데이터에 좌표가 없던 기관은 제외했지만, 0,0이 들어온 경우까지 방어한다.
   // 지도가 대서양 한복판을 가리키는 것보다 아예 안 보이는 게 낫다.
@@ -212,7 +225,7 @@ export default function DeliveryMap({
             lat={lat}
             lng={lng}
             name={name}
-            onFail={() => setMapFailed(true)}
+            onFail={handleMapFail}
           />
         )}
       </div>

@@ -1163,14 +1163,18 @@ export async function recommendDates(
   if (options.length > 0) {
     return {
       ok: true,
-      message: `양쪽 모두 가능한 날짜 ${options.length}개를 찾았어요`,
+      message: hoursKnown
+        ? `양쪽 모두 가능한 날짜 ${options.length}개를 찾았어요`
+        : `회원님이 가능한 날짜 ${options.length}개를 찾았어요. 기관과 일정 협의가 필요해요`,
       options,
     };
   }
   if (blockedByExpiry) {
     return {
       ok: false,
-      message: "유통기한 전에 양쪽 모두 가능한 날이 없어요",
+      message: hoursKnown
+        ? "유통기한 전에 양쪽 모두 가능한 날이 없어요"
+        : "유통기한 전에 회원님이 가능한 날이 없어요",
       options: [],
     };
   }
