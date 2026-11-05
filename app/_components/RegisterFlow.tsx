@@ -188,7 +188,10 @@ export default function RegisterFlow() {
   const [expiryKnown, setExpiryKnown] = useState<"has" | "none">("has");
   const [manufacturedOn, setManufacturedOn] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
-  const [source, setSource] = useState<"openai" | "mock" | null>(null);
+  /** manual: 사진 없이(또는 AI 판독 없이) 기부자가 직접 입력한 경우. */
+  const [source, setSource] = useState<"openai" | "mock" | "manual" | null>(
+    null,
+  );
   /** 목업으로 떨어진 이유. 서버가 알려준다 — 한도 초과와 연결 실패는 할 말이 다르다. */
   const [failure, setFailure] = useState<RecognizeFailure | null>(null);
   /**
@@ -310,8 +313,9 @@ export default function RegisterFlow() {
   }
 
   async function handleRecognize() {
+    // 사진이 없으면 막지 않고 직접 입력 카드를 연다. 사진은 선택이다.
     if (!productFileRef.current) {
-      setRegisterError("먼저 제품 사진을 올려주세요");
+      handleManualEntry();
       return;
     }
     setRegisterError(null);
@@ -357,6 +361,25 @@ export default function RegisterFlow() {
       setRecognizeStatus("error");
       setRegisterError("AI 인식에 실패했어요. 다시 시도해주세요");
     }
+  }
+
+  /**
+   * 사진이 없거나 AI 판독이 안 될 때(한도 초과, 연결 실패) 쓰는 길.
+   * 판독 결과 카드를 빈 값으로 열어 기부자가 직접 채운다. 사진은 있으면 같이
+   * 등록에 실리고, 없으면 없는 대로 등록된다 — 사진이 등록을 막을 이유는 없다.
+   */
+  function handleManualEntry() {
+    setRegisterError(null);
+    setItemName("");
+    setGeneric(null);
+    setCategory("");
+    setExpiryDate(null);
+    setExpiryKnown("has");
+    setManufacturedOn(null);
+    setConfidence(null);
+    setSource("manual");
+    setFailure(null);
+    setRecognizeStatus("done");
   }
 
   async function handleRegisterNext() {
@@ -416,6 +439,7 @@ export default function RegisterFlow() {
     setManufacturedOn(null);
     setConfidence(null);
     setSource(null);
+    setFailure(null);
     setRegisterError(null);
   }
 
@@ -425,7 +449,8 @@ export default function RegisterFlow() {
         <h1 className={pageTitle}>나눔할 물품을 등록해주세요</h1>
         <p className={pageDesc}>
           제품 사진과 유통기한 사진을 각각 올려주세요.
-          <br />한 면에 다 보이면 제품 사진만으로도 됩니다
+          <br />한 면에 다 보이면 제품 사진만으로도 됩니다.
+          <br />사진이 없으면 직접 입력해도 돼요
         </p>
       </header>
 
@@ -472,8 +497,8 @@ export default function RegisterFlow() {
           <PhotoSlot
             slot="product"
             title="제품 사진"
-            requirement="필수"
-            hint="품목명과 용량이 보이게"
+            requirement="선택"
+            hint="있으면 AI가 품목명을 읽어줘요"
             preview={productPreview}
             onSelect={handleFileSelected}
             onClear={handleClearSlot}
@@ -508,15 +533,31 @@ export default function RegisterFlow() {
             ? "먼저 음식 여부를 골라주세요"
             : recognizeStatus === "loading"
               ? "사진에서 품목과 유통기한을 읽는 중..."
-              : expiryPreview
-                ? "AI로 확인하기 (사진 2장)"
-                : "AI로 확인하기"}
+              : !productPreview
+                ? "사진 없이 직접 입력하기"
+                : expiryPreview
+                  ? "AI로 확인하기 (사진 2장)"
+                  : "AI로 확인하기"}
         </button>
 
         {registerError && (
           <p className="text-center text-[13px] text-danger-fg">
             {registerError}
           </p>
+        )}
+
+        {/*
+          사진이 없거나 AI가 막혔을 때의 출구. 사진 유무와 상관없이 늘 보인다 —
+          판독이 실패한 뒤에 이 버튼이 숨어 있으면 기부자는 할 수 있는 게 없다.
+        */}
+        {productPreview && (
+          <button
+            onClick={handleManualEntry}
+            disabled={kind === null || recognizeStatus === "loading"}
+            className={btnGhost}
+          >
+            AI 없이 직접 입력하기
+          </button>
         )}
       </div>
 
@@ -542,7 +583,7 @@ export default function RegisterFlow() {
 
           <div className="flex items-center justify-between">
             <h2 className="text-[17px] font-bold tracking-[-0.02em]">
-              AI 인식 결과
+              {source === "manual" ? "물품 정보 입력" : "AI 인식 결과"}
             </h2>
             <span className={toneBadge(verdict.tone)}>
               {TONE_LABEL[verdict.tone]}
@@ -554,6 +595,7 @@ export default function RegisterFlow() {
             <input
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
+              placeholder="예: 아침에주스 오렌지 210mL"
               className={field}
             />
           </div>
@@ -631,7 +673,13 @@ export default function RegisterFlow() {
                 "유통기한 없는 품목"으로 조용히 넘어가서 그대로 나눔 가능이 됐다.
                 제조일자만 찍힌 라벨이 대표적인 경우라, 읽은 제조일자를 근거로 같이 보여준다.
               */}
-              {verdict.needsExpiryInput && (
+              {verdict.needsExpiryInput && source === "manual" && (
+                <p className="text-[13px] leading-relaxed text-neutral-500">
+                  포장에 적힌 유통기한을 입력해주세요. 없는 품목이면 아래를
+                  체크해주세요.
+                </p>
+              )}
+              {verdict.needsExpiryInput && source !== "manual" && (
                 <div className="flex flex-col gap-1 rounded-xl border-2 border-warning-fg/40 bg-warning-bg px-4 py-3">
                   <p className="text-[14px] font-extrabold text-warning-fg">
                     유통기한을 확인하지 못했어요
@@ -655,11 +703,14 @@ export default function RegisterFlow() {
                 <input
                   type="checkbox"
                   checked={expiryKnown === "none"}
-                  onChange={(e) => {
-                    setExpiryKnown(e.target.checked ? "none" : "has");
-                    if (e.target.checked) setExpiryDate(null);
+                  onChange={() => {
+                    // 이벤트 값 대신 현재 상태를 뒤집는다. 날짜 입력을 비우는 것도
+                    // 같은 분기에서 처리해 체크와 날짜가 어긋나지 않게 한다.
+                    const next = expiryKnown === "none" ? "has" : "none";
+                    setExpiryKnown(next);
+                    if (next === "none") setExpiryDate(null);
                   }}
-                  className="size-4 accent-primary-700"
+                  className="size-4 cursor-pointer accent-primary-700"
                 />
                 유통기한이 없는 품목이에요
               </label>
@@ -785,7 +836,11 @@ function PhotoSlot({
         ref={galleryRef}
         type="file"
         accept="image/*"
-        onChange={(e) => onSelect(slot, e.target.files?.[0])}
+        onChange={(e) => {
+          onSelect(slot, e.target.files?.[0]);
+          // 같은 파일을 다시 골라도 change가 나게 value를 비운다.
+          e.target.value = "";
+        }}
         className="hidden"
       />
       <input
@@ -793,7 +848,11 @@ function PhotoSlot({
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={(e) => onSelect(slot, e.target.files?.[0])}
+        onChange={(e) => {
+          onSelect(slot, e.target.files?.[0]);
+          // 같은 파일을 다시 골라도 change가 나게 value를 비운다.
+          e.target.value = "";
+        }}
         className="hidden"
       />
     </div>
