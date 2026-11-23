@@ -63,8 +63,11 @@ export type Beneficiary = {
    *  - "beneficiary": 경상북도_푸드뱅크 현황 (손으로 정리한 5곳)
    *  - "lvlhmap":  포항시 생활지도 시설현황 (API로 받아오는 109곳)
    *  - "partner":  공공데이터에 없어서 직접 등록한 협력 기관 (NGO 등)
+   *  - "registered": 기관 관리 화면에서 기관이 스스로 등록한 곳
    */
-  source?: "beneficiary" | "lvlhmap" | "partner";
+  source?: "beneficiary" | "lvlhmap" | "partner" | "registered";
+  /** 스스로 등록한 기관이면 등록한 때. */
+  registeredAt?: string;
 };
 
 /**
@@ -729,8 +732,16 @@ function pickOrgFor(
  * 같은 기관이 같은 id를 유지한다 — 이미 걸린 요청·신청이 끊기지 않는다.
  */
 let beneficiariesCache: Beneficiary[] | null = null;
+let beneficiariesLoadedAt = 0;
+/*
+ * 기관이 화면에서 직접 등록할 수 있게 되면서, 다른 서버 인스턴스가 새 기관을 모른 채
+ * 오래 남지 않도록 1분이 지나면 다시 읽는다. 등록한 인스턴스는 바로 캐시에 넣는다.
+ */
+const BENEFICIARIES_TTL_MS = 60_000;
 async function ensureBeneficiariesLoaded(): Promise<Beneficiary[]> {
-  if (beneficiariesCache) return beneficiariesCache;
+  if (beneficiariesCache && Date.now() - beneficiariesLoadedAt < BENEFICIARIES_TTL_MS) {
+    return beneficiariesCache;
+  }
   let snap = await getDocs(beneficiariesCol);
   if (snap.empty) {
     await Promise.all(
@@ -742,7 +753,41 @@ async function ensureBeneficiariesLoaded(): Promise<Beneficiary[]> {
     id: d.id,
     ...(d.data() as Omit<Beneficiary, "id">),
   }));
+  beneficiariesLoadedAt = Date.now();
   return beneficiariesCache;
+}
+
+/**
+ * 공공데이터에 없는 기관이 기관 관리 화면에서 직접 등록한다. 공공데이터 동기화는
+ * source가 lvlhmap인 기관만 정리하므로 여기서 만든 기관은 지워지지 않는다.
+ * 좌표는 주소를 지도 API로 찾지 않고, 고른 동네의 중심을 쓴다(거리 추천은 동네 단위로 맞으면 충분하다).
+ */
+export async function createBeneficiary(input: {
+  name: string;
+  category: string;
+  address: string;
+  region: string;
+}): Promise<Beneficiary> {
+  const region = getRegion(input.region);
+  const ref = doc(beneficiariesCol);
+  const org: Beneficiary = {
+    id: `org-${ref.id}`,
+    name: input.name,
+    address: input.address,
+    region: region.name,
+    lat: region.lat,
+    lng: region.lng,
+    category: input.category,
+    operatingDays: [],
+    pickupSlots: [],
+    source: "registered",
+    registeredAt: new Date().toISOString(),
+  };
+  const { id, ...data } = org;
+  await setDoc(doc(beneficiariesCol, id), data);
+  const list = await ensureBeneficiariesLoaded();
+  if (!list.some((b) => b.id === id)) list.push(org);
+  return org;
 }
 
 export async function getBeneficiaries(): Promise<Beneficiary[]> {

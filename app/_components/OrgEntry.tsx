@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Beneficiary, NeedView } from "@/lib/store";
 import { AdminCodeField, useAdminCode } from "./AdminCode";
@@ -93,6 +94,13 @@ export default function OrgEntry() {
       >
         {admin.codeState === "needed" ? "관리 코드를 먼저 확인해주세요" : "들어가기"}
       </button>
+
+      <p className="text-center text-[14px] text-neutral-500">
+        우리 기관이 목록에 없나요?{" "}
+        <Link href="/beneficiary/new" className="font-bold text-primary-700 underline underline-offset-2">
+          기관 등록
+        </Link>
+      </p>
     </div>
   );
 }

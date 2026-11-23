@@ -23,6 +23,12 @@ export type OrgType = "hub" | "facility";
 
 const HUB_CATEGORIES = ["푸드뱅크", "푸드마켓", "NGO"];
 
+/** 기관 관리 화면에서 직접 등록할 때 고르는 종류. 배분기관 종류는 HUB_CATEGORIES와 같아야 한다. */
+export const REGISTER_ORG_CATEGORIES = {
+  facility: ["지역아동센터", "무료급식소", "노인의료시설", "장애인시설", "기타 복지시설"],
+  hub: HUB_CATEGORIES,
+} as const;
+
 type OrgLike = { id: string; category?: string; lat: number; lng: number };
 
 export function orgTypeOf(org: { category?: string } | null | undefined): OrgType {
