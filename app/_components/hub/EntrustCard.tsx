@@ -17,9 +17,12 @@ import { field } from "../../ui";
 export default function EntrustCard({
   donation,
   hub,
+  onChangeQuantity,
 }: {
   donation: Donation;
   hub: HubRecommendation;
+  /** 수량만 모자랄 때 이 카드에서 바로 고친다. 등록 화면으로 되돌아가지 않아도 되게. */
+  onChangeQuantity?: (quantity: number) => Promise<void>;
 }) {
   const router = useRouter();
   const { ok, checks } = checkHubCriteria(donation);
@@ -27,6 +30,17 @@ export default function EntrustCard({
   const [donorName, setDonorName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftQty, setDraftQty] = useState(Math.max(HUB_CRITERIA.minQty, donation.quantity));
+  const [savingQty, setSavingQty] = useState(false);
+  // 수량 말고 다른 이유(기한 부족 등)로도 막혀 있으면 개수를 고쳐도 소용없다.
+  const onlyQuantityShort = checks.every((c) => c.ok || c.key === "quantity");
+
+  async function saveQuantity() {
+    if (!onChangeQuantity) return;
+    setSavingQty(true);
+    await onChangeQuantity(draftQty);
+    setSavingQty(false);
+  }
 
   async function entrust() {
     setBusy(true);
@@ -56,8 +70,52 @@ export default function EntrustCard({
           </span>
         </div>
         <p className="text-[13px] text-neutral-400">{criteriaShortfall(checks)}</p>
+        {onlyQuantityShort && onChangeQuantity ? (
+          <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 p-3">
+            <p className="text-[13px] text-neutral-600">
+              지금 <strong>{donation.quantity}개</strong>로 등록돼 있어요. 실제로 더 많다면 개수를 고쳐주세요
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="개수 줄이기"
+                onClick={() => setDraftQty((n) => Math.max(1, n - 1))}
+                className="size-10 shrink-0 cursor-pointer rounded-xl border border-neutral-300 bg-white text-[18px] font-bold text-neutral-600"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                aria-label="기부할 개수"
+                value={draftQty}
+                onChange={(e) => setDraftQty(Math.max(1, Math.min(999, Math.floor(Number(e.target.value) || 1))))}
+                className="h-10 w-16 shrink-0 rounded-xl border border-neutral-300 bg-white text-center text-[15px] font-bold outline-none focus:border-primary-500"
+              />
+              <button
+                type="button"
+                aria-label="개수 늘리기"
+                onClick={() => setDraftQty((n) => Math.min(999, n + 1))}
+                className="size-10 shrink-0 cursor-pointer rounded-xl border border-neutral-300 bg-white text-[18px] font-bold text-neutral-600"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                disabled={savingQty || draftQty === donation.quantity}
+                onClick={saveQuantity}
+                className="h-10 flex-1 cursor-pointer rounded-xl bg-neutral-900 text-[14px] font-bold text-white disabled:bg-neutral-200 disabled:text-neutral-400"
+              >
+                {savingQty ? "바꾸는 중" : "개수 바꾸기"}
+              </button>
+            </div>
+          </div>
+        ) : null}
         <p className="rounded-xl bg-warning-bg px-3 py-2 text-[13px] leading-relaxed text-warning-fg">
-          이 물품은 아래에서 필요한 시설을 골라 직접 전해 주세요
+          {onlyQuantityShort
+            ? `소량이면 아래에서 필요한 시설을 골라 직접 전해 주세요`
+            : "이 물품은 아래에서 필요한 시설을 골라 직접 전해 주세요"}
         </p>
       </section>
     );

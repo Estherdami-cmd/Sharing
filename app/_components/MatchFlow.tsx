@@ -198,7 +198,13 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
         </p>
       )}
 
-      {!matchLoading && hub && <EntrustCard donation={donation} hub={hub} />}
+      {!matchLoading && hub && (
+        <EntrustCard
+          donation={donation}
+          hub={hub}
+          onChangeQuantity={(quantity) => patchDonation({ quantity })}
+        />
+      )}
 
       {/*
         추천 순위만으로는 원하는 기관이 아래로 밀려있을 수 있다.
