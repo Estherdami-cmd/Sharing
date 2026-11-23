@@ -152,8 +152,9 @@ export async function createIntakeFromDonation(input: {
   const data = {
     hubId: hub.id,
     donationId: donation.id,
-    donorName: input.donorName.trim().slice(0, 40),
-    donorType: input.donorType,
+    // 등록 화면에서 기업으로 들어온 물품이면 그때 적은 이름·유형을 그대로 쓴다.
+    donorName: (input.donorName.trim() || donation.donorName || "").slice(0, 40),
+    donorType: donation.donorType === "company" ? ("company" as const) : input.donorType,
     itemName: donation.itemName,
     category: donation.category,
     genericName: donation.genericName,

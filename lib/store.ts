@@ -127,6 +127,23 @@ export type Donation = {
   /** 기관이 신청을 검토할 때 문구만으로는 알 수 없는 걸 확인하는 용도. 둘 다 선택. */
   productImageUrl: string | null;
   expiryImageUrl: string | null;
+  /**
+   * 누가 기부하나. 기업·단체면 등록 화면에서 고르고, 맡기기 카드가 이 값으로 시작한다.
+   * 이 필드가 생기기 전에 등록된 물품은 개인으로 본다.
+   */
+  donorType: "individual" | "company";
+  /** 기업·단체 이름. 결과 보고서에 들어가는 공개 정보라 여기 둔다. 개인이면 null. */
+  donorName: string | null;
+};
+
+/**
+ * 기업 담당자 연락처. 물품(Donation)과 따로 둔다 — 물품은 /api/donations/[id]·매칭·
+ * 결과 보고서처럼 공개 경로로 나가는데, 연락처가 같은 문서에 있으면 응답마다 가려야 한다.
+ * 문서 id는 물품 id와 같다. 관리 코드가 있는 배분기관만 읽는다(/api/intakes/[id]/contact).
+ */
+export type DonorContact = {
+  manager: string;
+  contact: string;
 };
 
 export type DateCandidate = { date: string; slot: string };
@@ -649,6 +666,7 @@ function toDocFields<T extends { beneficiaryId: string }>(value: T) {
 const needsCol = collection(db, "needs");
 const donationsCol = collection(db, "donations");
 const applicationsCol = collection(db, "applications");
+const donorContactsCol = collection(db, "donorContacts");
 /*
  * 기관 컬렉션. 예전엔 "foodBanks"였고, 기관을 beneficiary로 부르기로 하면서 옮겼다.
  * 문서 id(fb1, ph-66928 …)는 그대로라 요청·신청이 가리키는 값은 손대지 않아도 된다.
@@ -830,6 +848,8 @@ function donationFromDoc(id: string, data: Record<string, unknown>): Donation {
     productImageUrl: (data.productImageUrl as string | null) ?? null,
     expiryImageUrl: (data.expiryImageUrl as string | null) ?? null,
     genericName: (data.genericName as string | null) ?? null,
+    donorType: data.donorType === "company" ? "company" : "individual",
+    donorName: (data.donorName as string | null) ?? null,
   };
 }
 
@@ -1222,6 +1242,8 @@ export async function createDonation(input: {
   productImageUrl?: string | null;
   expiryImageUrl?: string | null;
   genericName?: string | null;
+  /** 기업·단체로 등록할 때만. donorName은 필수, 연락처는 따로 저장한다. */
+  company?: { name: string; manager: string; contact: string } | null;
 }): Promise<Donation> {
   // 나눔 가능 여부는 클라이언트가 보낸 값을 믿지 않고 항상 서버가 판정한다.
   const verdict = evaluateShareable(input.expiryDate);
@@ -1238,9 +1260,26 @@ export async function createDonation(input: {
     productImageUrl: input.productImageUrl ?? null,
     expiryImageUrl: input.expiryImageUrl ?? null,
     genericName: input.genericName ?? null,
+    donorType: input.company ? ("company" as const) : ("individual" as const),
+    donorName: input.company?.name ?? null,
   };
   const ref = await addDoc(donationsCol, data);
+  if (input.company) {
+    await setDoc(doc(donorContactsCol, ref.id), {
+      manager: input.company.manager,
+      contact: input.company.contact,
+      createdAt: data.createdAt,
+    });
+  }
   return { id: ref.id, ...data };
+}
+
+/** 기업 담당자 연락처. 관리 코드 확인을 거친 경로에서만 부른다. */
+export async function getDonorContact(donationId: string): Promise<DonorContact | null> {
+  const snap = await getDoc(doc(donorContactsCol, donationId));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return { manager: (data.manager as string) ?? "", contact: (data.contact as string) ?? "" };
 }
 
 export async function getDonation(id: string): Promise<Donation | undefined> {

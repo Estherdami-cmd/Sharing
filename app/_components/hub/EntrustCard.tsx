@@ -26,8 +26,12 @@ export default function EntrustCard({
 }) {
   const router = useRouter();
   const { ok, checks } = checkHubCriteria(donation);
-  const [donorType, setDonorType] = useState<DonorType>(donation.quantity >= 20 ? "company" : "individual");
-  const [donorName, setDonorName] = useState("");
+  // 등록 화면에서 기업·단체로 들어왔으면 그 정보로 시작하고, 유형·이름은 다시 묻지 않는다.
+  const fromCompany = donation.donorType === "company";
+  const [donorType, setDonorType] = useState<DonorType>(
+    fromCompany || donation.quantity >= 20 ? "company" : "individual",
+  );
+  const [donorName, setDonorName] = useState(donation.donorName ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftQty, setDraftQty] = useState(Math.max(HUB_CRITERIA.minQty, donation.quantity));
@@ -135,6 +139,13 @@ export default function EntrustCard({
         {donation.quantity >= 20 && ` ${donation.quantity}개는 한 시설이 다 받기 어려워요.`}
       </p>
 
+      {fromCompany ? (
+        <p className="rounded-xl bg-white/80 px-3 py-2 text-[14px] text-neutral-700">
+          <strong>{donation.donorName}</strong> 이름으로 맡겨요. 결과 보고서에 이 이름이 들어가고,
+          배분기관이 담당자 연락처로 수거 일정을 잡아요
+        </p>
+      ) : (
+      <>
       <div className="flex gap-1.5" role="radiogroup" aria-label="기부자 유형">
         {(
           [
@@ -167,6 +178,8 @@ export default function EntrustCard({
         maxLength={40}
         className={field}
       />
+      </>
+      )}
 
       {error && <p className="text-[13px] text-danger-fg">{error}</p>}
       <button

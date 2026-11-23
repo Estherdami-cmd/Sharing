@@ -56,6 +56,28 @@ export default function IntakeReview({ hubId, intakeId }: { hubId: string; intak
     load();
   }, [load]);
 
+  // 기업이 맡긴 물품이면 담당자 연락처를 따로 불러온다. 공개 입고 기록에는 없고,
+  // 관리 코드가 있어야 나온다. 코드를 넣은 뒤(codeReady) 다시 묻는다.
+  const isCompany = intake?.donorType === "company" && Boolean(intake?.donationId);
+  const [donorContact, setDonorContact] = useState<
+    { manager: string; contact: string } | null | "locked"
+  >(null);
+  useEffect(() => {
+    if (!isCompany) return;
+    let cancelled = false;
+    fetch(`/api/intakes/${intakeId}/contact`, { headers: admin.authHeaders() })
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.status === 401 || res.status === 503) return setDonorContact("locked");
+        const body = res.ok ? await res.json().catch(() => null) : null;
+        setDonorContact(body?.contact ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isCompany, intakeId, admin.codeReady, admin.authHeaders]);
+
   async function review(action: "approve" | "reject") {
     setBusy(true);
     setError(null);
@@ -123,6 +145,22 @@ export default function IntakeReview({ hubId, intakeId }: { hubId: string; intak
             <Row name="보낸 곳">
               {donorLabel(intake)} · {shortDate(intake.createdAt)}
             </Row>
+            {isCompany && (
+              <Row name="담당자 연락처">
+                {donorContact === "locked" ? (
+                  <span className="text-[13px] font-normal text-neutral-400">관리 코드를 확인하면 보여요</span>
+                ) : donorContact ? (
+                  <>
+                    {donorContact.manager && `${donorContact.manager} · `}
+                    <a href={`tel:${donorContact.contact}`} className="text-primary-700 hover:text-primary-800">
+                      {donorContact.contact}
+                    </a>
+                  </>
+                ) : (
+                  <span className="text-[13px] font-normal text-neutral-400">등록된 연락처 없음</span>
+                )}
+              </Row>
+            )}
           </div>
         </section>
 
