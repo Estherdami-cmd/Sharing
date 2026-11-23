@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { formatKoreanDate } from "@/lib/rules";
 import type { Beneficiary, NeedView } from "@/lib/store";
 import { needPeriodLabel } from "@/lib/period";
-import { nearestHub } from "@/lib/hub";
+import { nearestHub, scheduleLabel } from "@/lib/hub";
+import type { IncomingDelivery } from "@/lib/hub-store";
 import { AdminCodeField, useAdminCode } from "./AdminCode";
 import Loading from "./Loading";
 import NeedProgress from "./NeedProgress";
@@ -35,6 +36,7 @@ export default function OrgHome({ orgId }: { orgId: string }) {
   const [hub, setHub] = useState<Beneficiary | null>(null);
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
+  const [deliveries, setDeliveries] = useState<IncomingDelivery[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [refreshing, setRefreshing] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
@@ -42,10 +44,16 @@ export default function OrgHome({ orgId }: { orgId: string }) {
 
   const load = useCallback(async () => {
     setRefreshing(true);
-    const [needsRes, appsRes] = await Promise.all([
+    const [needsRes, appsRes, deliveriesRes] = await Promise.all([
       fetch("/api/needs").catch(() => null),
       fetch("/api/applications").catch(() => null),
+      fetch(`/api/deliveries?orgId=${encodeURIComponent(orgId)}`).catch(() => null),
     ]);
+    // 받을 물품은 보조 정보라, 못 불러와도 홈 전체를 실패로 만들지 않는다.
+    if (deliveriesRes?.ok) {
+      const data: { deliveries: IncomingDelivery[] } = await deliveriesRes.json().catch(() => ({ deliveries: [] }));
+      setDeliveries(data.deliveries);
+    }
     setRefreshing(false);
     if (!needsRes?.ok || !appsRes?.ok) {
       // 이미 보고 있는 내용이 있으면 일시적인 실패로 화면을 지우지 않는다.
@@ -99,6 +107,11 @@ export default function OrgHome({ orgId }: { orgId: string }) {
   // 방금 들어온 신청이 묻히지 않게, 기본은 대기중만 보여준다.
   const visible = showResolved ? applications : pending;
   const reachedCount = needs.filter((n) => n.filledQty >= n.targetQty).length;
+  const toPick = deliveries.filter((d) => d.allocation.schedule.status === "proposed").length;
+  const nextDelivery = deliveries
+    .filter((d) => d.allocation.schedule.status === "confirmed")
+    .map((d) => d.allocation.schedule)
+    .sort((a, b) => (a.confirmedDate ?? "").localeCompare(b.confirmedDate ?? ""))[0];
 
   return (
     <div className="flex flex-col gap-6">
@@ -156,6 +169,30 @@ export default function OrgHome({ orgId }: { orgId: string }) {
         <StatTile value={needs.length - reachedCount} title="진행 중인 요청" />
         <StatTile value={reachedCount} title="목표 달성" />
       </div>
+
+      {/* 배분기관이 나눠 준 물품. 개인 신청과 상대·할 일이 달라 따로 페이지로 본다. */}
+      {deliveries.length > 0 && (
+        <Link
+          href={`${orgHomePath(orgId)}/deliveries`}
+          className={`${card} flex-row! items-center transition-colors hover:border-primary-500 ${
+            toPick > 0 ? "border-2 border-warning-fg/50" : ""
+          }`}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-bold text-neutral-900">배분기관에서 받을 물품</p>
+            <p className="mt-0.5 text-[13px] text-neutral-500">
+              {toPick > 0
+                ? `날짜를 골라야 하는 물품 ${toPick}건이 있어요`
+                : nextDelivery?.confirmedDate && nextDelivery.confirmedSlot
+                  ? `다음 전달 ${scheduleLabel({ date: nextDelivery.confirmedDate, slot: nextDelivery.confirmedSlot })}`
+                  : `전체 ${deliveries.length}건 · 일정 보기`}
+            </p>
+          </div>
+          <span aria-hidden className="text-[18px] text-neutral-400">
+            →
+          </span>
+        </Link>
+      )}
 
       {/* 신청 처리가 기관의 주 업무라 좁은 화면에서는 신청이 먼저 나온다. */}
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">

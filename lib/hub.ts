@@ -1,7 +1,15 @@
 // 배분기관(푸드뱅크·푸드마켓 등) 관련 순수 규칙. 서버와 화면이 같이 쓴다.
 // store.ts를 끌어오지 않는다 — 클라이언트 번들에 Firestore가 딸려 들어가지 않게.
 
-import { CATEGORIES, distanceKm, parseLocalDate, startOfToday } from "./rules";
+import {
+  CATEGORIES,
+  DAY_NAMES,
+  distanceKm,
+  formatKoreanDate,
+  isValidISODate,
+  parseLocalDate,
+  startOfToday,
+} from "./rules";
 
 /**
  * 기관 유형.
@@ -134,4 +142,78 @@ export function criteriaShortfall(checks: CriteriaCheck[]): string {
           : "받지 않는 품목이에요",
     )
     .join(" · ");
+}
+
+/* ───────────────────────── 배분 전달 일정 ─────────────────────────
+ * 배분기관이 시설에 나눠 줄 때 전달 방식과 날짜 후보를 보내고, 시설이 하나를 고르거나
+ * 다른 날짜를 요청한다. 개인 기부자 ↔ 기관 신청과 같은 흐름이다.
+ *
+ *   proposed   배분기관이 후보를 보냈다. 시설이 고를 차례
+ *   countered  시설이 다른 날짜를 요청했다. 배분기관이 답할 차례
+ *   confirmed  날짜가 정해졌다
+ *   delivered  전달을 마쳤다
+ *
+ * 진행률은 배분 확정 때 이미 올라간다(장부·결과 보고서가 그 시점을 기준으로 쓴다).
+ * 일정은 "언제 손에 들어오나"를 맞추는 일이라 진행률과 따로 간다.
+ */
+export type DeliveryMethod = "delivery" | "pickup";
+export type ScheduleStatus = "proposed" | "countered" | "confirmed" | "delivered";
+export type ScheduleSlot = { date: string; slot: string };
+
+export type AllocationSchedule = {
+  method: DeliveryMethod;
+  candidates: ScheduleSlot[];
+  status: ScheduleStatus;
+  confirmedDate: string | null;
+  confirmedSlot: string | null;
+  /** 시설이 요청한 다른 날짜. 배분기관이 수락하거나 후보를 다시 보내면 지워진다. */
+  counter: (ScheduleSlot & { note: string }) | null;
+  updatedAt: string;
+  deliveredAt: string | null;
+};
+
+export const DELIVERY_METHOD_LABEL: Record<DeliveryMethod, string> = {
+  delivery: "배분기관이 가져다줘요",
+  pickup: "시설이 가지러 가요",
+};
+
+export const SCHEDULE_SLOTS = ["오전", "오후", "시간 협의"];
+export const MAX_SCHEDULE_CANDIDATES = 3;
+
+export const SCHEDULE_STATUS_BADGE: Record<ScheduleStatus, { label: string; tone: string }> = {
+  proposed: { label: "날짜 고르는 중", tone: "bg-warning-bg text-warning-fg" },
+  countered: { label: "다른 날짜 요청", tone: "bg-danger-bg text-danger-fg" },
+  confirmed: { label: "일정 확정", tone: "bg-primary-100 text-primary-700" },
+  delivered: { label: "전달 완료", tone: "bg-success-bg text-success-fg" },
+};
+
+/** "11월 27일 (금) 오전" */
+export function scheduleLabel(s: ScheduleSlot): string {
+  const day = DAY_NAMES[parseLocalDate(s.date).getDay()];
+  return `${formatKoreanDate(s.date)} (${day}) ${s.slot}`;
+}
+
+/** 오늘 이후 날짜, 정해진 시간대만 남기고 겹치는 건 뺀다. 서버와 화면이 같은 규칙을 쓴다. */
+export function normalizeScheduleSlot(raw: unknown): ScheduleSlot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const { date, slot } = raw as { date?: unknown; slot?: unknown };
+  if (typeof date !== "string" || !isValidISODate(date)) return null;
+  if (typeof slot !== "string" || !SCHEDULE_SLOTS.includes(slot)) return null;
+  if (parseLocalDate(date).getTime() < startOfToday().getTime()) return null;
+  return { date, slot };
+}
+
+export function normalizeCandidates(raw: unknown): ScheduleSlot[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: ScheduleSlot[] = [];
+  for (const r of raw) {
+    const c = normalizeScheduleSlot(r);
+    if (!c) continue;
+    const key = `${c.date} ${c.slot}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date)).slice(0, MAX_SCHEDULE_CANDIDATES);
 }
