@@ -237,6 +237,18 @@ export async function getIntake(id: string): Promise<IntakeView | undefined> {
   return toView(intakeFromDoc(snap.id, snap.data()));
 }
 
+/** 이 물품들로 만든 입고 전체. 기업 관리 코드 조회에서 "맡긴 물품이 어디까지 갔나"를 볼 때. */
+export async function listIntakesByDonations(donationIds: string[]): Promise<IntakeView[]> {
+  const intakes: Intake[] = [];
+  // Firestore의 in 조건은 한 번에 30개까지다.
+  for (let i = 0; i < donationIds.length; i += 30) {
+    const chunk = donationIds.slice(i, i + 30);
+    const snap = await getDocs(query(intakesCol, where("donationId", "in", chunk)));
+    intakes.push(...snap.docs.map((d) => intakeFromDoc(d.id, d.data())));
+  }
+  return Promise.all(intakes.map(toView));
+}
+
 export async function listIntakes(hubId: string): Promise<IntakeView[]> {
   const snap = await getDocs(query(intakesCol, where("hubId", "==", hubId)));
   const intakes = snap.docs

@@ -134,6 +134,8 @@ export type Donation = {
   donorType: "individual" | "company";
   /** 기업·단체 이름. 결과 보고서에 들어가는 공개 정보라 여기 둔다. 개인이면 null. */
   donorName: string | null;
+  /** 이 물품을 등록한 기업(companies 문서 id). 기업 관리 코드로 기부 내역을 모아 볼 때 쓴다. */
+  companyId: string | null;
 };
 
 /**
@@ -850,6 +852,7 @@ function donationFromDoc(id: string, data: Record<string, unknown>): Donation {
     genericName: (data.genericName as string | null) ?? null,
     donorType: data.donorType === "company" ? "company" : "individual",
     donorName: (data.donorName as string | null) ?? null,
+    companyId: (data.companyId as string | null) ?? null,
   };
 }
 
@@ -1244,6 +1247,8 @@ export async function createDonation(input: {
   genericName?: string | null;
   /** 기업·단체로 등록할 때만. donorName은 필수, 연락처는 따로 저장한다. */
   company?: { name: string; manager: string; contact: string } | null;
+  /** 기업으로 등록할 때 그 기업 문서 id. */
+  companyId?: string | null;
 }): Promise<Donation> {
   // 나눔 가능 여부는 클라이언트가 보낸 값을 믿지 않고 항상 서버가 판정한다.
   const verdict = evaluateShareable(input.expiryDate);
@@ -1262,6 +1267,7 @@ export async function createDonation(input: {
     genericName: input.genericName ?? null,
     donorType: input.company ? ("company" as const) : ("individual" as const),
     donorName: input.company?.name ?? null,
+    companyId: input.company ? (input.companyId ?? null) : null,
   };
   const ref = await addDoc(donationsCol, data);
   if (input.company) {
@@ -1280,6 +1286,14 @@ export async function getDonorContact(donationId: string): Promise<DonorContact 
   if (!snap.exists()) return null;
   const data = snap.data();
   return { manager: (data.manager as string) ?? "", contact: (data.contact as string) ?? "" };
+}
+
+/** 한 기업이 등록한 물품 전체, 최근 순. */
+export async function listDonationsByCompany(companyId: string): Promise<Donation[]> {
+  const snap = await getDocs(query(donationsCol, where("companyId", "==", companyId)));
+  return snap.docs
+    .map((d) => donationFromDoc(d.id, d.data()))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getDonation(id: string): Promise<Donation | undefined> {
@@ -1349,6 +1363,17 @@ export async function getApplication(
   const snap = await getDoc(doc(applicationsCol, id));
   if (!snap.exists()) return undefined;
   return applicationFromDoc(snap.id, snap.data());
+}
+
+/** 이 물품들로 낸 신청 전체(시설에 직접 준 경로). */
+export async function listApplicationsByDonations(donationIds: string[]): Promise<Application[]> {
+  const out: Application[] = [];
+  for (let i = 0; i < donationIds.length; i += 30) {
+    const chunk = donationIds.slice(i, i + 30);
+    const snap = await getDocs(query(applicationsCol, where("donationId", "in", chunk)));
+    out.push(...snap.docs.map((d) => applicationFromDoc(d.id, d.data())));
+  }
+  return out;
 }
 
 export async function listApplications(): Promise<Application[]> {
