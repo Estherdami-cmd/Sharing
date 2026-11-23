@@ -22,7 +22,7 @@ import {
   normalizeCandidates,
   normalizeScheduleSlot,
 } from "./hub";
-import { distanceKm, getRegion, isSameItemBy } from "./rules";
+import { type Packing, distanceKm, getRegion, isSameItemBy, normalizePacking } from "./rules";
 import {
   type NeedView,
   getBeneficiaries,
@@ -68,6 +68,8 @@ export type Intake = {
   quantity: number;
   expiryDate: string | null;
   productImageUrl: string | null;
+  /** 기업이 박스로 맡겼으면 그 포장. 수량은 낱개 총 개수다. */
+  packing: Packing | null;
   status: "pending" | "stored" | "rejected";
   createdAt: string;
   approvedAt: string | null;
@@ -99,6 +101,7 @@ function intakeFromDoc(id: string, data: Record<string, unknown>): Intake {
     quantity: data.quantity as number,
     expiryDate: (data.expiryDate as string | null) ?? null,
     productImageUrl: (data.productImageUrl as string | null) ?? null,
+    packing: normalizePacking(data.packing),
     status: data.status as Intake["status"],
     createdAt: data.createdAt as string,
     approvedAt: (data.approvedAt as string | null) ?? null,
@@ -195,6 +198,7 @@ export async function createIntakeFromDonation(input: {
     quantity: donation.quantity,
     expiryDate: donation.expiryDate,
     productImageUrl: donation.productImageUrl,
+    packing: donation.packing,
     status: "pending" as const,
     createdAt: new Date().toISOString(),
     approvedAt: null,
@@ -237,6 +241,7 @@ export async function createWalkinIntakes(
         quantity: item.quantity,
         expiryDate: item.expiryDate,
         productImageUrl: imageUrl,
+        packing: null,
         status: "stored" as const,
         createdAt: now,
         approvedAt: now,

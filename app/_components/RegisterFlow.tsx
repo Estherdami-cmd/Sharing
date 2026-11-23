@@ -10,6 +10,7 @@ import {
   ITEM_KIND_LABEL,
   type ItemKind,
   MAX_DONATION_QUANTITY,
+  MAX_PACK_SIZE,
   type ShareVerdict,
   categoriesFor,
   clampQuantity,
@@ -222,7 +223,13 @@ export default function RegisterFlow() {
     ""를 그대로 두고, 포커스가 빠질 때와 서버로 보낼 때 정상 범위로 다듬는다.
   */
   const [quantity, setQuantity] = useState<number | "">(1);
-  const quantityValue = quantity === "" ? 1 : quantity;
+  // 기업은 박스로 낼 수 있다. 그때 quantity는 박스 수이고, 서버에는 낱개 총 개수로 보낸다.
+  const [packUnit, setPackUnit] = useState<"개" | "박스">("개");
+  const [packSize, setPackSize] = useState<number | "">(20);
+  const usesBox = donorType === "company" && packUnit === "박스";
+  const packSizeValue = packSize === "" ? 1 : packSize;
+  const quantityValue = (quantity === "" ? 1 : quantity) * (usesBox ? packSizeValue : 1);
+  const countValue = quantity === "" ? 1 : quantity;
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
   // 기한이 "없는 품목"인지 "아직 모르는 것"인지 구분한다. 날짜 하나로는 못 나타낸다.
   const [expiryKnown, setExpiryKnown] = useState<"has" | "none">("has");
@@ -439,6 +446,7 @@ export default function RegisterFlow() {
         itemName,
         category,
         quantity: quantityValue,
+        ...(usesBox && packSizeValue >= 2 && { packing: { unit: "박스", size: packSizeValue } }),
         // "기한 없는 품목"에 체크했으면 남아 있는 날짜는 보내지 않는다.
         expiryDate: expiryStatus === "none" ? null : expiryDate,
         region: DEFAULT_REGION,
@@ -829,13 +837,36 @@ export default function RegisterFlow() {
             진짜 상한은 이 화면에서 알 수 없어서 매칭·신청 화면에서 다시 좁힌다.
           */}
           <div className="flex flex-col gap-1.5">
-            <label className={label} htmlFor="donation-qty">
-              개수
-            </label>
+            <div className="flex items-center justify-between">
+              <label className={label} htmlFor="donation-qty">
+                {usesBox ? "박스 수" : "개수"}
+              </label>
+              {donorType === "company" && (
+                <div className="flex gap-1" role="radiogroup" aria-label="수량 단위">
+                  {(["개", "박스"] as const).map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      role="radio"
+                      aria-checked={packUnit === u}
+                      onClick={() => setPackUnit(u)}
+                      className={
+                        "h-8 cursor-pointer rounded-full border px-3 text-[13px] font-bold " +
+                        (packUnit === u
+                          ? "border-neutral-900 bg-neutral-900 text-white"
+                          : "border-neutral-300 bg-white text-neutral-500")
+                      }
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setQuantity(clampQuantity(quantityValue - 1))}
-                disabled={quantityValue <= 1}
+                onClick={() => setQuantity(clampQuantity(countValue - 1))}
+                disabled={countValue <= 1}
                 aria-label="개수 줄이기"
                 className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
               >
@@ -852,18 +883,45 @@ export default function RegisterFlow() {
                     e.target.value === "" ? "" : clampQuantity(e.target.value),
                   )
                 }
-                onBlur={() => setQuantity(quantityValue)}
+                onBlur={() => setQuantity(countValue)}
                 className={`${field} text-center`}
               />
               <button
-                onClick={() => setQuantity(clampQuantity(quantityValue + 1))}
-                disabled={quantityValue >= MAX_DONATION_QUANTITY}
+                onClick={() => setQuantity(clampQuantity(countValue + 1))}
+                disabled={countValue >= MAX_DONATION_QUANTITY}
                 aria-label="개수 늘리기"
                 className="size-11 shrink-0 cursor-pointer rounded-xl border-2 border-neutral-300 bg-white text-[18px] font-bold text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:text-neutral-300"
               >
                 +
               </button>
             </div>
+            {usesBox && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="pack-size" className="shrink-0 text-[13px] font-bold text-neutral-600">
+                  한 박스에
+                </label>
+                <input
+                  id="pack-size"
+                  type="number"
+                  min={2}
+                  max={MAX_PACK_SIZE}
+                  value={packSize}
+                  onChange={(e) =>
+                    setPackSize(
+                      e.target.value === ""
+                        ? ""
+                        : Math.min(MAX_PACK_SIZE, Math.max(1, Math.floor(Number(e.target.value) || 1))),
+                    )
+                  }
+                  onBlur={() => setPackSize(Math.max(2, packSizeValue))}
+                  className={`${field} w-24! shrink-0 text-center`}
+                />
+                <span className="shrink-0 text-[13px] font-bold text-neutral-600">개씩</span>
+                <span className="ml-auto shrink-0 whitespace-nowrap text-[13px] font-bold text-primary-700">
+                  총 {quantityValue.toLocaleString()}개
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 먹는 물품이 아니면 유통기한 자체를 묻지 않는다. 기부자가 대분류에서 이미 답했다. */}

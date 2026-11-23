@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQty } from "@/lib/rules";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { HUB_CRITERIA, checkHubCriteria, criteriaShortfall } from "@/lib/hub";
@@ -163,7 +164,7 @@ export default function EntrustCard({
       )}
       <p className="text-[14px] leading-relaxed text-neutral-700">
         {hub.category} · {hub.distanceKm}km. 맡은 시설 {hub.linkedCount}곳에 필요한 만큼 나눠 드려요.
-        {donation.quantity >= 20 && ` ${donation.quantity}개는 한 시설이 다 받기 어려워요.`}
+        {donation.quantity >= 20 && ` ${formatQty(donation.quantity, donation.packing)}는 한 시설이 다 받기 어려워요.`}
       </p>
 
       {fromCompany ? (

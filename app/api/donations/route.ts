@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_REGION, isValidISODate, isValidPhone } from "@/lib/rules";
+import { DEFAULT_REGION, isValidISODate, isValidPhone, normalizePacking } from "@/lib/rules";
 import { createCompany, findCompanyByCode } from "@/lib/company";
 import { createDonation } from "@/lib/store";
 
@@ -78,6 +78,8 @@ export async function POST(request: Request) {
   const donation = await createDonation({
     company,
     companyId,
+    // 박스 단위는 기업 기부에만 둔다. 개인은 낱개로 들고 온다.
+    packing: company ? normalizePacking(body.packing) : null,
     itemName,
     category,
     quantity: body.quantity,

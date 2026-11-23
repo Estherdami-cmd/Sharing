@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQty } from "@/lib/rules";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { DistributionCandidate, IntakeView } from "@/lib/hub-store";
@@ -103,7 +104,7 @@ export default function DistributeForm({ hubId, intakeId }: { hubId: string; int
         <section className={`${card} flex-row! items-center`}>
           <div className="min-w-0 flex-1">
             <p className="text-[17px] font-bold">
-              {intake.itemName} · {done ? `${intake.allocatedQty}개 배분` : `${intake.remainingQty}개`}
+              {intake.itemName} · {done ? `${intake.allocatedQty}개 배분` : formatQty(intake.remainingQty, intake.packing)}
             </p>
             <p className={caption}>
               {done

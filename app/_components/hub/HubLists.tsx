@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { IMMINENT_DAYS } from "@/lib/hub";
+import { formatQty } from "@/lib/rules";
 import { useAdminCode } from "../AdminCode";
 import Loading from "../Loading";
 import { OrgMessage } from "../OrgCommon";
@@ -85,7 +86,7 @@ function IntakeLink({
       )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-bold">
-          {intake.itemName} · {intake.quantity}개
+          {intake.itemName} · {formatQty(intake.quantity, intake.packing)}
         </p>
         <p className="text-[13px] text-neutral-500">
           {donorLabel(intake)} · {shortDate(intake.createdAt)}
@@ -151,7 +152,7 @@ export function HubStorage({ hubId }: { hubId: string }) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[16px] font-bold">
-                      {intake.itemName} · {done ? `${intake.quantity}개` : `${intake.remainingQty}개 남음`}
+                      {intake.itemName} · {done ? formatQty(intake.quantity, intake.packing) : `${formatQty(intake.remainingQty, intake.packing)} 남음`}
                     </p>
                     <p className="text-[13px] text-neutral-500">
                       입고 {shortDate(intake.approvedAt ?? intake.createdAt)} · {donorLabel(intake)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQty } from "@/lib/rules";
 import Link from "next/link";
 import { useAdminCode } from "../AdminCode";
 import Loading from "../Loading";
@@ -123,7 +124,7 @@ export default function HubDashboard({ hubId }: { hubId: string }) {
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-bold text-neutral-900">
-                  {intake.itemName} · {intake.quantity}개
+                  {intake.itemName} · {formatQty(intake.quantity, intake.packing)}
                 </p>
                 <p className="text-[13px] text-neutral-500">
                   {donorLabel(intake)} · {shortDate(intake.createdAt)} 맡김
@@ -149,7 +150,7 @@ export default function HubDashboard({ hubId }: { hubId: string }) {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-bold">
-                        {intake.itemName} · {intake.remainingQty}개 남음
+                        {intake.itemName} · {formatQty(intake.remainingQty, intake.packing)} 남음
                       </p>
                       <p className="text-[13px] text-neutral-500">{donorLabel(intake)}</p>
                     </div>

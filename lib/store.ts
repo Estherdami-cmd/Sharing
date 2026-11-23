@@ -21,6 +21,8 @@ import {
   type MatchGrade,
   addDays,
   clampQuantity,
+  normalizePacking,
+  type Packing,
   distanceKm,
   evaluateShareable,
   getRegion,
@@ -136,6 +138,8 @@ export type Donation = {
   donorName: string | null;
   /** 이 물품을 등록한 기업(companies 문서 id). 기업 관리 코드로 기부 내역을 모아 볼 때 쓴다. */
   companyId: string | null;
+  /** 박스 단위로 냈으면 그 포장. quantity는 낱개 총 개수 그대로다. */
+  packing: Packing | null;
 };
 
 /**
@@ -853,6 +857,7 @@ function donationFromDoc(id: string, data: Record<string, unknown>): Donation {
     donorType: data.donorType === "company" ? "company" : "individual",
     donorName: (data.donorName as string | null) ?? null,
     companyId: (data.companyId as string | null) ?? null,
+    packing: normalizePacking(data.packing),
   };
 }
 
@@ -1250,6 +1255,7 @@ export async function createDonation(input: {
   company?: { name: string; manager: string; contact: string } | null;
   /** 기업으로 등록할 때 그 기업 문서 id. */
   companyId?: string | null;
+  packing?: Packing | null;
 }): Promise<Donation> {
   // 나눔 가능 여부는 클라이언트가 보낸 값을 믿지 않고 항상 서버가 판정한다.
   const verdict = evaluateShareable(input.expiryDate);
@@ -1269,6 +1275,7 @@ export async function createDonation(input: {
     donorType: input.company ? ("company" as const) : ("individual" as const),
     donorName: input.company?.name ?? null,
     companyId: input.company ? (input.companyId ?? null) : null,
+    packing: input.packing ?? null,
   };
   const ref = await addDoc(donationsCol, data);
   if (input.company) {

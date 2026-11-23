@@ -91,6 +91,7 @@ export async function companyHistory(companyId: string) {
       itemName: d.itemName,
       category: d.category,
       quantity: d.quantity,
+      packing: d.packing,
       expiryDate: d.expiryDate,
       createdAt: d.createdAt,
       productImageUrl: d.productImageUrl,

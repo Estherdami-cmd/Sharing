@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQty } from "@/lib/rules";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -135,7 +136,7 @@ export default function IntakeReview({ hubId, intakeId }: { hubId: string; intak
           <div>
             <Row name="품목">{intake.itemName}</Row>
             <Row name="분류">{intake.category}</Row>
-            <Row name="수량">{intake.quantity}개</Row>
+            <Row name="수량">{formatQty(intake.quantity, intake.packing)}</Row>
             <Row name="소비기한">
               <span className="inline-flex items-center gap-2">
                 {intake.expiryDate ? intake.expiryDate.replaceAll("-", ".") : "없음"}

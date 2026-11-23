@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQty } from "@/lib/rules";
 import Link from "next/link";
 import { useState } from "react";
 import { formatKoreanDate } from "@/lib/rules";
@@ -280,7 +281,7 @@ function CompanyLookup() {
                   )}
                   <div className="min-w-0">
                     <p className="text-[15px] font-bold">
-                      {h.donation.itemName} · {h.donation.quantity}개
+                      {h.donation.itemName} · {formatQty(h.donation.quantity, h.donation.packing)}
                     </p>
                     <p className={caption}>{formatKoreanDate(h.donation.createdAt.slice(0, 10))} 등록</p>
                   </div>

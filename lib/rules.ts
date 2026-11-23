@@ -104,7 +104,33 @@ export function isUrgent(progress: number): boolean {
  * 한 번에 내놓을 수 있는 개수 상한. 등록 화면에서는 아직 어느 요청에 낼지 모르니
  * 넉넉하게 두고, 요청별 남은 목표라는 진짜 상한은 매칭·신청 화면에서 다시 좁힌다.
  */
-export const MAX_DONATION_QUANTITY = 999;
+export const MAX_DONATION_QUANTITY = 9999; // 기업이 박스로 내면 총 개수가 수천 개가 된다
+
+/**
+ * 포장 단위. 기업은 보통 박스로 기부한다 — "주스 400개"보다 "20박스(400개)"가 실제 규모에
+ * 맞게 읽힌다. 수량 자체(quantity)는 늘 낱개 기준 총 개수로 두고, 포장은 보여줄 때만 쓴다.
+ * 시설의 요청 목표가 낱개 기준이라 진행률·배분 계산을 한 단위로 맞추기 위해서다.
+ */
+export type Packing = { unit: "박스"; size: number };
+
+export const MAX_PACK_SIZE = 999;
+
+/** API·DB 어디서 온 값이든 박스 하나에 2개 이상일 때만 포장으로 본다. */
+export function normalizePacking(value: unknown): Packing | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as { unit?: unknown; size?: unknown };
+  const size = Math.floor(Number(v.size));
+  if (v.unit !== "박스" || !Number.isFinite(size) || size < 2) return null;
+  return { unit: "박스", size: Math.min(size, MAX_PACK_SIZE) };
+}
+
+/** "20박스 (400개)". 박스로 나눠떨어지지 않으면(일부를 나눈 뒤 등) 낱개로만 쓴다. */
+export function formatQty(qty: number, packing?: Packing | null): string {
+  if (packing && qty > 0 && qty % packing.size === 0) {
+    return `${(qty / packing.size).toLocaleString()}${packing.unit} (${qty.toLocaleString()}개)`;
+  }
+  return `${qty.toLocaleString()}개`;
+}
 
 /** 개수는 사용자 입력·주소창·API 어디서든 들어오므로 받는 자리마다 이걸 통과시킨다. */
 export function clampQuantity(value: unknown): number {

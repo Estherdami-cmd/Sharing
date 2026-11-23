@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatQty } from "@/lib/rules";
 import type { Donation, NeedMatch } from "@/lib/store";
 import { needPeriodLabel } from "@/lib/period";
 import {
@@ -187,6 +188,12 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
           <label className={label}>품목명</label>
           <p className={`${fieldReadonly} flex items-center`}>
             {donation.itemName}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className={label}>수량</label>
+          <p className={`${fieldReadonly} flex items-center`}>
+            {formatQty(donation.quantity, donation.packing)}
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
