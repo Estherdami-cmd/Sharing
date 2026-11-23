@@ -121,7 +121,7 @@ export default function ReportFill({
     if (f.by === "company")
       return (
         <p className="rounded-xl bg-neutral-100 px-4 py-3 text-[14px] text-neutral-500">
-          {f.fixed || `${data!.companyName}가 채워요`}
+          {f.fixed || `${data!.companyName}가 문서를 받은 뒤 채워요`}
         </p>
       );
     switch (f.kind) {
@@ -172,6 +172,7 @@ export default function ReportFill({
         return <p className="rounded-xl bg-neutral-100 px-4 py-3 text-[13px] text-neutral-500">온라인 승인 기록(보낸 일시·기관)으로 대신해요</p>;
       case "photo":
         return (
+          <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-2">
             {list(f.key).map((src, i) => (
               <button key={i} type="button" aria-label="사진 빼기" onClick={() => set(f.key, list(f.key).filter((_, j) => j !== i))} className="relative size-24 cursor-pointer overflow-hidden rounded-xl">
@@ -186,6 +187,16 @@ export default function ReportFill({
                 <input id={id} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addPhotos(f.key, e.target.files)} />
               </label>
             )}
+          </div>
+          {/* 종이 양식 붙임의 "설명" 칸. 촬영 일자는 보낸 날로 문서에 남는다. */}
+          <input
+            aria-label={`${f.label} 설명`}
+            placeholder="사진 설명 (선택)"
+            value={text(`${f.key}__note`)}
+            onChange={(e) => set(`${f.key}__note`, e.target.value)}
+            maxLength={100}
+            className={field}
+          />
           </div>
         );
       default:
@@ -211,7 +222,7 @@ export default function ReportFill({
         </p>
         <h1 className={`${pageTitle} break-keep`}>{data.form.title}</h1>
         {data.form.intro && <p className={`${pageDesc} mt-0!`}>{data.form.intro}</p>}
-        <p className={caption}>초록 칸은 배분 기록으로, 회색 칸은 {data.companyName}가 이미 채웠어요. 빈칸만 써 주세요</p>
+        <p className={caption}>초록 칸은 배분 기록으로 채웠고, 회색 칸은 {data.companyName}가 채워요. 빈칸만 써 주세요</p>
       </header>
 
       {groupBySection(data.form.fields).map((g, gi) => (

@@ -134,6 +134,9 @@ export type FormResponse = {
   auto: Record<AutoKey, string>;
   values: FormValues;
   submittedAt: string;
+  /** 기업이 문서를 받은 뒤 채우는 칸(사업자등록번호·단가·금액…). */
+  companyValues?: Record<string, string>;
+  companyFilledAt?: string | null;
 };
 
 /** 새로 쓰는 문서는 늘 양식 id를 붙인 주소에 둔다(예전 문서를 덮어쓰지 않게). */
@@ -176,6 +179,21 @@ function toRow(id: string, r: Omit<FormResponse, "id">): ResponseRow {
 export async function listCompanyResponses(companyId: string): Promise<ResponseRow[]> {
   const snap = await getDocs(query(responsesCol, where("companyId", "==", companyId)));
   return snap.docs.map((d) => toRow(d.id, d.data() as Omit<FormResponse, "id">)).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+}
+
+/** 기업이 받은 문서에서 자기 칸(by company)을 채운다. 양식에 있는 기업 칸만 받는다. */
+export async function fillCompanyValues(id: string, companyId: string, raw: Record<string, unknown>) {
+  const response = await getFormResponse(id);
+  if (!response || response.companyId !== companyId) return null;
+  const companyValues: Record<string, string> = { ...(response.companyValues ?? {}) };
+  for (const f of response.form.fields) {
+    if (f.by !== "company" || f.auto) continue;
+    const v = raw[f.key];
+    if (typeof v === "string") companyValues[f.key] = v.trim().slice(0, 100);
+  }
+  const companyFilledAt = new Date().toISOString();
+  await setDoc(doc(responsesCol, id), { companyValues, companyFilledAt }, { merge: true });
+  return { ...response, companyValues, companyFilledAt };
 }
 
 /** 맡긴 물품 하나로 시설들이 낸 문서 전부. full이면 사진까지 담은 원문을 준다(모아 인쇄용). */

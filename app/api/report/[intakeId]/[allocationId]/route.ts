@@ -52,6 +52,9 @@ export async function POST(request: Request, { params }: Params) {
       values[f.key] = (Array.isArray(v) ? v : [])
         .filter((p): p is string => typeof p === "string" && p.startsWith("data:image/") && p.length <= MAX_PHOTO_DATA_URL)
         .slice(0, MAX_PHOTOS);
+      // 사진마다 붙는 짧은 설명(종이 양식의 "설명" 칸).
+      const note = raw[`${f.key}__note`];
+      if (typeof note === "string" && note.trim()) values[`${f.key}__note`] = note.trim().slice(0, 100);
     } else if (f.kind === "checks") {
       values[f.key] = (Array.isArray(v) ? v : []).filter((o): o is string => typeof o === "string" && f.options.includes(o));
     } else if (f.kind === "choice") {
