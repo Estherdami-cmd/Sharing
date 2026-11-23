@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { formatKoreanDate } from "@/lib/rules";
 import type { CompanyHistory } from "@/lib/company";
+import type { ReportForm } from "@/lib/report-form";
+import CompanyForms, { type CompanyReportRow } from "./CompanyForms";
 import type { ApplicationDetail } from "@/lib/store";
 import {
   btnPrimary,
@@ -175,6 +177,8 @@ function PersonLookup() {
 type CompanyResult = {
   company: { name: string; manager: string; contact: string };
   history: CompanyHistory;
+  form: (ReportForm & { source: string; sourceName: string }) | null;
+  reports: CompanyReportRow[];
 };
 
 const INTAKE_LABEL = { pending: "배분기관 확인 대기", stored: "보관·배분 중", rejected: "배분기관이 받지 않음" } as const;
@@ -196,9 +200,9 @@ function CompanyLookup() {
   const [state, setState] = useState<"idle" | "loading" | "done" | "notfound" | "error">("idle");
   const [result, setResult] = useState<CompanyResult | null>(null);
 
-  async function handleSearch() {
+  async function handleSearch(quiet = false) {
     if (!code.trim()) return;
-    setState("loading");
+    if (!quiet) setState("loading");
     const res = await fetch("/api/companies/lookup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -235,7 +239,7 @@ function CompanyLookup() {
           maxLength={9}
           className={`${field} font-mono tracking-wider`}
         />
-        <button onClick={handleSearch} disabled={!code.trim() || state === "loading"} className={btnPrimary}>
+        <button onClick={() => handleSearch()} disabled={!code.trim() || state === "loading"} className={btnPrimary}>
           {state === "loading" ? "조회 중..." : "조회하기"}
         </button>
         {state === "notfound" && <p className="text-[13px] text-danger-fg">이 관리 코드로 등록된 기업이 없어요</p>}
@@ -267,6 +271,15 @@ function CompanyLookup() {
             ))}
           </div>
 
+          <CompanyForms
+            code={code}
+            companyName={result.company.name}
+            form={result.form}
+            reports={result.reports}
+            onSaved={() => handleSearch(true)}
+          />
+
+          <h2 className="text-[17px] font-extrabold text-neutral-900">기부 내역</h2>
           {result.history.length === 0 && (
             <p className="py-6 text-center text-[15px] text-neutral-400">아직 이 코드로 등록한 기부가 없어요</p>
           )}
