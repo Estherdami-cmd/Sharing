@@ -9,10 +9,13 @@ import NeedProgress from "../NeedProgress";
 import { OrgMessage } from "../OrgCommon";
 import { btnGhost, btnPrimary, caption, card } from "../../ui";
 import { DdayBadge, HubFrame, donorLabel, hubPath } from "./HubCommon";
+import { CandidatePicker, defaultCandidate } from "./Schedule";
+import type { DeliveryMethod, ScheduleSlot } from "@/lib/hub";
 
 /**
  * 수량 나눠 배분. 시스템이 필요한 시설과 수량을 먼저 채워 두고(먼저 요청한 곳부터),
  * 기관은 숫자만 고쳐서 확정한다. 확정하면 각 시설 게이지가 그 자리에서 차오른다.
+ * 확정할 때 전달 방식과 날짜 후보를 같이 보낸다 — 시설이 그중 하나를 골라 일정이 정해진다.
  */
 export default function DistributeForm({ hubId, intakeId }: { hubId: string; intakeId: string }) {
   const admin = useAdminCode();
@@ -24,6 +27,8 @@ export default function DistributeForm({ hubId, intakeId }: { hubId: string; int
   const [error, setError] = useState<string | null>(null);
   // 확정한 뒤에는 같은 카드에서 게이지를 새 값으로 올려 보여준다.
   const [done, setDone] = useState(false);
+  const [method, setMethod] = useState<DeliveryMethod>("delivery");
+  const [slots, setSlots] = useState<ScheduleSlot[]>([defaultCandidate(1), defaultCandidate(2)]);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/intakes/${intakeId}/distribute`).catch(() => null);
@@ -54,7 +59,7 @@ export default function DistributeForm({ hubId, intakeId }: { hubId: string; int
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allocations }),
+        body: JSON.stringify({ allocations, schedule: { method, candidates: slots } }),
       },
       confirm,
     );
@@ -179,17 +184,40 @@ export default function DistributeForm({ hubId, intakeId }: { hubId: string; int
               </div>
               {over && <p className="text-[13px] text-danger-fg">남은 수량보다 많아요</p>}
             </div>
+            <section className={card}>
+              <div>
+                <h3 className="text-[16px] font-bold">전달 일정 후보</h3>
+                <p className={caption}>시설마다 이 중 편한 날을 고르거나, 다른 날짜를 요청할 수 있어요</p>
+              </div>
+              <CandidatePicker
+                method={method}
+                onMethodChange={setMethod}
+                candidates={slots}
+                onCandidatesChange={setSlots}
+              />
+            </section>
             {error && <p className="text-[14px] text-danger-fg">{error}</p>}
-            <button type="button" disabled={busy || total === 0 || over} onClick={confirm} className={btnPrimary}>
-              {busy ? "배분 중" : "배분 확정 · 시설에 알림"}
+            <button
+              type="button"
+              disabled={busy || total === 0 || over || slots.length === 0}
+              onClick={confirm}
+              className={btnPrimary}
+            >
+              {busy ? "배분 중" : "배분 확정 · 시설에 일정 보내기"}
             </button>
-            <p className="text-center text-xs text-neutral-500">확정하면 각 시설 게이지가 차올라요</p>
+            <p className="text-center text-xs text-neutral-500">확정하면 각 시설 게이지가 차오르고, 시설에 날짜 후보가 가요</p>
           </>
         )}
 
         {done && (
           <div className="flex flex-col gap-2">
-            <Link href={`/entrusted/${intake.id}`} className={btnPrimary}>
+            <p className="rounded-xl bg-primary-50 px-4 py-3 text-[14px] text-primary-700">
+              시설에 날짜 후보를 보냈어요. 시설이 고르면 배분 일정에서 확정돼요
+            </p>
+            <Link href={`${hubPath(hubId)}/schedule`} className={btnPrimary}>
+              배분 일정 보기
+            </Link>
+            <Link href={`/entrusted/${intake.id}`} className={`${btnGhost} text-center`}>
               결과 보고서 보기
             </Link>
             <Link href={`${hubPath(hubId)}/ledger`} className={`${btnGhost} text-center`}>

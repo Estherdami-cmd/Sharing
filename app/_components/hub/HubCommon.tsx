@@ -16,6 +16,7 @@ const TABS = [
   { key: "dashboard", label: "대시보드", suffix: "" },
   { key: "intakes", label: "입고", suffix: "/intakes" },
   { key: "storage", label: "보관·배분", suffix: "/storage" },
+  { key: "schedule", label: "배분 일정", suffix: "/schedule" },
   { key: "ledger", label: "장부·보고서", suffix: "/ledger" },
 ] as const;
 

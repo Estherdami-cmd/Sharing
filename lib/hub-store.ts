@@ -10,7 +10,18 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { checkHubCriteria, daysUntil, isHub, linkedFacilities, nearestHub } from "./hub";
+import {
+  type AllocationSchedule,
+  type DeliveryMethod,
+  type ScheduleSlot,
+  checkHubCriteria,
+  daysUntil,
+  isHub,
+  linkedFacilities,
+  nearestHub,
+  normalizeCandidates,
+  normalizeScheduleSlot,
+} from "./hub";
 import { distanceKm, getRegion, isSameItemBy } from "./rules";
 import {
   type NeedView,
@@ -31,12 +42,16 @@ import {
  * 남은 수량이 0이면 화면에서 "배분 완료"로 본다.
  */
 export type Allocation = {
+  /** 일정을 주고받을 때 이 배분 한 건을 가리킨다. 일정 기능 전에 만든 배분에는 없다. */
+  id?: string;
   needId: string;
   beneficiaryId: string;
   beneficiaryName: string;
   needItemName: string;
   qty: number;
   at: string;
+  /** 전달 일정. 일정 기능 전에 만든 배분은 null(일정 없이 기록만 됨). */
+  schedule?: AllocationSchedule | null;
 };
 
 export type DonorType = "company" | "individual" | "walkin";
@@ -303,7 +318,11 @@ export async function distributionCandidates(
 export async function distributeIntake(
   id: string,
   requested: { needId: string; qty: number }[],
+  scheduleInput: { method?: unknown; candidates?: unknown } = {},
 ): Promise<IntakeView> {
+  const method: DeliveryMethod = scheduleInput.method === "pickup" ? "pickup" : "delivery";
+  const candidates = normalizeCandidates(scheduleInput.candidates);
+  if (candidates.length === 0) throw new IntakeError("전달 날짜 후보를 하나 이상 골라주세요");
   const lines = requested
     .map((r) => ({ needId: String(r.needId), qty: Math.floor(Number(r.qty)) }))
     .filter((r) => Number.isFinite(r.qty) && r.qty > 0);
@@ -341,12 +360,23 @@ export async function distributeIntake(
         tx.update(ns.ref, { filledQty: Math.min(targetQty, filledQty + lines[i].qty) });
       }
       newAllocations.push({
+        id: `${Date.now().toString(36)}-${i}-${Math.random().toString(36).slice(2, 6)}`,
         needId: ns.id,
         beneficiaryId,
         beneficiaryName: orgById.get(beneficiaryId)?.name ?? "시설",
         needItemName: data.itemName as string,
         qty: lines[i].qty,
         at: now,
+        schedule: {
+          method,
+          candidates,
+          status: "proposed",
+          confirmedDate: null,
+          confirmedSlot: null,
+          counter: null,
+          updatedAt: now,
+          deliveredAt: null,
+        },
       });
     });
 
@@ -357,6 +387,135 @@ export async function distributeIntake(
 
   return toView(updated);
 }
+
+export type ScheduleAction =
+  | { action: "confirm"; date: string; slot: string }
+  | { action: "counter"; date: string; slot: string; note?: string }
+  | { action: "accept-counter" }
+  | { action: "repropose"; method?: string; candidates: unknown }
+  | { action: "delivered" };
+
+/**
+ * 배분 한 건의 일정을 바꾼다. 시설과 배분기관이 같은 관리 코드를 써서 누가 눌렀는지는
+ * 가리지 않고, 지금 상태에서 말이 되는 동작인지만 본다.
+ *   confirm         시설이 후보 중 하나를 고름 (proposed → confirmed)
+ *   counter         시설이 다른 날짜를 요청 (proposed·countered·confirmed → countered)
+ *   accept-counter  배분기관이 요청한 날짜를 수락 (countered → confirmed)
+ *   repropose       배분기관이 후보를 다시 보냄 (전달 전이면 언제든 → proposed)
+ *   delivered       전달 마침 (confirmed → delivered)
+ */
+export async function updateAllocationSchedule(
+  intakeId: string,
+  allocationId: string,
+  input: ScheduleAction,
+): Promise<IntakeView> {
+  const updated = await runTransaction(db, async (tx) => {
+    const ref = doc(intakesCol, intakeId);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new IntakeError("입고 기록을 찾을 수 없어요", 404);
+    const intake = intakeFromDoc(snap.id, snap.data());
+    const index = intake.allocations.findIndex((a) => a.id === allocationId);
+    const allocation = intake.allocations[index];
+    if (!allocation) throw new IntakeError("배분 기록을 찾을 수 없어요", 404);
+    const current = allocation.schedule;
+    if (!current) throw new IntakeError("일정 없이 기록된 배분이에요");
+    if (current.status === "delivered") throw new IntakeError("이미 전달을 마친 배분이에요");
+
+    const now = new Date().toISOString();
+    let next: AllocationSchedule;
+    switch (input.action) {
+      case "confirm": {
+        if (current.status !== "proposed") throw new IntakeError("지금은 후보에서 고를 수 없어요");
+        const picked = current.candidates.find((c) => c.date === input.date && c.slot === input.slot);
+        if (!picked) throw new IntakeError("보낸 후보 중에서 골라주세요");
+        next = { ...current, status: "confirmed", confirmedDate: picked.date, confirmedSlot: picked.slot, counter: null };
+        break;
+      }
+      case "counter": {
+        const slot = normalizeScheduleSlot(input);
+        if (!slot) throw new IntakeError("요청할 날짜와 시간대를 골라주세요");
+        const note = typeof input.note === "string" ? input.note.trim().slice(0, 100) : "";
+        next = { ...current, status: "countered", confirmedDate: null, confirmedSlot: null, counter: { ...slot, note } };
+        break;
+      }
+      case "accept-counter": {
+        if (current.status !== "countered" || !current.counter)
+          throw new IntakeError("시설이 요청한 날짜가 없어요");
+        next = {
+          ...current,
+          status: "confirmed",
+          confirmedDate: current.counter.date,
+          confirmedSlot: current.counter.slot,
+          counter: null,
+        };
+        break;
+      }
+      case "repropose": {
+        const candidates = normalizeCandidates(input.candidates);
+        if (candidates.length === 0) throw new IntakeError("전달 날짜 후보를 하나 이상 골라주세요");
+        const method: DeliveryMethod =
+          input.method === "pickup" ? "pickup" : input.method === "delivery" ? "delivery" : current.method;
+        next = { ...current, method, candidates, status: "proposed", confirmedDate: null, confirmedSlot: null, counter: null };
+        break;
+      }
+      case "delivered": {
+        if (current.status !== "confirmed") throw new IntakeError("일정이 확정된 뒤에 완료로 바꿀 수 있어요");
+        next = { ...current, status: "delivered", deliveredAt: now };
+        break;
+      }
+      default:
+        throw new IntakeError("알 수 없는 동작이에요");
+    }
+
+    const allocations = intake.allocations.map((a, i) =>
+      i === index ? { ...a, schedule: { ...next, updatedAt: now } } : a,
+    );
+    tx.update(ref, { allocations });
+    return { ...intake, allocations };
+  });
+  return toView(updated);
+}
+
+/** 시설 입장에서 본 배분 한 건. 어느 배분기관이 무엇을 언제 주는지. */
+export type IncomingDelivery = {
+  intakeId: string;
+  hubId: string;
+  hubName: string;
+  itemName: string;
+  category: string;
+  expiryDate: string | null;
+  productImageUrl: string | null;
+  allocation: Allocation & { id: string; schedule: AllocationSchedule };
+};
+
+/**
+ * 이 시설로 배분된 물품 전체. 맡은 배분기관 말고 다른 권역 배분기관이 보낼 수도 있어서
+ * 입고 전체를 훑는다 — 시연 규모에서는 문서 수가 적어 충분하다.
+ */
+export async function listIncomingDeliveries(beneficiaryId: string): Promise<IncomingDelivery[]> {
+  const [snap, orgs] = await Promise.all([getDocs(intakesCol), getBeneficiaries()]);
+  const nameById = new Map(orgs.map((o) => [o.id, o.name]));
+  const rows: IncomingDelivery[] = [];
+  for (const d of snap.docs) {
+    const intake = intakeFromDoc(d.id, d.data());
+    for (const a of intake.allocations) {
+      if (a.beneficiaryId !== beneficiaryId || !a.id || !a.schedule) continue;
+      rows.push({
+        intakeId: intake.id,
+        hubId: intake.hubId,
+        hubName: nameById.get(intake.hubId) ?? "배분기관",
+        itemName: intake.itemName,
+        category: intake.category,
+        expiryDate: intake.expiryDate,
+        productImageUrl: intake.productImageUrl,
+        allocation: a as IncomingDelivery["allocation"],
+      });
+    }
+  }
+  return rows.sort((a, b) => b.allocation.at.localeCompare(a.allocation.at));
+}
+
+export type { ScheduleSlot };
 
 /** 배분기관 대시보드 한 화면에 필요한 것. */
 export async function hubOverview(hubId: string) {
