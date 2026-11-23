@@ -60,8 +60,9 @@ export type Beneficiary = {
    * 지우지 않기 위해 필요하다.
    *  - "beneficiary": 경상북도_푸드뱅크 현황 (손으로 정리한 5곳)
    *  - "lvlhmap":  포항시 생활지도 시설현황 (API로 받아오는 109곳)
+   *  - "partner":  공공데이터에 없어서 직접 등록한 협력 기관 (NGO 등)
    */
-  source?: "beneficiary" | "lvlhmap";
+  source?: "beneficiary" | "lvlhmap" | "partner";
 };
 
 /**
@@ -242,16 +243,41 @@ const SNAPSHOT_ORGS: Beneficiary[] = orgSnapshot.orgs.map((o) => ({
   source: "lvlhmap" as const,
 }));
 
+/*
+ * 공공데이터에 없는 협력 기관. 직접 확인한 정보로 등록한다.
+ * 주소·좌표·운영시간은 카카오맵 장소 정보(place.map.kakao.com/575248418)에서 옮겼다.
+ * 운영시간이 확인된 기관이라 operatingDays/pickupSlots를 채운다 — 날짜 추천이 이 값을 쓴다.
+ * category "NGO"는 lib/hub.ts에서 배분기관으로 분류된다.
+ */
+export const PARTNER_BENEFICIARIES: Beneficiary[] = [
+  {
+    id: "ngo1",
+    name: "지미션컬리지 포항지부",
+    address: "포항시 북구 법원로39번길 39-12 1층",
+    region: "북구 장성동",
+    lat: 36.0779,
+    lng: 129.381,
+    category: "NGO",
+    audience: "식품",
+    goodsHint: "식품·생필품",
+    operatingDays: ["월", "화", "수", "목", "금"],
+    pickupSlots: ["오전 08:00~12:00", "오후 13:00~18:00"],
+    source: "partner",
+  },
+];
+
 const SEED_BENEFICIARIES: Beneficiary[] = [
   ...CURATED_BENEFICIARIES,
+  ...PARTNER_BENEFICIARIES,
   ...SNAPSHOT_ORGS,
 ];
 
 /**
- * 화면에 뜨는 기관 수. 서비스 소개에서 "실제 기관 N곳"을 말할 때 쓴다.
+ * 공공데이터에서 온 기관 수. 서비스 소개에서 "공공데이터의 실제 기관 N곳"을 말할 때 쓴다.
  * 숫자를 문구에 직접 적으면 데이터가 늘거나 줄 때 조용히 거짓말이 된다.
+ * 협력 기관은 공공데이터 출신이 아니라서 따로 센다.
  */
-export const ORG_COUNT = SEED_BENEFICIARIES.length;
+export const ORG_COUNT = CURATED_BENEFICIARIES.length + SNAPSHOT_ORGS.length;
 
 export const ORG_SOURCE = orgSnapshot.source;
 export const ORG_SNAPSHOT = orgSnapshot;
@@ -725,7 +751,7 @@ export async function syncOrgs(
     ...o,
     source: "lvlhmap" as const,
   }));
-  const writing = [...CURATED_BENEFICIARIES, ...incoming];
+  const writing = [...CURATED_BENEFICIARIES, ...PARTNER_BENEFICIARIES, ...incoming];
   await Promise.all(writing.map((o) => setDoc(doc(beneficiariesCol, o.id), o)));
 
   const alive = new Set(writing.map((o) => o.id));

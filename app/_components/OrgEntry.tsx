@@ -62,10 +62,10 @@ export default function OrgEntry() {
               className={field}
             >
               {/* 배분기관은 맡은 시설 전체를, 시설은 자기 목표 하나를 관리한다. 같은 화면 범위만 다르다. */}
-              <optgroup label="배분기관 · 푸드뱅크·푸드마켓">
+              <optgroup label="배분기관 · 푸드뱅크·푸드마켓·NGO">
                 {beneficiaries.filter(isHub).map((fb) => (
                   <option key={fb.id} value={fb.id}>
-                    {fb.name} (배분기관)
+                    {fb.name} ({fb.category === "NGO" ? "NGO 배분기관" : "배분기관"})
                   </option>
                 ))}
               </optgroup>

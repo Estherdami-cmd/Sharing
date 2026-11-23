@@ -23,11 +23,14 @@ const TABS = [
 export function HubFrame({
   hubId,
   hubName,
+  hubCategory,
   admin,
   children,
 }: {
   hubId: string;
   hubName: string;
+  /** 기관 종류. NGO면 배지에 드러낸다. 모르면 그냥 "배분기관". */
+  hubCategory?: string;
   admin: ReturnType<typeof useAdminCode>;
   children: React.ReactNode;
 }) {
@@ -45,7 +48,7 @@ export function HubFrame({
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className={`${pageTitle} break-keep`}>{hubName}</h1>
-          <HubBadge />
+          <HubBadge label={hubCategory === "NGO" ? "NGO 배분기관" : undefined} />
         </div>
         <div className="no-print">
           <AdminCodeField {...admin.field} />
