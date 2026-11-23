@@ -169,6 +169,27 @@ export default function RegisterFlow() {
   const [companyName, setCompanyName] = useState("");
   const [companyManager, setCompanyManager] = useState("");
   const [companyContact, setCompanyContact] = useState("");
+  // 이미 관리 코드를 받은 기업이면 코드로 불러와 같은 기업의 기부로 묶는다.
+  const [companyCode, setCompanyCode] = useState("");
+  const [companyCodeStatus, setCompanyCodeStatus] = useState<"idle" | "checking" | "ok" | "error">("idle");
+  // 처음 기업으로 등록하면 서버가 관리 코드를 발급한다. 다음 화면으로 넘어가기 전에 보여준다.
+  const [issued, setIssued] = useState<{ code: string; next: string } | null>(null);
+
+  async function loadCompanyByCode() {
+    if (!companyCode.trim()) return;
+    setCompanyCodeStatus("checking");
+    const res = await fetch("/api/companies/lookup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: companyCode }),
+    }).catch(() => null);
+    if (!res?.ok) return setCompanyCodeStatus("error");
+    const { company } = await res.json();
+    setCompanyName(company.name ?? "");
+    setCompanyManager(company.manager ?? "");
+    setCompanyContact(company.contact ?? "");
+    setCompanyCodeStatus("ok");
+  }
   const companyReady =
     donorType === "individual" ||
     (companyName.trim().length > 0 && isValidPhone(companyContact));
@@ -429,6 +450,7 @@ export default function RegisterFlow() {
           donorName: companyName.trim(),
           donorManager: companyManager.trim(),
           donorContact: companyContact,
+          ...(companyCodeStatus === "ok" && { companyCode }),
         }),
       }),
     });
@@ -442,15 +464,15 @@ export default function RegisterFlow() {
 
     // 게시판에서 특정 요청을 보고 들어온 경우, 매칭 추천 화면을 건너뛰고 바로 그 신청 화면으로 간다.
     // from=board는 신청 화면이 "매칭 결과로 돌아가기"처럼, 거치지도 않은 화면으로 안내하지 않게 하는 표시다.
-    if (presetNeedId) {
-      router.push(
-        `/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=${created.quantity}&from=board`,
-      );
+    const next = presetNeedId
+      ? `/apply?donationId=${created.id}&needId=${presetNeedId}&quantity=${created.quantity}&from=board`
+      : // 2단계는 별도 주소다. 물품 id만 넘기면 그쪽에서 매칭을 다시 불러온다.
+        `/match/${created.id}`;
+    if (created.companyCode) {
+      setIssued({ code: created.companyCode, next });
       return;
     }
-
-    // 2단계는 별도 주소다. 물품 id만 넘기면 그쪽에서 매칭을 다시 불러온다.
-    router.push(`/match/${created.id}`);
+    router.push(next);
   }
 
   /**
@@ -487,6 +509,10 @@ export default function RegisterFlow() {
     setSource(null);
     setFailure(null);
     setRegisterError(null);
+  }
+
+  if (issued) {
+    return <IssuedCompanyCode code={issued.code} companyName={companyName.trim()} onNext={() => router.push(issued.next)} />;
   }
 
   return (
@@ -563,6 +589,47 @@ export default function RegisterFlow() {
               여러 개를 한 번에 기부하신다면 가까운 배분기관에 맡기는 걸 추천해요. 맡은 시설에
               필요한 만큼 나눠 드리고, 어디에 몇 개 갔는지 결과 보고서로 정리해 드려요
             </p>
+            <div className="flex flex-col gap-1.5 rounded-xl bg-neutral-50 p-3">
+              <p className="text-[13px] font-bold text-neutral-700">기업 관리 코드가 있나요?</p>
+              <div className="flex gap-2">
+                <input
+                  value={companyCode}
+                  onChange={(e) => {
+                    setCompanyCode(e.target.value.toUpperCase());
+                    setCompanyCodeStatus("idle");
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && loadCompanyByCode()}
+                  placeholder="예: ABCD-2345"
+                  aria-label="기업 관리 코드"
+                  maxLength={9}
+                  className={`${field} flex-1 font-mono tracking-wider`}
+                />
+                <button
+                  type="button"
+                  onClick={loadCompanyByCode}
+                  disabled={!companyCode.trim() || companyCodeStatus === "checking"}
+                  className="h-12 shrink-0 cursor-pointer rounded-xl bg-neutral-900 px-4 text-[14px] font-bold text-white disabled:bg-neutral-200 disabled:text-neutral-400"
+                >
+                  {companyCodeStatus === "checking" ? "확인 중" : "불러오기"}
+                </button>
+              </div>
+              <p
+                className={
+                  "text-xs " +
+                  (companyCodeStatus === "ok"
+                    ? "font-bold text-primary-700"
+                    : companyCodeStatus === "error"
+                      ? "text-danger-fg"
+                      : "text-neutral-400")
+                }
+              >
+                {companyCodeStatus === "ok"
+                  ? "확인했어요. 이 기부는 같은 기업의 기부 내역에 함께 쌓여요"
+                  : companyCodeStatus === "error"
+                    ? "이 코드로 등록된 기업이 없어요. 처음이면 비워 두세요"
+                    : "처음이면 비워 두세요. 등록하면 관리 코드를 바로 드려요"}
+              </p>
+            </div>
             <input
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
@@ -1025,5 +1092,49 @@ function BuildingIcon() {
       <path d="M3 21h18" />
       <path d="M8 7h4M8 11h4M8 15h4" />
     </svg>
+  );
+}
+
+/**
+ * 처음 기업으로 등록했을 때 한 번 보여주는 관리 코드. 서버는 해시만 남겨서 다시 볼 수 없다 —
+ * 그래서 복사 버튼을 두고, 넘어가기 전에 적어 두라고 분명히 말한다.
+ */
+function IssuedCompanyCode({ code, companyName, onNext }: { code: string; companyName: string; onNext: () => void }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+  return (
+    <div className="mx-auto flex w-full max-w-lg flex-col gap-5">
+      <header className="text-center">
+        <h1 className={pageTitle}>기업 관리 코드가 나왔어요</h1>
+        <p className={pageDesc}>
+          {companyName ? `${companyName}의 ` : ""}기부를 이 코드로 모아서 관리해요
+        </p>
+      </header>
+      <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-primary-500 bg-white p-6">
+        <p className="font-mono text-[32px] font-extrabold tracking-[0.12em] text-neutral-900">{code}</p>
+        <button
+          type="button"
+          onClick={copy}
+          className="h-10 cursor-pointer rounded-full border border-neutral-300 bg-white px-4 text-[14px] font-bold text-neutral-700"
+        >
+          {copied ? "복사했어요" : "코드 복사"}
+        </button>
+      </div>
+      <ul className="flex flex-col gap-1.5 text-[14px] leading-relaxed text-neutral-700">
+        <li>· <strong>신청 조회 → 기업</strong>에서 이 코드로 맡긴 물품이 어디까지 갔는지 봐요</li>
+        <li>· 다음에 기부할 때 이 코드를 넣으면 같은 기업 기부로 이어져요</li>
+        <li className="text-danger-fg">· 코드는 지금만 보여드려요. 꼭 적어 두거나 복사해 두세요</li>
+      </ul>
+      <button type="button" onClick={onNext} className={btnPrimary}>
+        다음으로
+      </button>
+    </div>
   );
 }
