@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { formatKoreanDate } from "@/lib/rules";
 import type { Beneficiary, NeedView } from "@/lib/store";
 import { needPeriodLabel } from "@/lib/period";
+import { nearestHub } from "@/lib/hub";
 import { AdminCodeField, useAdminCode } from "./AdminCode";
 import Loading from "./Loading";
 import NeedProgress from "./NeedProgress";
@@ -31,6 +32,7 @@ function StatTile({ value, title }: { value: number; title: string }) {
 export default function OrgHome({ orgId }: { orgId: string }) {
   const admin = useAdminCode();
   const [org, setOrg] = useState<Beneficiary | null>(null);
+  const [hub, setHub] = useState<Beneficiary | null>(null);
   const [needs, setNeeds] = useState<NeedView[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
@@ -53,7 +55,10 @@ export default function OrgHome({ orgId }: { orgId: string }) {
     const needsData: { needs: NeedView[]; beneficiaries: Beneficiary[] } = await needsRes.json();
     const appsData: ApplicationRow[] = await appsRes.json();
     // 요청도 신청도 이 기관 것만 본다. 다른 기관 이름이 섞이면 범위가 어긋난다.
-    setOrg(needsData.beneficiaries.find((fb) => fb.id === orgId) ?? null);
+    const me = needsData.beneficiaries.find((fb) => fb.id === orgId) ?? null;
+    setOrg(me);
+    // 이 시설을 맡은 배분기관. 그곳에 들어온 물품이 이 시설 요청으로 나눠져 온다.
+    setHub(me ? nearestHub(me, needsData.beneficiaries) : null);
     setNeeds(needsData.needs.filter((need) => need.beneficiaryId === orgId));
     setApplications(appsData.filter((app) => app.beneficiaryId === orgId));
     loadedOnce.current = true;
@@ -126,6 +131,11 @@ export default function OrgHome({ orgId }: { orgId: string }) {
               </svg>
             </button>
           </div>
+          {hub && (
+            <p className="mt-1.5 inline-flex items-center rounded-full bg-primary-100 px-2.5 py-1 text-xs font-bold text-primary-700">
+              {hub.name} 소속 · 배분기관이 나눠 주는 물품도 이 목표로 들어와요
+            </p>
+          )}
           <div className="mt-2">
             <AdminCodeField {...admin.field} />
           </div>
