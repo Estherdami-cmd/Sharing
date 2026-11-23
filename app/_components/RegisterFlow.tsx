@@ -519,31 +519,44 @@ export default function RegisterFlow() {
         매칭 화면에서는 배분기관에 맡기기 카드가 이 정보로 채워진 채 나온다.
       */}
       <div className="flex flex-col gap-2">
-        <p className={label}>누가 기부하나요?</p>
-        <div className="flex gap-2" role="radiogroup" aria-label="기부자 유형">
-          {(
-            [
-              ["individual", "개인"],
-              ["company", "기업·단체"],
-            ] as const
-          ).map(([key, text]) => (
-            <button
-              key={key}
-              type="button"
-              role="radio"
-              aria-checked={donorType === key}
-              onClick={() => setDonorType(key)}
-              className={
-                "h-12 flex-1 cursor-pointer rounded-xl border-2 text-[15px] font-bold transition-colors " +
-                (donorType === key
-                  ? "border-primary-500 bg-primary-50 text-primary-700"
-                  : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
-              }
-            >
-              {text}
-            </button>
-          ))}
-        </div>
+        {donorParam === "company" ? (
+          /*
+            헤더의 "기업 등록"으로 들어오면 이미 기업이라고 고른 것이다. 개인/기업 선택지를
+            다시 보여주지 않고, 기업·단체로 등록 중이라는 표시만 남긴다.
+          */
+          <p className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary-500 bg-primary-50 px-3 py-1.5 text-[14px] font-bold text-primary-700">
+            <BuildingIcon />
+            기업·단체
+          </p>
+        ) : (
+          <>
+            <p className={label}>누가 기부하나요?</p>
+            <div className="flex gap-2" role="radiogroup" aria-label="기부자 유형">
+              {(
+                [
+                  ["individual", "개인"],
+                  ["company", "기업·단체"],
+                ] as const
+              ).map(([key, text]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={donorType === key}
+                  onClick={() => setDonorType(key)}
+                  className={
+                    "h-12 flex-1 cursor-pointer rounded-xl border-2 text-[15px] font-bold transition-colors " +
+                    (donorType === key
+                      ? "border-primary-500 bg-primary-50 text-primary-700"
+                      : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
+                  }
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         {donorType === "company" ? (
           <div className="flex flex-col gap-2 rounded-2xl border border-primary-200 bg-white/70 p-4">
             <p className="text-[13px] leading-relaxed text-neutral-600">
@@ -991,5 +1004,26 @@ function PhotoSlot({
         className="hidden"
       />
     </div>
+  );
+}
+
+/** 기업·단체 표시용 건물 아이콘. 글자 크기에 맞춰 1em. */
+function BuildingIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="size-[1.1em]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
+      <path d="M16 9h2a2 2 0 0 1 2 2v10" />
+      <path d="M3 21h18" />
+      <path d="M8 7h4M8 11h4M8 15h4" />
+    </svg>
   );
 }
