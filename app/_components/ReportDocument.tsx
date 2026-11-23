@@ -6,6 +6,7 @@ import type { FormField } from "@/lib/report-form";
 import Loading from "./Loading";
 import { groupBySection } from "./ReportFill";
 import { btnPrimary } from "../ui";
+import { downloadSheetsAsPdf } from "./pdfDownload";
 
 /** "2026-11-25 14:32" (한국 시각). */
 function kst(iso: string) {
@@ -53,9 +54,7 @@ export default function ReportDocument({ id }: { id: string }) {
       <PrintStyle />
       <div className="no-print flex items-center justify-between gap-2">
         <p className="text-[13px] text-neutral-500">{kst(doc.submittedAt)} 제출</p>
-        <button type="button" onClick={() => window.print()} className={`${btnPrimary} h-11! w-auto! px-5`}>
-          PDF로 저장 · 인쇄
-        </button>
+        <PdfButton label="PDF로 저장" fileName={`${doc.form.title}_${doc.auto.facilityName}.pdf`} />
       </div>
       <ReportSheet doc={doc} />
       <CompanyFill doc={doc} onSaved={setDoc} />
@@ -137,6 +136,31 @@ function CompanyFill({ doc, onSaved }: { doc: FormResponse; onSaved: (d: FormRes
         {busy ? "저장하는 중" : "저장"}
       </button>
     </div>
+  );
+}
+
+/**
+ * 누르면 화면의 문서(.report-sheet)를 PDF 파일로 바로 내려받는다. 만들다 실패하면(오래된 브라우저 등)
+ * 인쇄 창으로 대신한다 — 거기서도 "PDF로 저장"을 고를 수 있다.
+ */
+export function PdfButton({ label, fileName }: { label: string; fileName: string }) {
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    try {
+      const sheets = [...document.querySelectorAll<HTMLElement>(".report-sheet")];
+      await downloadSheetsAsPdf(sheets, fileName);
+    } catch (e) {
+      console.error("[pdf] 만들기 실패, 인쇄 창으로 대신", e);
+      window.print();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button type="button" disabled={busy} onClick={run} className={`${btnPrimary} h-11! w-auto! px-5`}>
+      {busy ? "PDF 만드는 중…" : label}
+    </button>
   );
 }
 
