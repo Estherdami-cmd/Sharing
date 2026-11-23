@@ -20,7 +20,6 @@ const BURDENS: { step: string; burden: string; relief: string }[] = [
 type Role = {
   key: string;
   name: string;
-  tag?: string;
   who: string;
   points: string[];
   shots: { src: string; alt: string }[];
@@ -30,7 +29,6 @@ const ROLES: Role[] = [
   {
     key: "hub",
     name: "배분기관",
-    tag: "새로 더한 유형",
     who: "푸드뱅크·푸드마켓·NGO처럼 기부를 받아 여러 시설에 나누는 곳",
     points: [
       "맡은 시설 여러 곳의 필요와 들어온 물품을 대시보드 한 화면에서 봐요",
@@ -47,7 +45,6 @@ const ROLES: Role[] = [
   {
     key: "facility",
     name: "시설",
-    tag: "거의 그대로",
     who: "지역아동센터·노인복지센터·무료급식소 같은 최종 수혜기관",
     points: [
       "지금처럼 필요한 물품과 목표 수량을 올려요. 누구나 보는 공개 목록이 돼요",
@@ -70,7 +67,6 @@ const ROLES: Role[] = [
   {
     key: "individual",
     name: "개인",
-    tag: "문은 열어 두되",
     who: "집에 남는 물품을 나누고 싶은 누구나",
     points: [
       "사진을 올리면 AI가 품목·유통기한을 읽고, 지금 필요한 시설을 추천해요",
@@ -168,14 +164,7 @@ export default function ServicePage() {
           {ROLES.map((role) => (
             <article key={role.key} className="flex flex-col gap-4 sm:flex-row sm:gap-6">
               <div className="flex flex-col gap-2 sm:w-64 sm:shrink-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-extrabold text-neutral-900">{role.name}</h3>
-                  {role.tag && (
-                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-bold text-neutral-600">
-                      {role.tag}
-                    </span>
-                  )}
-                </div>
+                <h3 className="text-lg font-extrabold text-neutral-900">{role.name}</h3>
                 <p className={`${caption} break-keep`}>{role.who}</p>
                 <ul className="flex flex-col gap-1.5">
                   {role.points.map((p) => (
@@ -186,7 +175,7 @@ export default function ServicePage() {
                   ))}
                 </ul>
               </div>
-              {/* 화면은 모바일 폭으로 찍었다. 잘라내지 않고 원래 비율대로 가로로 넘겨 본다. */}
+              {/* 화면은 모바일 폭으로 찍었다. 같은 높이 틀에 위쪽부터 맞춰 넣어 나란히 둔다. */}
               <div className="flex min-w-0 flex-1 items-start gap-3 overflow-x-auto pb-1">
                 {role.shots.map((s) => (
                   <img
@@ -194,7 +183,7 @@ export default function ServicePage() {
                     src={s.src}
                     alt={s.alt}
                     loading="lazy"
-                    className="w-52 shrink-0 rounded-xl border border-neutral-200/70 bg-white sm:w-56"
+                    className="h-[260px] w-52 shrink-0 rounded-xl border border-neutral-200/70 bg-white object-cover object-top sm:h-[280px] sm:w-56"
                   />
                 ))}
               </div>
@@ -265,14 +254,15 @@ export default function ServicePage() {
             ))}
           </ul>
 
+          <p className={`${caption} break-keep`}>
+            공공데이터에는 운영 시간과 연락처가 없어서 지어내지 않고 비워 둬요. 전달 날짜는 신청이나 배분
+            뒤에 기관끼리 화면에서 주고받아 정해요.
+          </p>
+
           {PARTNER_BENEFICIARIES.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <h3 className="text-[15px] font-bold text-neutral-900">
-                직접 등록한 협력 배분기관 {PARTNER_BENEFICIARIES.length}곳
-              </h3>
-              <p className={`${caption} break-keep`}>
-                공공데이터에 없지만 함께하기로 한 기관이에요. 주소와 운영 시간은 기관에서 직접 받았어요.
-              </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <h3 className="text-[15px] font-bold text-neutral-900">직접 등록한 배분기관</h3>
+              <p className={`${caption} break-keep`}>공공데이터에 없어 여러시가 직접 더한 기관이에요.</p>
               <ul className="flex flex-col gap-2">
                 {PARTNER_BENEFICIARIES.map((org) => (
                   <li key={org.id} className={`${box} break-keep py-3`}>
@@ -283,22 +273,11 @@ export default function ServicePage() {
                       </span>
                     </div>
                     <p className={`${caption} mt-0.5`}>{org.address}</p>
-                    {org.operatingDays && org.operatingDays.length > 0 && (
-                      <p className={caption}>
-                        {org.operatingDays.join("·")} 운영
-                        {org.pickupSlots && org.pickupSlots.length > 0 ? ` · ${org.pickupSlots.join(", ")}` : ""}
-                      </p>
-                    )}
                   </li>
                 ))}
               </ul>
             </div>
           )}
-
-          <p className={`${caption} break-keep`}>
-            공공데이터에는 운영 시간과 연락처가 없어서 지어내지 않고 비워 둬요. 전달 날짜는 신청이나 배분
-            뒤에 기관끼리 화면에서 주고받아 정해요.
-          </p>
         </section>
       </div>
     </PageShell>
