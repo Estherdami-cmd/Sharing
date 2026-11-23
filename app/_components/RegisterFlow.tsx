@@ -51,6 +51,16 @@ const DEMO_PHOTOS = {
 } as const;
 
 /**
+ * 기업으로 등록할 때의 예시 사진. 제품 사진만 같은 주스를 팔레트째 쌓아 둔 창고 사진으로
+ * 바꾼다 — 기업 기부는 낱개가 아니라 박스·트럭 단위라는 규모가 화면에서 바로 보이게.
+ * 파일명에 juice를 넣어 목업으로 떨어져도 같은 품목이 나오게 했다.
+ */
+const COMPANY_DEMO_PHOTOS = {
+  product: { src: "/demo/juice-pallet.jpg", fileName: "juice-pallet.jpg" },
+  expiry: DEMO_PHOTOS.expiry,
+} as const;
+
+/**
  * 사진을 그대로 보내면 휴대폰 사진 한 장이 수 MB라 요청이 커진다. 기관이 화면에서
  * 확인하는 용도로는 이 정도 크기면 충분해서, 올릴 때 한 번 줄인다.
  * 실패하면(브라우저 미지원 등) null을 돌려주고 사진 없이 등록을 계속 진행한다 —
@@ -343,7 +353,7 @@ export default function RegisterFlow() {
     setLoadingDemoPhoto(true);
     try {
       for (const slot of ["product", "expiry"] as const) {
-        const { src, fileName } = DEMO_PHOTOS[slot];
+        const { src, fileName } = (donorType === "company" ? COMPANY_DEMO_PHOTOS : DEMO_PHOTOS)[slot];
         const res = await fetch(src);
         if (!res.ok) throw new Error(`demo photo fetch failed: ${slot}`);
         const blob = await res.blob();
