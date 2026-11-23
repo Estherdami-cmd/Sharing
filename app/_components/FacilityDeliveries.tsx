@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { IncomingDelivery } from "@/lib/hub-store";
 import { AdminCodeField, useAdminCode } from "./AdminCode";
@@ -10,6 +11,11 @@ import { pageDesc, pageTitle, sectionTitle } from "../ui";
 import { EmptyNote } from "./hub/HubCommon";
 import { GROUP_ORDER, ScheduleCard, type ScheduleActionBody, sortForStatus } from "./hub/Schedule";
 
+/** 기업 물품이면 그 기업의 보고 양식으로 결과를 쓸 수 있다. */
+type Row = IncomingDelivery & {
+  report: { companyName: string; formTitle: string; responseId: string | null } | null;
+};
+
 /**
  * 시설 입장의 "받을 물품". 배분기관이 나눠 준 물품의 전달 날짜를 고르고, 받으면 완료로 바꾼다.
  * 개인 기부 신청(들어온 신청)과는 따로 본다 — 상대가 배분기관이고 하는 일이 달라서다.
@@ -17,14 +23,14 @@ import { GROUP_ORDER, ScheduleCard, type ScheduleActionBody, sortForStatus } fro
 export default function FacilityDeliveries({ orgId }: { orgId: string }) {
   const admin = useAdminCode();
   const [org, setOrg] = useState<{ id: string; name: string } | null>(null);
-  const [rows, setRows] = useState<IncomingDelivery[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "notfound" | "failed">("loading");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/deliveries?orgId=${encodeURIComponent(orgId)}`).catch(() => null);
     if (res?.status === 404) return setStatus("notfound");
     if (!res?.ok) return setStatus((s) => (s === "ready" ? s : "failed"));
-    const data: { org: { id: string; name: string }; deliveries: IncomingDelivery[] } = await res.json();
+    const data: { org: { id: string; name: string }; deliveries: Row[] } = await res.json();
     setOrg(data.org);
     setRows(data.deliveries);
     setStatus("ready");
@@ -35,7 +41,7 @@ export default function FacilityDeliveries({ orgId }: { orgId: string }) {
   }, [load]);
   useRefetchOnFocus(load);
 
-  async function act(row: IncomingDelivery, body: ScheduleActionBody): Promise<string | null> {
+  async function act(row: Row, body: ScheduleActionBody): Promise<string | null> {
     const res = await admin.adminFetch(
       `/api/intakes/${row.intakeId}/allocations/${row.allocation.id}`,
       { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
@@ -84,15 +90,39 @@ export default function FacilityDeliveries({ orgId }: { orgId: string }) {
               {title} {group.length}건
             </h2>
             {group.map((row) => (
-              <ScheduleCard
-                key={`${row.allocation.id}-${row.schedule.updatedAt}`}
-                role="facility"
-                title={`${row.itemName} · ${row.allocation.qty}개`}
-                subtitle={`${row.hubName}에서 · ${row.allocation.needItemName} 요청으로`}
-                imageUrl={row.productImageUrl}
-                schedule={row.schedule}
-                onAction={(body) => act(row, body)}
-              />
+              <div key={`${row.allocation.id}-${row.schedule.updatedAt}`} className="flex flex-col gap-2">
+                <ScheduleCard
+                  role="facility"
+                  title={`${row.itemName} · ${row.allocation.qty}개`}
+                  subtitle={`${row.hubName}에서 · ${row.allocation.needItemName} 요청으로`}
+                  imageUrl={row.productImageUrl}
+                  schedule={row.schedule}
+                  onAction={(body) => act(row, body)}
+                />
+                {/* 받은 뒤(전달 완료)에 기업 양식으로 결과를 쓴다. 확정 단계에서도 미리 열어 둔다. */}
+                {row.report && (row.schedule.status === "delivered" || row.schedule.status === "confirmed") && (
+                  <Link
+                    href={
+                      row.report.responseId
+                        ? `/reports/${row.report.responseId}`
+                        : `/beneficiary/${orgId}/report/${row.intakeId}/${row.allocation.id}`
+                    }
+                    className={
+                      "flex items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[14px] font-bold " +
+                      (row.report.responseId
+                        ? "bg-primary-50 text-primary-700"
+                        : "border-2 border-primary-500 bg-white text-primary-700")
+                    }
+                  >
+                    <span className="min-w-0 truncate">
+                      {row.report.responseId
+                        ? `${row.report.companyName}에 결과 문서를 보냈어요`
+                        : `${row.report.companyName} 양식으로 결과 작성하기`}
+                    </span>
+                    <span className="shrink-0">{row.report.responseId ? "보기 →" : "쓰기 →"}</span>
+                  </Link>
+                )}
+              </div>
             ))}
           </section>
         );
