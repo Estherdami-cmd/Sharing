@@ -35,6 +35,9 @@ export async function PATCH(
     ...(body.category !== undefined && { category: body.category }),
     ...(body.region !== undefined && { region: body.region }),
     ...(body.expiryDate !== undefined && { expiryDate: body.expiryDate || null }),
+    // 매칭 화면의 맡기기 카드에서 개수를 고칠 때 쓴다. 범위(1~999)는 updateDonation이 자른다.
+    ...(body.quantity !== undefined &&
+      Number.isFinite(Number(body.quantity)) && { quantity: Number(body.quantity) }),
   });
 
   if (!donation) {
