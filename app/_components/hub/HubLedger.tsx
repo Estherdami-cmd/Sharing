@@ -88,7 +88,7 @@ export default function HubLedger({ hubId }: { hubId: string }) {
   const reportable = data.intakes.filter((i) => i.status === "stored" && i.allocatedQty > 0);
 
   return (
-    <HubFrame hubId={hubId} hubName={data.hub.name} admin={admin}>
+    <HubFrame hubId={hubId} hubCategory={data.hub.category} hubName={data.hub.name} admin={admin}>
       <div className="flex gap-1.5">
         {(
           [

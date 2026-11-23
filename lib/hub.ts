@@ -5,7 +5,7 @@ import { CATEGORIES, distanceKm, parseLocalDate, startOfToday } from "./rules";
 
 /**
  * 기관 유형.
- *  - hub      중간 배분기관. 기부를 받아 보관했다가 여러 시설에 나눈다 (푸드뱅크·푸드마켓)
+ *  - hub      중간 배분기관. 기부를 받아 보관했다가 여러 시설에 나눈다 (푸드뱅크·푸드마켓·NGO)
  *  - facility 최종 수혜 시설. 자기 목표 하나를 올리고 받는다 (지역아동센터·요양원·무료급식소)
  *
  * 따로 저장하지 않고 기관 종류(category)로 정한다. 공공데이터에서 받은 기관 정보를
@@ -13,7 +13,7 @@ import { CATEGORIES, distanceKm, parseLocalDate, startOfToday } from "./rules";
  */
 export type OrgType = "hub" | "facility";
 
-const HUB_CATEGORIES = ["푸드뱅크", "푸드마켓"];
+const HUB_CATEGORIES = ["푸드뱅크", "푸드마켓", "NGO"];
 
 type OrgLike = { id: string; category?: string; lat: number; lng: number };
 

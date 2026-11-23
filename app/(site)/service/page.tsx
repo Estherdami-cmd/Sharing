@@ -1,7 +1,7 @@
 import PageShell from "@/app/_components/PageShell";
 import { caption, pageDesc, pageTitle, sectionTitle } from "@/app/ui";
 import { SOURCES } from "@/lib/opendata";
-import { ORG_COUNT } from "@/lib/store";
+import { ORG_COUNT, PARTNER_BENEFICIARIES } from "@/lib/store";
 
 const STEPS: { src: string; step: string; desc: string }[] = [
   { src: "/service/register.png", step: "1. 물품 등록", desc: "사진 올리면 AI가 품목·유통기한을 읽어요" },
@@ -104,7 +104,8 @@ export default function ServicePage() {
             <h2 className={sectionTitle}>기관 정보는 공공데이터를 씁니다</h2>
             <p className={`${caption} mt-1`}>
               화면에 나오는 기관 {ORG_COUNT}곳은 지어낸 데이터가 아니라 공공데이터포털에서
-              받아온 실제 기관이에요. 이름·주소·좌표를 그대로 씁니다.
+              받아온 실제 기관이에요. 이름·주소·좌표를 그대로 씁니다. 여기에 직접 등록한 협력
+              기관 {PARTNER_BENEFICIARIES.length}곳이 더해집니다.
             </p>
           </div>
 
@@ -125,6 +126,17 @@ export default function ServicePage() {
                 <p className={`${caption} mt-0.5`}>
                   {src.covers}
                   {src.collectedAt ? ` · ${src.collectedAt} 수집 기준` : ""}
+                </p>
+              </li>
+            ))}
+            {PARTNER_BENEFICIARIES.map((org) => (
+              <li
+                key={org.id}
+                className="break-keep rounded-xl border border-neutral-200/70 bg-white px-4 py-3"
+              >
+                <p className="text-[15px] font-semibold text-neutral-900">{org.name}</p>
+                <p className={`${caption} mt-0.5`}>
+                  협력 {org.category} · 공공데이터에 없어 직접 등록한 배분기관
                 </p>
               </li>
             ))}

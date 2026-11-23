@@ -43,7 +43,7 @@ export function HubIntakes({ hubId }: { hubId: string }) {
   const done = data.intakes.filter((i) => i.status !== "pending");
 
   return (
-    <HubFrame hubId={hubId} hubName={data.hub.name} admin={admin}>
+    <HubFrame hubId={hubId} hubCategory={data.hub.category} hubName={data.hub.name} admin={admin}>
       <Link href={`${hubPath(hubId)}/intakes/new`} className={`${btnPrimary} gap-2`}>
         <span aria-hidden>📷</span> 들어온 물품 직접 촬영해 입고
       </Link>
@@ -115,7 +115,7 @@ export function HubStorage({ hubId }: { hubId: string }) {
   );
 
   return (
-    <HubFrame hubId={hubId} hubName={data.hub.name} admin={admin}>
+    <HubFrame hubId={hubId} hubCategory={data.hub.category} hubName={data.hub.name} admin={admin}>
       {justAdded && (
         <p className="rounded-xl bg-success-bg px-4 py-3 text-[14px] font-bold text-success-fg">
           보관으로 옮겼어요. 바로 시설에 나눠 보세요

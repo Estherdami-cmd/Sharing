@@ -73,7 +73,7 @@ export default function HubDashboard({ hubId }: { hubId: string }) {
   const imminent = stored.filter((i) => i.daysLeft !== null && i.daysLeft <= 7);
 
   return (
-    <HubFrame hubId={hubId} hubName={hub.name} admin={admin}>
+    <HubFrame hubId={hubId} hubCategory={hub.category} hubName={hub.name} admin={admin}>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Tile value={facilities.length} title="담당 시설" tone="green" />
         <Tile value={openNeeds.length} title="진행 중 목표" tone="green" />

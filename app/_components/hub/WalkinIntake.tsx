@@ -107,7 +107,7 @@ export default function WalkinIntake({ hubId }: { hubId: string }) {
   const filled = rows.filter((r) => r.itemName.trim());
 
   return (
-    <HubFrame hubId={hubId} hubName={data?.hub.name ?? ""} admin={admin}>
+    <HubFrame hubId={hubId} hubCategory={data?.hub.category} hubName={data?.hub.name ?? ""} admin={admin}>
       <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
         <h2 className="text-[20px] font-bold tracking-[-0.02em]">입고 촬영</h2>
 
