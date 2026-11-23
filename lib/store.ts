@@ -1068,7 +1068,8 @@ export async function matchNeeds(
   genericName: string | null = null,
 ): Promise<NeedMatch[]> {
   const origin = getRegion(regionName || DEFAULT_REGION);
-  const all = await listNeeds();
+  // 이미 목표를 다 채운 요청은 추천하지 않는다. 다 찬 곳이 2순위로 뜨면 정작 모자란 곳이 밀린다.
+  const all = (await listNeeds()).filter((need) => need.remainingQty > 0);
 
   return (
     all

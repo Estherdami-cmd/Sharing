@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Donation, NeedMatch } from "@/lib/store";
 import { needPeriodLabel } from "@/lib/period";
 import {
@@ -58,17 +58,27 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
   // 추천 순위와 별개로, 특정 기관을 알고 있으면 이름으로 바로 찾을 수 있게 한다.
   const [searchQuery, setSearchQuery] = useState("");
 
+  /*
+    불러오기가 겹치면 마지막에 시작한 것만 반영한다. 첫 화면이 뜬 직후 지역을 바꾸면
+    처음 불러오기(또는 창 포커스 때 다시 불러오기)가 늦게 도착해 새 지역을 옛 값으로
+    덮어쓰는 일이 있었다 — "한 번 더 골라야 바뀐다"는 증상이 그것이다.
+  */
+  const loadSeq = useRef(0);
   const loadMatches = useCallback(async (id: string) => {
+    const seq = ++loadSeq.current;
     setMatchLoading(true);
-    const res = await fetch(`/api/match/${id}`);
+    const res = await fetch(`/api/match/${id}`).catch(() => null);
+    if (seq !== loadSeq.current) return null; // 더 나중에 시작한 불러오기가 결과를 반영한다
     setMatchLoading(false);
-    if (!res.ok) return false;
+    if (!res?.ok) return false;
     const data = await res.json();
     setDonation(data.donation);
     setMatches(data.matches);
     setRegions(data.regions);
     setHub(data.hub ?? null);
     setHubs(data.hubs ?? []);
+    // 첫 불러오기가 창 포커스 때 다시 불러오기에 밀려도 화면이 로딩에 멈추지 않게.
+    setLoadState("ready");
     return true;
   }, []);
 
@@ -76,7 +86,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
     let cancelled = false;
     (async () => {
       const ok = await loadMatches(donationId);
-      if (!cancelled) setLoadState(ok ? "ready" : "error");
+      if (!cancelled && ok !== null) setLoadState(ok ? "ready" : "error");
     })();
     return () => {
       cancelled = true;
@@ -91,6 +101,10 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
 
   async function patchDonation(patch: Record<string, unknown>) {
     if (!donation) return;
+    // 고른 값을 바로 화면에 둔다. 저장이 끝날 때까지 옛 값으로 되돌아가 보이지 않게.
+    setDonation({ ...donation, ...patch } as Donation);
+    // 저장 전에 시작된 불러오기는 옛 지역 결과라 버린다.
+    loadSeq.current++;
     await fetch(`/api/donations/${donation.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
