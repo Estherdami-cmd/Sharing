@@ -16,6 +16,7 @@ import {
   evaluateShareable,
   formatKoreanDate,
   isValidISODate,
+  isValidPhone,
 } from "@/lib/rules";
 import {
   TONE_LABEL,
@@ -154,6 +155,18 @@ export default function RegisterFlow() {
       })
       .catch(() => {});
   }, [presetNeedId]);
+
+  // 기업·단체로 기부하면 이름(결과 보고서용)과 담당자 연락처(수거 일정용)를 같이 받는다.
+  // ?donor=company로 들어오면 기업으로 시작한다.
+  const [donorType, setDonorType] = useState<"individual" | "company">(
+    searchParams.get("donor") === "company" ? "company" : "individual",
+  );
+  const [companyName, setCompanyName] = useState("");
+  const [companyManager, setCompanyManager] = useState("");
+  const [companyContact, setCompanyContact] = useState("");
+  const companyReady =
+    donorType === "individual" ||
+    (companyName.trim().length > 0 && isValidPhone(companyContact));
 
   // 사진을 올리기 전에 먼저 고른다. 유통기한을 물어봐야 하는지가 여기서 갈린다.
   const [kind, setKind] = useState<ItemKind | null>(null);
@@ -406,6 +419,12 @@ export default function RegisterFlow() {
         genericName,
         productImageUrl,
         expiryImageUrl,
+        ...(donorType === "company" && {
+          donorType,
+          donorName: companyName.trim(),
+          donorManager: companyManager.trim(),
+          donorContact: companyContact,
+        }),
       }),
     });
     if (!res.ok) {
@@ -489,6 +508,76 @@ export default function RegisterFlow() {
           채워질 물품을 등록해요
         </p>
       )}
+
+      {/*
+        기업·단체는 결과 보고서와 수거 일정 때문에 이름·연락처가 필요하다.
+        매칭 화면에서는 배분기관에 맡기기 카드가 이 정보로 채워진 채 나온다.
+      */}
+      <div className="flex flex-col gap-2">
+        <p className={label}>누가 기부하나요?</p>
+        <div className="flex gap-2" role="radiogroup" aria-label="기부자 유형">
+          {(
+            [
+              ["individual", "개인"],
+              ["company", "기업·단체"],
+            ] as const
+          ).map(([key, text]) => (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={donorType === key}
+              onClick={() => setDonorType(key)}
+              className={
+                "h-12 flex-1 cursor-pointer rounded-xl border-2 text-[15px] font-bold transition-colors " +
+                (donorType === key
+                  ? "border-primary-500 bg-primary-50 text-primary-700"
+                  : "border-neutral-300 bg-white text-neutral-500 hover:border-neutral-400")
+              }
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+        {donorType === "company" ? (
+          <div className="flex flex-col gap-2 rounded-2xl border border-primary-200 bg-white/70 p-4">
+            <p className="text-[13px] leading-relaxed text-neutral-600">
+              여러 개를 한 번에 기부하신다면 가까운 배분기관에 맡기는 걸 추천해요. 맡은 시설에
+              필요한 만큼 나눠 드리고, 어디에 몇 개 갔는지 결과 보고서로 정리해 드려요
+            </p>
+            <input
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="기업·단체 이름 (보고서에 들어가요)"
+              aria-label="기업·단체 이름"
+              maxLength={40}
+              className={field}
+            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                value={companyManager}
+                onChange={(e) => setCompanyManager(e.target.value)}
+                placeholder="담당자 이름 (선택)"
+                aria-label="담당자 이름"
+                maxLength={20}
+                className={`${field} sm:flex-1`}
+              />
+              <input
+                value={companyContact}
+                onChange={(e) => setCompanyContact(e.target.value.replace(/\D/g, ""))}
+                placeholder="담당자 연락처 (숫자만)"
+                aria-label="담당자 연락처"
+                inputMode="tel"
+                maxLength={11}
+                className={`${field} sm:flex-1`}
+              />
+            </div>
+            <p className="text-xs text-neutral-400">
+              연락처는 배분기관만 볼 수 있고, 수거 일정을 잡을 때만 써요
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       {/*
         사진보다 먼저 고른다. 이 선택이 세부분류 목록과 유통기한 입력 여부를 정하고,
@@ -774,8 +863,13 @@ export default function RegisterFlow() {
         </div>
       )}
 
+      {canGoNext && !companyReady && (
+        <p className="-mb-2 text-center text-[13px] text-danger-fg">
+          맨 위 기업·단체 정보(이름, 담당자 연락처)를 채워주세요
+        </p>
+      )}
       <button
-        disabled={!canGoNext || submittingDonation}
+        disabled={!canGoNext || !companyReady || submittingDonation}
         onClick={handleRegisterNext}
         className={btnSecondary}
       >

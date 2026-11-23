@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_REGION, isValidISODate } from "@/lib/rules";
+import { DEFAULT_REGION, isValidISODate, isValidPhone } from "@/lib/rules";
 import { createDonation } from "@/lib/store";
 
 // 클라이언트가 올릴 때 이미 줄여서 보내지만(RegisterFlow.tsx), 그 경로를 우회한
@@ -34,7 +34,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "수량 형식이 올바르지 않습니다" }, { status: 400 });
   }
 
+  // 기업·단체 기부. 이름은 결과 보고서에, 연락처는 배분기관이 수거 일정을 잡을 때 쓴다.
+  let company: { name: string; manager: string; contact: string } | null = null;
+  if (body.donorType === "company") {
+    const name = typeof body.donorName === "string" ? body.donorName.trim().slice(0, 40) : "";
+    const contact = typeof body.donorContact === "string" ? body.donorContact.replace(/\D/g, "") : "";
+    if (!name) {
+      return NextResponse.json({ error: "기업·단체 이름을 입력해주세요" }, { status: 400 });
+    }
+    if (!isValidPhone(contact)) {
+      return NextResponse.json(
+        { error: "담당자 연락처 형식을 다시 확인해주세요 (휴대폰 또는 지역번호 포함 유선 번호)" },
+        { status: 400 },
+      );
+    }
+    const manager = typeof body.donorManager === "string" ? body.donorManager.trim().slice(0, 20) : "";
+    company = { name, manager, contact };
+  }
+
   const donation = await createDonation({
+    company,
     itemName,
     category,
     quantity: body.quantity,
