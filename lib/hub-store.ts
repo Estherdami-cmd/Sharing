@@ -331,9 +331,16 @@ export async function distributionCandidates(
       linked: linkedIds.has(n.beneficiaryId),
       exactItem: isSameItemBy(intake, n),
     }))
+    /*
+      급한 곳부터. 같은 물건을 요청한 곳 → 급한 요청(진행률이 낮은 곳) → 덜 채워진 순 →
+      가까운 배분기관이 이곳인 시설 → 먼저 올린 순. "소속"은 거리로 정한 것이라 실제 관계가
+      아니므로, 급한 정도보다 앞세우지 않는다.
+    */
     .sort(
       (a, b) =>
         Number(b.exactItem) - Number(a.exactItem) ||
+        Number(b.urgent) - Number(a.urgent) ||
+        a.progress - b.progress ||
         Number(b.linked) - Number(a.linked) ||
         a.createdAt.localeCompare(b.createdAt),
     )

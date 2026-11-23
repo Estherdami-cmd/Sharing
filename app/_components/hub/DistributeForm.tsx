@@ -111,7 +111,7 @@ export default function DistributeForm({ hubId, intakeId }: { hubId: string; int
                 ? intake.remainingQty > 0
                   ? `${intake.remainingQty}개는 보관 중이에요`
                   : "남은 물품 없이 모두 나눴어요"
-                : `${donorLabel(intake)} · 필요한 시설을 먼저 요청한 순으로 찾았어요`}
+                : `${donorLabel(intake)} · 필요한 시설을 급한 곳부터 찾았어요`}
             </p>
           </div>
           <DdayBadge expiryDate={intake.expiryDate} />
@@ -130,17 +130,16 @@ export default function DistributeForm({ hubId, intakeId }: { hubId: string; int
               <span>필요 수량 기준</span>
             </div>
           )}
-          {shown.map((c, i) => (
+          {shown.map((c) => (
             <article key={c.id} className="flex flex-col gap-2.5 rounded-2xl border border-neutral-200 bg-white p-4">
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-bold">{c.beneficiary.name}</p>
                   <p className="text-[13px] text-neutral-500">
                     {c.itemName} · 필요 {c.remainingQty + (done ? qty[c.id] ?? 0 : 0)}
-                    {i === 0 && !done && (
-                      <span className="font-bold text-danger-fg"> · 먼저 요청함</span>
-                    )}
-                    {!c.linked && <span className="text-neutral-400"> · 다른 권역</span>}
+                    {c.urgent && !done && <span className="font-bold text-danger-fg"> · 급해요</span>}
+                    {!done && <span className="text-neutral-400"> · {c.progress}% 채움</span>}
+                    {!c.linked && <span className="text-neutral-400"> · 다른 배분기관 근처</span>}
                   </p>
                 </div>
                 {done ? (
