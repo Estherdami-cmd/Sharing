@@ -161,6 +161,11 @@ export default function RegisterFlow() {
   const [donorType, setDonorType] = useState<"individual" | "company">(
     searchParams.get("donor") === "company" ? "company" : "individual",
   );
+  // 이미 기부하기 화면에 있을 때 헤더의 "기업 등록"을 누르면 화면이 새로 그려지지 않으니 따라 바꾼다.
+  const donorParam = searchParams.get("donor");
+  useEffect(() => {
+    setDonorType(donorParam === "company" ? "company" : "individual");
+  }, [donorParam]);
   const [companyName, setCompanyName] = useState("");
   const [companyManager, setCompanyManager] = useState("");
   const [companyContact, setCompanyContact] = useState("");
