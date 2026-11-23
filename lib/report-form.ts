@@ -91,18 +91,24 @@ export function normalizeForm(raw: unknown): ReportForm | null {
     if ((kind === "choice" || kind === "checks") && options.length === 0) kind = "text";
     // 종이 양식의 "☐수령 사진 ☐사용 사진"은 체크가 아니라 사진을 붙이라는 뜻이다. 온라인에선 사진 칸으로 받는다.
     if (kind === "checks" && /사진/.test(label) && options.every((o) => /사진/.test(o))) kind = "photo";
-    const auto = typeof x.auto === "string" && x.auto in AUTO_KEYS ? (x.auto as AutoKey) : null;
+    let auto = typeof x.auto === "string" && x.auto in AUTO_KEYS ? (x.auto as AutoKey) : null;
+    let by: "company" | "recipient" = x.by === "company" ? "company" : "recipient";
+    // 기부자(기업) 구역의 칸은 기업이 채운다. 자동으로 넣을 수 있는 건 기업명뿐이다 —
+    // AI가 "담당 부서·담당자"를 배분기관으로 잘못 잇는 일이 있었다. 기업 칸도 같은 규칙을 따른다.
+    const section = str(x.section, 30);
+    if (/기부자|기부 기업|기부처/.test(section)) by = "company";
+    if (by === "company" && auto !== "companyName") auto = null;
     let key = typeof x.key === "string" && /^[a-zA-Z][a-zA-Z0-9_]{0,30}$/.test(x.key) ? x.key : `f${fields.length + 1}`;
     while (seen.has(key)) key = `${key}_${fields.length + 1}`;
     seen.add(key);
     fields.push({
       key,
       code: str(x.code, 10),
-      section: str(x.section, 30),
+      section,
       label,
       kind,
       options: kind === "photo" ? [] : options,
-      by: x.by === "company" ? "company" : "recipient",
+      by,
       fixed: str(x.fixed, 100),
       auto,
       required: x.required === true,

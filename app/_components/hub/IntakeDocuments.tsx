@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import type { FormResponse } from "@/lib/form-store";
 import Loading from "../Loading";
 import { BackLink } from "../OrgCommon";
-import { PrintStyle, ReportSheet } from "../ReportDocument";
-import { btnPrimary, caption } from "../../ui";
+import { PdfButton, PrintStyle, ReportSheet } from "../ReportDocument";
+import { caption } from "../../ui";
 
 /**
  * 맡긴 물품 하나로 시설들이 기업 양식에 맞춰 낸 문서를 한 화면에 모은다.
@@ -29,11 +29,9 @@ export default function IntakeDocuments({ intakeId }: { intakeId: string }) {
       <div className="no-print flex flex-col gap-3">
         <BackLink href={`/entrusted/${intakeId}`}>맡긴 물품</BackLink>
         <div className="flex items-center justify-between gap-2">
-          <p className={caption}>시설이 보낸 문서 {docs.length}건 · 문서마다 새 쪽으로 나뉘어 저장돼요</p>
+          <p className={caption}>시설이 보낸 문서 {docs.length}건 · 문서마다 새 쪽으로 나뉘어 한 파일로 받아져요</p>
           {docs.length > 0 && (
-            <button type="button" onClick={() => window.print()} className={`${btnPrimary} h-11! w-auto! px-5`}>
-              모두 PDF로 저장
-            </button>
+            <PdfButton label="모두 PDF로 저장" fileName={`${docs[0].auto.companyName}_${docs[0].auto.itemName}_시설문서.pdf`} />
           )}
         </div>
       </div>

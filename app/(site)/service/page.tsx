@@ -82,7 +82,7 @@ const AI_USES: { name: string; what: string; who: string; ready: boolean }[] = [
   { name: "사진 AI", what: "사진에서 품목·수량·유통기한을 읽어 등록 초안을 만들어요", who: "개인·기업·배분기관", ready: true },
   { name: "기준 대조", what: "받을 곳의 기준과 비교해 맞는 시설·기한 임박 물품을 먼저 추천해요", who: "개인·기업·배분기관", ready: true },
   { name: "장부 자동 작성", what: "입고 승인과 배분 확정이 그대로 모집·제공 장부 한 줄이 돼요", who: "배분기관", ready: true },
-  { name: "기업 양식 채우기", what: "기업이 올린 보고 양식을 읽고, 시설은 빈칸만 채우면 그 양식대로 나와요", who: "기업·시설", ready: false },
+  { name: "기업 양식 채우기", what: "기업이 올린 수령 확인서·활용 보고서를 AI가 읽고, 시설은 빈칸만 채우면 그 양식대로 문서가 나와요", who: "기업·시설", ready: true },
 ];
 
 const sectionHead = "flex flex-col gap-1";

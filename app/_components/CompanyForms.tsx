@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { AUTO_KEYS, type FieldKind, type ReportForm } from "@/lib/report-form";
+import { AUTO_KEYS, type AutoKey, type FieldKind, type ReportForm } from "@/lib/report-form";
 import { btnPrimary, caption, card, field } from "../ui";
 
 export type CompanyReportRow = {
@@ -99,11 +99,17 @@ export default function CompanyForms({
       </div>
 
       {forms.map((form) =>
-        editing === form.id ? (
+        editing === form.id || editing === `fix:${form.id}` ? (
           <FormEditor
             key={form.id}
             code={code}
             formId={form.id}
+            // 칸 고치기: AI를 다시 부르지 않고 저장된 양식을 그대로 펼쳐 분류·이름·필수만 고친다.
+            initial={
+              editing === `fix:${form.id}`
+                ? { form, source: form.source === "openai" ? "openai" : "sample", sourceName: form.sourceName }
+                : undefined
+            }
             onDone={() => {
               setEditing(null);
               onSaved();
@@ -122,6 +128,9 @@ export default function CompanyForms({
                 </p>
               </div>
               <div className="flex shrink-0 gap-3 text-[13px] font-bold">
+                <button type="button" onClick={() => setEditing(`fix:${form.id}`)} className="cursor-pointer text-primary-700 underline underline-offset-2">
+                  칸 고치기
+                </button>
                 <button type="button" onClick={() => setEditing(form.id)} className="cursor-pointer text-primary-700 underline underline-offset-2">
                   다시 올리기
                 </button>
@@ -189,18 +198,22 @@ export default function CompanyForms({
 function FormEditor({
   code,
   formId,
+  initial,
   onDone,
   onCancel,
 }: {
   code: string;
   formId: string | null;
+  initial?: { form: ReportForm; source: "openai" | "sample"; sourceName: string };
   onDone: () => void;
   onCancel?: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [fileName, setFileName] = useState("");
+  const [fileName, setFileName] = useState(initial?.sourceName ?? "");
   const [fileData, setFileData] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ form: ReportForm; source: "openai" | "sample" } | null>(null);
+  const [draft, setDraft] = useState<{ form: ReportForm; source: "openai" | "sample" } | null>(
+    initial ? { form: initial.form, source: initial.source } : null,
+  );
   const [status, setStatus] = useState<"idle" | "reading" | "saving">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -240,6 +253,7 @@ function FormEditor({
         form: draft.form,
         source: draft.source,
         sourceName: draft.source === "openai" ? fileName : "",
+        // 칸 고치기는 같은 양식을 덮어쓴다(formId 그대로).
       }),
     }).catch(() => null);
     setStatus("idle");
@@ -254,9 +268,16 @@ function FormEditor({
   if (draft)
     return (
       <div className={`${card} border-primary-500`}>
-        <p className="text-xs font-bold text-primary-700">
-          {draft.source === "openai" ? "AI가 읽은 양식이에요. 맞는지 확인해주세요" : "예시 양식이에요. 필요 없는 칸은 빼세요"}
-        </p>
+        <div className="flex flex-col gap-0.5 rounded-xl bg-primary-50 px-3 py-2">
+          <p className="text-[13px] font-bold text-primary-700">
+            {draft.source === "openai"
+              ? "칸마다 누가 채울지는 AI 추천이에요. 확인 후 바꿀 수 있어요"
+              : "예시 양식이에요. 칸마다 누가 채울지 바꾸거나 필요 없는 칸은 빼세요"}
+          </p>
+          <p className="text-[12px] text-primary-700/80">
+            자동 = 배분 기록으로 채움 · 기업 = 문서를 받은 뒤 기업이 채움 · 시설 = 받은 시설이 씀
+          </p>
+        </div>
         <input
           value={draft.form.title}
           onChange={(e) => editDraft({ title: e.target.value })}
@@ -275,9 +296,29 @@ function FormEditor({
                 className="min-w-0 flex-1 bg-transparent text-[14px] font-bold text-neutral-800 outline-none"
               />
               {f.code && <span className="shrink-0 font-mono text-[11px] font-bold text-neutral-400">{f.code}</span>}
-              <span className="shrink-0 text-[11px] font-bold text-neutral-400">
-                {f.auto ? `자동 · ${AUTO_KEYS[f.auto]}` : f.by === "company" ? "기업이 채움" : KIND_LABEL[f.kind]}
-              </span>
+              <select
+                aria-label={`${f.label} 누가 채우나`}
+                value={f.auto ? `auto:${f.auto}` : f.by}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const next = v.startsWith("auto:")
+                    ? { auto: v.slice(5) as AutoKey, by: v === "auto:companyName" ? ("company" as const) : ("recipient" as const) }
+                    : { auto: null, by: v as "company" | "recipient" };
+                  editDraft({ fields: draft.form.fields.map((x, j) => (j === i ? { ...x, ...next } : x)) });
+                }}
+                className={
+                  "h-7 shrink-0 cursor-pointer rounded-full border-none px-2 text-[11px] font-bold outline-none " +
+                  (f.auto ? "bg-primary-100 text-primary-700" : f.by === "company" ? "bg-neutral-200 text-neutral-600" : "bg-white text-neutral-700")
+                }
+              >
+                <option value="recipient">시설 · {KIND_LABEL[f.kind]}</option>
+                <option value="company">기업이 채움</option>
+                {(Object.keys(AUTO_KEYS) as AutoKey[]).map((k) => (
+                  <option key={k} value={`auto:${k}`}>
+                    자동 · {AUTO_KEYS[k]}
+                  </option>
+                ))}
+              </select>
               {/* 종이 양식엔 필수 표시가 없는 경우가 많아, 기업이 여기서 정한다. 시설이 쓰는 칸에만 의미가 있다. */}
               {!f.auto && f.by !== "company" && f.kind !== "sign" && (
                 <button
