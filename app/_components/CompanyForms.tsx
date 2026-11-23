@@ -7,12 +7,15 @@ import { btnPrimary, caption, card, field } from "../ui";
 
 export type CompanyReportRow = {
   id: string;
+  formId: string;
   title: string;
   facilityName: string;
   itemName: string;
   quantity: string;
   submittedAt: string;
 };
+
+export type CompanyFormView = ReportForm & { id: string; source: string; sourceName: string };
 
 const KIND_LABEL: Record<FieldKind, string> = {
   text: "한 줄",
@@ -27,6 +30,8 @@ const KIND_LABEL: Record<FieldKind, string> = {
   photo: "사진",
   sign: "서명",
 };
+
+const MAX_FORMS = 5;
 
 /** 사진은 글씨가 읽힐 만큼만 줄인다. PDF는 그대로 보낸다. */
 async function fileToDataUrl(file: File): Promise<string | null> {
@@ -52,21 +57,145 @@ async function fileToDataUrl(file: File): Promise<string | null> {
 }
 
 /**
- * 기업 보고 양식. 기업이 쓰는 결과보고서·수령확인서를 올리면 AI가 칸을 뽑고, 기업은 확인만
- * 하고 저장한다. 그다음부터 이 기업 물품을 받은 시설은 이 양식의 빈칸만 채우면 된다.
+ * 기업 양식들. 수령 확인서·활용 보고서처럼 쓰는 문서마다 하나씩 올린다. AI가 칸을 뽑고
+ * 기업은 확인만 하고 저장한다. 그다음부터 이 기업 물품을 받은 시설은 양식마다 빈칸만 채우면 된다.
  */
 export default function CompanyForms({
   code,
   companyName,
-  form,
+  forms,
   reports,
   onSaved,
 }: {
   code: string;
   companyName: string;
-  form: (ReportForm & { source: string; sourceName: string }) | null;
+  forms: CompanyFormView[];
   reports: CompanyReportRow[];
   onSaved: () => void;
+}) {
+  // 어떤 양식을 손보는 중인지: 새로 추가(new) 또는 기존 양식 id. null이면 목록만 본다.
+  const [editing, setEditing] = useState<string | null>(forms.length === 0 ? "new" : null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function remove(formId: string, title: string) {
+    if (!window.confirm(`"${title}" 양식을 뺄까요? 시설이 이미 보낸 문서는 그대로 남아요`)) return;
+    const res = await fetch("/api/companies/form", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, formId }),
+    }).catch(() => null);
+    if (!res?.ok) return setError("양식을 빼지 못했어요");
+    onSaved();
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div>
+        <h2 className="text-[17px] font-extrabold text-neutral-900">보고 양식 {forms.length > 0 && `${forms.length}개`}</h2>
+        <p className={caption}>
+          수령 확인서, 활용 보고서처럼 쓰시는 문서를 올리면 AI가 칸을 읽어요. 물품을 받은 시설은 양식마다 빈칸만
+          채우면, {companyName} 양식 그대로 문서가 와요
+        </p>
+      </div>
+
+      {forms.map((form) =>
+        editing === form.id ? (
+          <FormEditor
+            key={form.id}
+            code={code}
+            formId={form.id}
+            onDone={() => {
+              setEditing(null);
+              onSaved();
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        ) : (
+          <div key={form.id} className={card}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[15px] font-bold">{form.title}</p>
+                <p className={caption}>
+                  {form.formCode ? `${form.formCode} · ` : ""}
+                  {form.source === "openai" ? `AI가 ${form.sourceName || "올린 파일"}에서 읽음` : "예시 양식"} · 칸{" "}
+                  {form.fields.length}개
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-3 text-[13px] font-bold">
+                <button type="button" onClick={() => setEditing(form.id)} className="cursor-pointer text-primary-700 underline underline-offset-2">
+                  다시 올리기
+                </button>
+                <button type="button" onClick={() => remove(form.id, form.title)} className="cursor-pointer text-neutral-400 underline underline-offset-2">
+                  빼기
+                </button>
+              </div>
+            </div>
+            <FieldChips form={form} />
+          </div>
+        ),
+      )}
+
+      {editing === "new" ? (
+        <FormEditor
+          code={code}
+          formId={null}
+          onDone={() => {
+            setEditing(null);
+            onSaved();
+          }}
+          onCancel={forms.length > 0 ? () => setEditing(null) : undefined}
+        />
+      ) : (
+        forms.length < MAX_FORMS && (
+          <button
+            type="button"
+            onClick={() => setEditing("new")}
+            className="h-12 cursor-pointer rounded-2xl border-2 border-dashed border-neutral-300 bg-white/60 text-[14px] font-bold text-neutral-600 hover:border-primary-500"
+          >
+            + 양식 추가 (예: 활용 보고서)
+          </button>
+        )
+      )}
+
+      {error && <p className="text-[13px] text-danger-fg">{error}</p>}
+
+      {reports.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-[14px] font-bold text-neutral-800">시설이 보낸 문서 {reports.length}건</p>
+          {reports.map((r) => (
+            <Link
+              key={r.id}
+              href={`/reports/${r.id}`}
+              className="flex items-center justify-between gap-2 rounded-xl bg-white px-4 py-3 hover:bg-neutral-50"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-[14px] font-bold">
+                  {r.facilityName} · {r.title}
+                </p>
+                <p className={caption}>
+                  {r.itemName} · {r.quantity} · {r.submittedAt.slice(0, 10)}
+                </p>
+              </div>
+              <span className="shrink-0 text-[13px] font-bold text-primary-700">문서 보기 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** 양식 하나를 올려 AI로 읽고(또는 예시로 시작해) 확인한 뒤 저장한다. formId가 있으면 그 양식을 바꾼다. */
+function FormEditor({
+  code,
+  formId,
+  onDone,
+  onCancel,
+}: {
+  code: string;
+  formId: string | null;
+  onDone: () => void;
+  onCancel?: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState("");
@@ -74,7 +203,6 @@ export default function CompanyForms({
   const [draft, setDraft] = useState<{ form: ReportForm; source: "openai" | "sample" } | null>(null);
   const [status, setStatus] = useState<"idle" | "reading" | "saving">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [replacing, setReplacing] = useState(false);
 
   async function pick(file: File | undefined) {
     setError(null);
@@ -106,175 +234,123 @@ export default function CompanyForms({
     const res = await fetch("/api/companies/form", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, form: draft.form, source: draft.source, sourceName: draft.source === "openai" ? fileName : "" }),
+      body: JSON.stringify({
+        code,
+        formId,
+        form: draft.form,
+        source: draft.source,
+        sourceName: draft.source === "openai" ? fileName : "",
+      }),
     }).catch(() => null);
     setStatus("idle");
     if (!res?.ok) return setError((await res?.json().catch(() => null))?.error ?? "저장하지 못했어요");
-    setDraft(null);
-    setReplacing(false);
-    setFileData(null);
-    onSaved();
+    onDone();
   }
 
   function editDraft(next: Partial<ReportForm>) {
     if (draft) setDraft({ ...draft, form: { ...draft.form, ...next } });
   }
 
-  const showUpload = !draft && (!form || replacing);
-
-  return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <h2 className="text-[17px] font-extrabold text-neutral-900">보고 양식</h2>
-        <p className={caption}>
-          쓰시는 결과보고서·수령확인서를 올리면 AI가 칸을 읽어요. 물품을 받은 시설은 그 양식의 빈칸만
-          채우면, {companyName} 양식 그대로 결과 문서가 와요
+  if (draft)
+    return (
+      <div className={`${card} border-primary-500`}>
+        <p className="text-xs font-bold text-primary-700">
+          {draft.source === "openai" ? "AI가 읽은 양식이에요. 맞는지 확인해주세요" : "예시 양식이에요. 필요 없는 칸은 빼세요"}
         </p>
-      </div>
-
-      {form && !replacing && !draft && (
-        <div className={card}>
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[15px] font-bold">{form.title}</p>
-              <p className={caption}>
-                {form.source === "openai" ? `AI가 ${form.sourceName || "올린 파일"}에서 읽음` : "예시 양식"} · 칸{" "}
-                {form.fields.length}개
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setReplacing(true)}
-              className="shrink-0 cursor-pointer text-[13px] font-bold text-primary-700 underline underline-offset-2"
-            >
-              다시 올리기
-            </button>
-          </div>
-          <FieldChips form={form} />
-        </div>
-      )}
-
-      {showUpload && (
-        <div className={card}>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,application/pdf"
-            className="hidden"
-            onChange={(e) => pick(e.target.files?.[0])}
-          />
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 px-4 py-5 text-center hover:border-primary-500"
-          >
-            <span className="text-[15px] font-bold text-neutral-800">{fileName || "양식 파일 고르기"}</span>
-            <span className={caption}>사진(JPG·PNG) 또는 PDF</span>
-          </button>
-          <button type="button" disabled={!fileData || status !== "idle"} onClick={() => read(false)} className={btnPrimary}>
-            {status === "reading" ? "AI가 양식을 읽는 중…" : "AI로 양식 읽기"}
-          </button>
-          <button
-            type="button"
-            disabled={status !== "idle"}
-            onClick={() => read(true)}
-            className="h-11 cursor-pointer rounded-xl border border-neutral-300 bg-white text-[14px] font-bold text-neutral-700 disabled:opacity-50"
-          >
-            양식이 없으면 · 예시 양식으로 시작
-          </button>
-          {replacing && (
-            <button type="button" onClick={() => setReplacing(false)} className={`${caption} cursor-pointer underline`}>
-              취소
-            </button>
-          )}
-        </div>
-      )}
-
-      {draft && (
-        <div className={`${card} border-primary-500`}>
-          <p className="text-xs font-bold text-primary-700">
-            {draft.source === "openai" ? "AI가 읽은 양식이에요. 맞는지 확인해주세요" : "예시 양식이에요. 필요 없는 칸은 빼세요"}
-          </p>
-          <input
-            value={draft.form.title}
-            onChange={(e) => editDraft({ title: e.target.value })}
-            aria-label="양식 제목"
-            className={`${field} font-bold`}
-          />
-          <ul className="flex flex-col gap-1.5">
-            {draft.form.fields.map((f, i) => (
-              <li key={f.key} className="flex items-center gap-2 rounded-xl bg-neutral-50 px-3 py-2">
-                <input
-                  value={f.label}
-                  onChange={(e) =>
-                    editDraft({ fields: draft.form.fields.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })
-                  }
-                  aria-label={`${i + 1}번째 칸 이름`}
-                  className="min-w-0 flex-1 bg-transparent text-[14px] font-bold text-neutral-800 outline-none"
-                />
-                {f.code && <span className="shrink-0 font-mono text-[11px] font-bold text-neutral-400">{f.code}</span>}
-                <span className="shrink-0 text-[11px] font-bold text-neutral-400">
-                  {f.auto ? `자동 · ${AUTO_KEYS[f.auto]}` : f.by === "company" ? "기업이 채움" : KIND_LABEL[f.kind]}
-                </span>
-                {/* 종이 양식엔 필수 표시가 없는 경우가 많아, 기업이 여기서 정한다. 시설이 쓰는 칸에만 의미가 있다. */}
-                {!f.auto && f.by !== "company" && f.kind !== "sign" && (
-                  <button
-                    type="button"
-                    aria-pressed={f.required}
-                    onClick={() =>
-                      editDraft({ fields: draft.form.fields.map((x, j) => (j === i ? { ...x, required: !x.required } : x)) })
-                    }
-                    className={
-                      "shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-[11px] font-bold " +
-                      (f.required ? "bg-danger-bg text-danger-fg" : "bg-neutral-100 text-neutral-400")
-                    }
-                  >
-                    필수
-                  </button>
-                )}
+        <input
+          value={draft.form.title}
+          onChange={(e) => editDraft({ title: e.target.value })}
+          aria-label="양식 제목"
+          className={`${field} font-bold`}
+        />
+        <ul className="flex flex-col gap-1.5">
+          {draft.form.fields.map((f, i) => (
+            <li key={f.key} className="flex items-center gap-2 rounded-xl bg-neutral-50 px-3 py-2">
+              <input
+                value={f.label}
+                onChange={(e) =>
+                  editDraft({ fields: draft.form.fields.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })
+                }
+                aria-label={`${i + 1}번째 칸 이름`}
+                className="min-w-0 flex-1 bg-transparent text-[14px] font-bold text-neutral-800 outline-none"
+              />
+              {f.code && <span className="shrink-0 font-mono text-[11px] font-bold text-neutral-400">{f.code}</span>}
+              <span className="shrink-0 text-[11px] font-bold text-neutral-400">
+                {f.auto ? `자동 · ${AUTO_KEYS[f.auto]}` : f.by === "company" ? "기업이 채움" : KIND_LABEL[f.kind]}
+              </span>
+              {/* 종이 양식엔 필수 표시가 없는 경우가 많아, 기업이 여기서 정한다. 시설이 쓰는 칸에만 의미가 있다. */}
+              {!f.auto && f.by !== "company" && f.kind !== "sign" && (
                 <button
                   type="button"
-                  aria-label={`${f.label} 칸 빼기`}
-                  onClick={() => editDraft({ fields: draft.form.fields.filter((_, j) => j !== i) })}
-                  className="shrink-0 cursor-pointer text-[16px] text-neutral-400 hover:text-danger-fg"
+                  aria-pressed={f.required}
+                  onClick={() =>
+                    editDraft({ fields: draft.form.fields.map((x, j) => (j === i ? { ...x, required: !x.required } : x)) })
+                  }
+                  className={
+                    "shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-[11px] font-bold " +
+                    (f.required ? "bg-danger-bg text-danger-fg" : "bg-neutral-100 text-neutral-400")
+                  }
                 >
-                  ×
+                  필수
                 </button>
-              </li>
-            ))}
-          </ul>
-          <button type="button" disabled={status !== "idle" || draft.form.fields.length === 0} onClick={save} className={btnPrimary}>
-            {status === "saving" ? "저장하는 중" : "이 양식으로 저장"}
-          </button>
-          <button type="button" onClick={() => setDraft(null)} className={`${caption} cursor-pointer underline`}>
-            다시 고르기
-          </button>
-        </div>
-      )}
-
-      {error && <p className="text-[13px] text-danger-fg">{error}</p>}
-
-      {reports.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-[14px] font-bold text-neutral-800">시설이 보낸 결과 문서 {reports.length}건</p>
-          {reports.map((r) => (
-            <Link
-              key={r.id}
-              href={`/reports/${r.id}`}
-              className="flex items-center justify-between gap-2 rounded-xl bg-white px-4 py-3 hover:bg-neutral-50"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-[14px] font-bold">{r.facilityName}</p>
-                <p className={caption}>
-                  {r.itemName} · {r.quantity} · {r.submittedAt.slice(0, 10)}
-                </p>
-              </div>
-              <span className="shrink-0 text-[13px] font-bold text-primary-700">문서 보기 →</span>
-            </Link>
+              )}
+              <button
+                type="button"
+                aria-label={`${f.label} 칸 빼기`}
+                onClick={() => editDraft({ fields: draft.form.fields.filter((_, j) => j !== i) })}
+                className="shrink-0 cursor-pointer text-[16px] text-neutral-400 hover:text-danger-fg"
+              >
+                ×
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
+        {error && <p className="text-[13px] text-danger-fg">{error}</p>}
+        <button type="button" disabled={status !== "idle" || draft.form.fields.length === 0} onClick={save} className={btnPrimary}>
+          {status === "saving" ? "저장하는 중" : "이 양식으로 저장"}
+        </button>
+        <button type="button" onClick={() => setDraft(null)} className={`${caption} cursor-pointer underline`}>
+          다시 고르기
+        </button>
+      </div>
+    );
+
+  return (
+    <div className={card}>
+      <p className="text-[14px] font-bold text-neutral-800">{formId ? "양식 다시 올리기" : "새 양식 올리기"}</p>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,application/pdf"
+        className="hidden"
+        onChange={(e) => pick(e.target.files?.[0])}
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        className="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 px-4 py-5 text-center hover:border-primary-500"
+      >
+        <span className="text-[15px] font-bold text-neutral-800">{fileName || "양식 파일 고르기"}</span>
+        <span className={caption}>사진(JPG·PNG) 또는 PDF</span>
+      </button>
+      <button type="button" disabled={!fileData || status !== "idle"} onClick={() => read(false)} className={btnPrimary}>
+        {status === "reading" ? "AI가 양식을 읽는 중…" : "AI로 양식 읽기"}
+      </button>
+      <button
+        type="button"
+        disabled={status !== "idle"}
+        onClick={() => read(true)}
+        className="h-11 cursor-pointer rounded-xl border border-neutral-300 bg-white text-[14px] font-bold text-neutral-700 disabled:opacity-50"
+      >
+        양식이 없으면 · 예시 활용 보고서(사진·후기)로 시작
+      </button>
+      {error && <p className="text-[13px] text-danger-fg">{error}</p>}
+      {onCancel && (
+        <button type="button" onClick={onCancel} className={`${caption} cursor-pointer underline`}>
+          취소
+        </button>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -286,11 +362,11 @@ function FieldChips({ form }: { form: ReportForm }) {
           key={f.key}
           className={
             "rounded-full px-2.5 py-1 text-[12px] font-bold " +
-            (f.auto ? "bg-primary-50 text-primary-700" : "bg-neutral-100 text-neutral-600")
+            (f.auto ? "bg-primary-50 text-primary-700" : f.by === "company" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-100 text-neutral-600")
           }
         >
+          {f.code ? `${f.code} ` : ""}
           {f.label}
-          {f.auto ? " · 자동" : ""}
         </span>
       ))}
     </div>

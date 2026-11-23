@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { companyHistory, findCompanyByCode } from "@/lib/company";
-import { getCompanyForm, listCompanyResponses } from "@/lib/form-store";
+import { listCompanyForms, listCompanyResponses } from "@/lib/form-store";
 
 /**
  * POST /api/companies/lookup { code }
@@ -14,16 +14,16 @@ export async function POST(request: Request) {
   if (!company) {
     return NextResponse.json({ error: "이 관리 코드로 등록된 기업이 없어요" }, { status: 404 });
   }
-  const [history, form, reports] = await Promise.all([
+  const [history, forms, reports] = await Promise.all([
     companyHistory(company.id),
-    getCompanyForm(company.id),
+    listCompanyForms(company.id),
     listCompanyResponses(company.id),
   ]);
   return NextResponse.json({
     company: { name: company.name, manager: company.manager, contact: company.contact },
     history,
-    // 시설이 결과를 쓸 때 쓰는 이 기업의 보고 양식과, 시설들이 써서 낸 결과 문서.
-    form,
+    // 시설이 결과를 쓸 때 쓰는 이 기업의 양식들(수령 확인서·활용 보고서…)과, 시설들이 써서 낸 문서.
+    forms,
     reports,
   });
 }

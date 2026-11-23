@@ -63,6 +63,8 @@ export type ReportForm = {
   /** 서명란 위 확인 문구(예: "위 물품을 정히 수령하였음을 확인합니다."). */
   closing: string;
   fields: FormField[];
+  /** 저장된 양식만: 처음 만든 때(목록 순서). */
+  createdAt?: string;
 };
 
 const MAX_FIELDS = 40;
@@ -124,9 +126,9 @@ export function isRecipientInput(f: FormField) {
 export function sampleForm(companyName: string): ReportForm {
   const base = { code: "", section: "", options: [] as string[], by: "recipient" as const, fixed: "" };
   return {
-    title: `${companyName} 기부물품 활용 결과보고서`,
+    title: `${companyName} 기부물품 활용 보고서`,
     formCode: "",
-    intro: "기부해 주신 물품을 어떻게 썼는지 알려주세요. 지속가능경영보고서 사회공헌 실적으로 사용됩니다.",
+    intro: "받은 물품을 어떻게 나눴는지 사진과 함께 편하게 적어 주세요. 지속가능경영보고서 사회공헌 사례로 쓰입니다.",
     closing: "",
     fields: ([
       { key: "facilityName", label: "수혜기관명", kind: "text", auto: "facilityName", required: true, hint: "" },
@@ -135,9 +137,9 @@ export function sampleForm(companyName: string): ReportForm {
       { key: "quantity", label: "수령 수량", kind: "text", auto: "quantity", required: true, hint: "" },
       { key: "receivedDate", label: "수령일", kind: "date", auto: "receivedDate", required: true, hint: "" },
       { key: "beneficiaries", label: "혜택 인원", kind: "number", auto: null, required: true, hint: "물품을 받은 사람 수" },
-      { key: "usage", label: "활용 내용", kind: "long", auto: null, required: true, hint: "언제, 누구에게, 어떻게 나눴는지" },
-      { key: "feedback", label: "수혜자 반응·감사 인사", kind: "long", auto: null, required: false, hint: "받은 분들의 한마디" },
-      { key: "photo", label: "활용 사진", kind: "photo", auto: null, required: false, hint: "얼굴이 나오지 않게 찍어 주세요" },
+      { key: "usage", label: "활용 이야기", kind: "long", auto: null, required: true, hint: "언제, 누구에게, 어떻게 나눴는지 일기처럼 편하게" },
+      { key: "photo", label: "현장 사진", kind: "photo", auto: null, required: true, hint: "나누는 모습·쓰는 모습. 얼굴이 나오지 않게" },
+      { key: "feedback", label: "받은 분들의 한마디", kind: "long", auto: null, required: false, hint: "감사 인사, 반응" },
       { key: "writer", label: "작성자", kind: "text", auto: null, required: true, hint: "이름과 직책" },
     ] as const).map((f) => ({ ...base, ...f })),
   };
