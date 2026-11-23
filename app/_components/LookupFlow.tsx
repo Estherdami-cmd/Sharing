@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { formatKoreanDate } from "@/lib/rules";
 import type { CompanyHistory } from "@/lib/company";
-import type { ReportForm } from "@/lib/report-form";
-import CompanyForms, { type CompanyReportRow } from "./CompanyForms";
+import CompanyForms, { type CompanyFormView, type CompanyReportRow } from "./CompanyForms";
 import type { ApplicationDetail } from "@/lib/store";
 import {
   btnPrimary,
@@ -177,7 +176,7 @@ function PersonLookup() {
 type CompanyResult = {
   company: { name: string; manager: string; contact: string };
   history: CompanyHistory;
-  form: (ReportForm & { source: string; sourceName: string }) | null;
+  forms: CompanyFormView[];
   reports: CompanyReportRow[];
 };
 
@@ -274,7 +273,7 @@ function CompanyLookup() {
           <CompanyForms
             code={code}
             companyName={result.company.name}
-            form={result.form}
+            forms={result.forms}
             reports={result.reports}
             onSaved={() => handleSearch(true)}
           />

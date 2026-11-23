@@ -48,12 +48,35 @@ export default function ReportDocument({ id }: { id: string }) {
   if (state === "loading") return <Loading label="결과 문서" size="lg" overlay />;
   if (!doc) return <p className="py-16 text-center text-neutral-500">문서를 찾을 수 없어요</p>;
 
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <PrintStyle />
+      <div className="no-print flex items-center justify-between gap-2">
+        <p className="text-[13px] text-neutral-500">{kst(doc.submittedAt)} 제출</p>
+        <button type="button" onClick={() => window.print()} className={`${btnPrimary} h-11! w-auto! px-5`}>
+          PDF로 저장 · 인쇄
+        </button>
+      </div>
+      <ReportSheet doc={doc} />
+    </div>
+  );
+}
+
+/** 인쇄할 때 사이트 머리말·꼬리말·버튼을 숨기고, 문서마다 새 쪽에서 시작한다. */
+export function PrintStyle() {
+  return (
+    <style>{`@media print { body > * header.sticky, body footer, .no-print { display: none !important; } body { background: #fff !important; } .report-sheet { border: none !important; box-shadow: none !important; padding: 0 !important; break-after: page; } .report-sheet:last-child { break-after: auto; } }`}</style>
+  );
+}
+
+/** 문서 한 장. 기업 양식의 제목·구역·칸 코드·순서 그대로 그린다. */
+export function ReportSheet({ doc }: { doc: FormResponse }) {
   const approval = `${kst(doc.submittedAt)} · ${doc.auto.facilityName} 계정으로 온라인 승인`;
 
   function value(f: FormField) {
-    if (f.auto) return doc!.auto[f.auto] || "—";
+    if (f.auto) return doc.auto[f.auto] || "—";
     if (f.by === "company") return f.fixed || "—";
-    const v = doc!.values[f.key];
+    const v = doc.values[f.key];
     switch (f.kind) {
       case "choice":
         return <Boxes options={f.options} picked={typeof v === "string" ? [v] : []} />;
@@ -62,13 +85,13 @@ export default function ReportDocument({ id }: { id: string }) {
       case "agree":
         return <Boxes options={[f.hint || "동의합니다"]} picked={v === "동의" ? [f.hint || "동의합니다"] : []} />;
       case "sign":
-        return <span className="text-[13px]">{doc!.auto.facilityName} · 온라인 승인 {kst(doc!.submittedAt)}</span>;
+        return <span className="text-[13px]">{doc.auto.facilityName} · 온라인 승인 {kst(doc.submittedAt)}</span>;
       case "photo":
         return Array.isArray(v) && v.length ? (
-          <span className="flex flex-wrap gap-2">
+          <span className="grid grid-cols-2 gap-2">
             {v.map((src, i) => (
               // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={src} alt={`${f.label} ${i + 1}`} className="h-36 rounded-lg object-cover" />
+              <img key={i} src={src} alt={`${f.label} ${i + 1}`} className="aspect-[4/3] w-full rounded-lg object-cover" />
             ))}
           </span>
         ) : (
@@ -80,16 +103,7 @@ export default function ReportDocument({ id }: { id: string }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <style>{`@media print { body > * header.sticky, body footer, .no-print { display: none !important; } body { background: #fff !important; } .report-sheet { border: none !important; box-shadow: none !important; padding: 0 !important; } }`}</style>
-      <div className="no-print flex items-center justify-between gap-2">
-        <p className="text-[13px] text-neutral-500">{kst(doc.submittedAt)} 제출</p>
-        <button type="button" onClick={() => window.print()} className={`${btnPrimary} h-11! w-auto! px-5`}>
-          PDF로 저장 · 인쇄
-        </button>
-      </div>
-
-      <article className="report-sheet flex flex-col gap-4 rounded-2xl border border-neutral-300 bg-white p-6 text-neutral-900 sm:p-10">
+    <article className="report-sheet flex flex-col gap-4 rounded-2xl border border-neutral-300 bg-white p-6 text-neutral-900 sm:p-10">
         <div className="flex items-end justify-between gap-4 border-b-4 border-neutral-900 pb-2">
           <p className="text-[20px] font-extrabold">{doc.auto.companyName}</p>
           {doc.form.formCode && <p className="text-right text-[12px] text-neutral-500">양식번호 {doc.form.formCode}</p>}
@@ -132,7 +146,6 @@ export default function ReportDocument({ id }: { id: string }) {
           <br />
           {doc.auto.hubName}을 거쳐 전달 · 여러시에서 작성
         </div>
-      </article>
-    </div>
+    </article>
   );
 }

@@ -36,6 +36,15 @@ function Step({ done, title, sub }: { done: boolean; title: string; sub?: string
 export default function IntakeReport({ intakeId }: { intakeId: string }) {
   const [intake, setIntake] = useState<IntakeView | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "notfound">("loading");
+  // 시설들이 기업 양식(수령 확인서·활용 보고서…)으로 보낸 문서.
+  const [documents, setDocuments] = useState<{ id: string; title: string; facilityName: string; submittedAt: string }[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/intakes/${intakeId}/documents`)
+      .then((r) => (r.ok ? r.json() : { documents: [] }))
+      .then((d) => setDocuments(d.documents))
+      .catch(() => {});
+  }, [intakeId]);
 
   useEffect(() => {
     let alive = true;
@@ -153,6 +162,32 @@ export default function IntakeReport({ intakeId }: { intakeId: string }) {
           <p className="rounded-xl bg-warning-bg px-3 py-2 text-[13px] text-warning-fg">
             지속가능경영보고서 사회공헌 항목에 그대로 쓸 수 있게 정리했어요
           </p>
+        </section>
+      )}
+
+      {documents.length > 0 && (
+        <section className={card}>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className={sectionTitle}>시설이 보낸 문서 {documents.length}건</h2>
+            <Link href={`/entrusted/${intakeId}/documents`} className="text-[13px] font-bold text-primary-700 underline underline-offset-2">
+              모아서 PDF
+            </Link>
+          </div>
+          <p className={caption}>기업 양식 그대로 작성된 수령 확인서·활용 보고서예요</p>
+          <div>
+            {documents.map((d) => (
+              <Link
+                key={d.id}
+                href={`/reports/${d.id}`}
+                className="flex items-center justify-between gap-3 border-b border-neutral-100 py-2.5 last:border-none"
+              >
+                <span className="min-w-0 truncate text-[14px] text-neutral-800">
+                  {d.facilityName} · {d.title}
+                </span>
+                <span className="shrink-0 text-[13px] font-bold text-primary-700">보기 →</span>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 

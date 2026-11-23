@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listIncomingDeliveries } from "@/lib/hub-store";
-import { deliveryContext, getFormResponse, responseId } from "@/lib/form-store";
+import { deliveryContext, findResponse } from "@/lib/form-store";
 import { getBeneficiary } from "@/lib/store";
 
 /** 시설로 배분된 물품과 전달 일정. GET /api/deliveries?orgId=ph-65083 */
@@ -14,9 +14,15 @@ export async function GET(request: Request) {
   const deliveries = await Promise.all(
     rows.map(async (row) => {
       const ctx = await deliveryContext(row.intakeId, row.allocation.id);
-      if (!ctx?.form) return { ...row, report: null };
-      const done = await getFormResponse(responseId(row.intakeId, row.allocation.id));
-      return { ...row, report: { companyName: ctx.auto.companyName, formTitle: ctx.form.title, responseId: done?.id ?? null } };
+      if (!ctx?.forms.length) return { ...row, report: null };
+      const forms = await Promise.all(
+        ctx.forms.map(async (f) => ({
+          id: f.id,
+          title: f.title,
+          responseId: (await findResponse(row.intakeId, row.allocation.id, f))?.id ?? null,
+        })),
+      );
+      return { ...row, report: { companyName: ctx.auto.companyName, forms } };
     }),
   );
   return NextResponse.json({ org: { id: org.id, name: org.name }, deliveries });

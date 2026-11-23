@@ -49,7 +49,18 @@ const pill = (on: boolean) =>
  * 시설이 기업 양식으로 결과를 쓴다. 배분 기록으로 알 수 있는 칸(기관명·품목·수량·날짜…)과
  * 기업이 미리 채운 칸은 잠겨 있고, 시설은 빈칸만 쓴다. 서명·직인은 온라인 승인 기록으로 대신한다.
  */
-export default function ReportFill({ orgId, intakeId, allocationId }: { orgId: string; intakeId: string; allocationId: string }) {
+export default function ReportFill({
+  orgId,
+  intakeId,
+  allocationId,
+  formId,
+}: {
+  orgId: string;
+  intakeId: string;
+  allocationId: string;
+  formId: string | null;
+}) {
+  const query = formId ? `?form=${encodeURIComponent(formId)}` : "";
   const router = useRouter();
   const admin = useAdminCode();
   const [data, setData] = useState<{ form: ReportForm; auto: Record<AutoKey, string>; companyName: string } | null>(null);
@@ -58,13 +69,13 @@ export default function ReportFill({ orgId, intakeId, allocationId }: { orgId: s
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/report/${intakeId}/${allocationId}`).catch(() => null);
+    const res = await fetch(`/api/report/${intakeId}/${allocationId}${query}`).catch(() => null);
     if (!res?.ok) return setStatus("missing");
     const body = await res.json();
     setData(body);
     if (body.response) setValues(body.response.values);
     setStatus("ready");
-  }, [intakeId, allocationId]);
+  }, [intakeId, allocationId, query]);
 
   useEffect(() => {
     load();
@@ -88,7 +99,7 @@ export default function ReportFill({ orgId, intakeId, allocationId }: { orgId: s
     setStatus("saving");
     setError(null);
     const res = await admin.adminFetch(
-      `/api/report/${intakeId}/${allocationId}`,
+      `/api/report/${intakeId}/${allocationId}${query}`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) },
       submit,
     );

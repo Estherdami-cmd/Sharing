@@ -1,19 +1,26 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { deliveryContext, getFormResponse, responseId, saveFormResponse } from "@/lib/form-store";
+import { deliveryContext, findResponse, saveFormResponse } from "@/lib/form-store";
 import { type FormValues, MAX_PHOTOS, isRecipientInput, missingRequired } from "@/lib/report-form";
 
 type Params = { params: Promise<{ intakeId: string; allocationId: string }> };
 
+/** ?form=양식id. 없으면 그 기업의 첫 양식. */
+function pickForm(ctx: NonNullable<Awaited<ReturnType<typeof deliveryContext>>>, request: Request) {
+  const want = new URL(request.url).searchParams.get("form");
+  return ctx.forms.find((f) => f.id === want) ?? (want ? null : ctx.forms[0] ?? null);
+}
+
 /** 시설이 쓸 기업 양식과 자동으로 채운 값, 이미 낸 답(있으면). */
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   const { intakeId, allocationId } = await params;
   const ctx = await deliveryContext(intakeId, allocationId);
   if (!ctx) return NextResponse.json({ error: "배분 기록을 찾을 수 없어요" }, { status: 404 });
-  if (!ctx.form) return NextResponse.json({ error: "이 물품의 기업은 아직 보고 양식을 올리지 않았어요" }, { status: 404 });
-  const existing = await getFormResponse(responseId(intakeId, allocationId));
+  const form = pickForm(ctx, request);
+  if (!form) return NextResponse.json({ error: "이 물품의 기업은 이 양식을 두지 않았어요" }, { status: 404 });
+  const existing = await findResponse(intakeId, allocationId, form);
   return NextResponse.json({
-    form: ctx.form,
+    form,
     auto: ctx.auto,
     facilityId: ctx.allocation.beneficiaryId,
     companyName: ctx.auto.companyName,
@@ -29,7 +36,8 @@ export async function POST(request: Request, { params }: Params) {
   if (denied) return denied;
   const { intakeId, allocationId } = await params;
   const ctx = await deliveryContext(intakeId, allocationId);
-  if (!ctx?.form || !ctx.companyId) {
+  const form = ctx ? pickForm(ctx, request) : null;
+  if (!ctx || !form || !ctx.companyId) {
     return NextResponse.json({ error: "작성할 양식이 없어요" }, { status: 404 });
   }
   const body = await request.json().catch(() => ({}));
@@ -37,7 +45,7 @@ export async function POST(request: Request, { params }: Params) {
 
   // 양식에 있는 칸만, 칸 종류에 맞는 값만 받는다. 자동 항목은 서버가 채운 값을 쓴다.
   const values: FormValues = {};
-  for (const f of ctx.form.fields) {
+  for (const f of form.fields) {
     if (!isRecipientInput(f)) continue;
     const v = raw[f.key];
     if (f.kind === "photo") {
@@ -54,16 +62,17 @@ export async function POST(request: Request, { params }: Params) {
       values[f.key] = typeof v === "string" ? v.trim().slice(0, f.kind === "long" ? 1000 : 100) : "";
     }
   }
-  const missing = missingRequired(ctx.form, values);
+  const missing = missingRequired(form, values);
   if (missing.length) {
     return NextResponse.json({ error: `${missing.join(", ")}을(를) 채워주세요` }, { status: 400 });
   }
   const saved = await saveFormResponse({
     companyId: ctx.companyId,
+    formId: form.id,
     intakeId,
     allocationId,
     beneficiaryId: ctx.allocation.beneficiaryId,
-    form: ctx.form,
+    form,
     auto: ctx.auto,
     values,
   });

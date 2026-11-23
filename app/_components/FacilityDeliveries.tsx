@@ -13,7 +13,7 @@ import { GROUP_ORDER, ScheduleCard, type ScheduleActionBody, sortForStatus } fro
 
 /** 기업 물품이면 그 기업의 보고 양식으로 결과를 쓸 수 있다. */
 type Row = IncomingDelivery & {
-  report: { companyName: string; formTitle: string; responseId: string | null } | null;
+  report: { companyName: string; forms: { id: string; title: string; responseId: string | null }[] } | null;
 };
 
 /**
@@ -100,28 +100,27 @@ export default function FacilityDeliveries({ orgId }: { orgId: string }) {
                   onAction={(body) => act(row, body)}
                 />
                 {/* 받은 뒤(전달 완료)에 기업 양식으로 결과를 쓴다. 확정 단계에서도 미리 열어 둔다. */}
-                {row.report && (row.schedule.status === "delivered" || row.schedule.status === "confirmed") && (
-                  <Link
-                    href={
-                      row.report.responseId
-                        ? `/reports/${row.report.responseId}`
-                        : `/beneficiary/${orgId}/report/${row.intakeId}/${row.allocation.id}`
-                    }
-                    className={
-                      "flex items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[14px] font-bold " +
-                      (row.report.responseId
-                        ? "bg-primary-50 text-primary-700"
-                        : "border-2 border-primary-500 bg-white text-primary-700")
-                    }
-                  >
-                    <span className="min-w-0 truncate">
-                      {row.report.responseId
-                        ? `${row.report.companyName}에 결과 문서를 보냈어요`
-                        : `${row.report.companyName} 양식으로 결과 작성하기`}
-                    </span>
-                    <span className="shrink-0">{row.report.responseId ? "보기 →" : "쓰기 →"}</span>
-                  </Link>
-                )}
+                {row.report &&
+                  (row.schedule.status === "delivered" || row.schedule.status === "confirmed") &&
+                  row.report.forms.map((f) => (
+                    <Link
+                      key={f.id}
+                      href={
+                        f.responseId
+                          ? `/reports/${f.responseId}`
+                          : `/beneficiary/${orgId}/report/${row.intakeId}/${row.allocation.id}?form=${f.id}`
+                      }
+                      className={
+                        "flex items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[14px] font-bold " +
+                        (f.responseId ? "bg-primary-50 text-primary-700" : "border-2 border-primary-500 bg-white text-primary-700")
+                      }
+                    >
+                      <span className="min-w-0 truncate">
+                        {f.responseId ? `✓ ${f.title} 보냄` : `${f.title} 작성하기`}
+                      </span>
+                      <span className="shrink-0">{f.responseId ? "보기 →" : "쓰기 →"}</span>
+                    </Link>
+                  ))}
               </div>
             ))}
           </section>
