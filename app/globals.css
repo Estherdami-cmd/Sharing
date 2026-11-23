@@ -195,3 +195,18 @@ html {
     overflow-x: auto;
   }
 }
+
+/* 결과 보고서·장부를 "PDF로 내보내기"(브라우저 인쇄)할 때 사이트 머리·꼬리와 버튼은 뺀다. */
+@media print {
+  body > header,
+  header[class*="sticky"],
+  footer,
+  nav,
+  .no-print,
+  .bg-drift-page {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+}

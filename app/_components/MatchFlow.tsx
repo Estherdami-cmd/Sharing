@@ -23,6 +23,8 @@ import {
 import NeedProgress from "./NeedProgress";
 import Loading from "./Loading";
 import { useRefetchOnFocus } from "./useRefetchOnFocus";
+import EntrustCard from "./hub/EntrustCard";
+import type { HubRecommendation } from "@/lib/hub-store";
 
 type MatchResult = NeedMatch;
 
@@ -47,6 +49,8 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
   const [donation, setDonation] = useState<Donation | null>(null);
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
+  // 시설을 직접 고르는 대신 맡길 수 있는 가까운 배분기관.
+  const [hub, setHub] = useState<HubRecommendation | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
   // 기관마다 채우고 싶은 수량이 다를 수 있어 카드별로 따로 들고 있는다.
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -62,6 +66,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
     setDonation(data.donation);
     setMatches(data.matches);
     setRegions(data.regions);
+    setHub(data.hub ?? null);
     return true;
   }, []);
 
@@ -192,6 +197,8 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
           물품을 기다리는 곳을 보여드릴게요
         </p>
       )}
+
+      {!matchLoading && hub && <EntrustCard donation={donation} hub={hub} />}
 
       {/*
         추천 순위만으로는 원하는 기관이 아래로 밀려있을 수 있다.
