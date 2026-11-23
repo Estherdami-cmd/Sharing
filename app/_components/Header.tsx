@@ -18,9 +18,9 @@ const NAV_LINKS = [
   { href: "/board", label: "기부 현황" },
   { href: "/lookup", label: "신청 조회" },
   { href: "/beneficiary", label: "기관 관리" },
-  { href: "/service", label: "서비스 소개" },
   // 기부하기 화면을 기업·단체 선택으로 연다.
   { href: "/donate?donor=company", label: "기업 등록" },
+  { href: "/service", label: "서비스 소개" },
 ];
 
 /** 기관 관리처럼 아래에 페이지가 더 있는 메뉴는 그 안에 있을 때도 켜 둔다. */
