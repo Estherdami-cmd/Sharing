@@ -645,8 +645,9 @@ export const SAMPLE_ITEMS: SampleItem[] = [
     label: "아침에주스 오렌지 (번들 예시 사진)",
     itemName: "아침에주스 오렌지 210mL",
     category: "음료",
-    // public/demo/juice-back.jpg 의 유통기한에 맞춘 값. 날짜를 박으면 데모가 썩는다.
-    expiryOffsetDays: 17,
+    // public/demo/juice-back.jpg 의 유통기한(2026.12.29)에 대략 맞춘 값(2026-11-23 기준 36일).
+    // 날짜를 박으면 데모가 썩어서 오늘 기준 상대값으로 둔다.
+    expiryOffsetDays: 36,
     confidence: 0.96,
     keywords: ["juice", "주스", "orange", "오렌지"],
   },
