@@ -58,6 +58,84 @@ export default function ReportDocument({ id }: { id: string }) {
         </button>
       </div>
       <ReportSheet doc={doc} />
+      <CompanyFill doc={doc} onSaved={setDoc} />
+    </div>
+  );
+}
+
+/**
+ * 기업 기재란. 시설은 모르고 기업만 아는 칸(사업자등록번호·기부 건명·단가·금액…)을 기업이 문서를
+ * 받은 뒤 채운다. 기업 관리 코드가 있어야 한다. 인쇄할 때는 숨긴다.
+ */
+function CompanyFill({ doc, onSaved }: { doc: FormResponse; onSaved: (d: FormResponse) => void }) {
+  const fields = doc.form.fields.filter((f) => f.by === "company" && !f.auto);
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fields.map((f) => [f.key, doc.companyValues?.[f.key] ?? f.fixed ?? ""])),
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (fields.length === 0) return null;
+  const empty = fields.filter((f) => !(doc.companyValues?.[f.key] || f.fixed)).length;
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/reports/${doc.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, values }),
+    }).catch(() => null);
+    setBusy(false);
+    const body = await res?.json().catch(() => null);
+    if (!res?.ok) return setError(body?.error ?? "저장하지 못했어요");
+    onSaved(body);
+    setOpen(false);
+  }
+
+  if (!open)
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="no-print h-12 cursor-pointer rounded-2xl border-2 border-dashed border-neutral-300 bg-white/60 text-[14px] font-bold text-neutral-600 hover:border-primary-500"
+      >
+        {doc.auto.companyName} 기재란 채우기 {empty > 0 ? `(빈칸 ${empty}개)` : "· 고치기"}
+      </button>
+    );
+
+  return (
+    <div className="no-print flex flex-col gap-3 rounded-2xl border border-neutral-300 bg-white p-5">
+      <p className="text-[15px] font-bold">{doc.auto.companyName} 기재란</p>
+      <p className="text-[13px] text-neutral-500">수령 기관이 보낸 뒤에 기업이 채우는 칸이에요</p>
+      {fields.map((f) => (
+        <label key={f.key} className="flex flex-col gap-1">
+          <span className="text-xs font-bold text-neutral-700">
+            {f.code && <span className="mr-1 font-mono text-neutral-400">[{f.code}]</span>}
+            {f.label}
+          </span>
+          <input
+            value={values[f.key] ?? ""}
+            onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+            inputMode={f.kind === "number" ? "numeric" : undefined}
+            maxLength={100}
+            className="h-11 rounded-xl border border-neutral-300 px-3 text-[14px] outline-none focus:border-primary-500"
+          />
+        </label>
+      ))}
+      <input
+        value={code}
+        onChange={(e) => setCode(e.target.value.toUpperCase())}
+        placeholder="기업 관리 코드 (ABCD-2345)"
+        aria-label="기업 관리 코드"
+        maxLength={9}
+        className="h-11 rounded-xl border border-neutral-300 px-3 font-mono text-[14px] tracking-wider outline-none focus:border-primary-500"
+      />
+      {error && <p className="text-[13px] text-danger-fg">{error}</p>}
+      <button type="button" disabled={busy || !code.trim()} onClick={save} className={btnPrimary}>
+        {busy ? "저장하는 중" : "저장"}
+      </button>
     </div>
   );
 }
@@ -75,7 +153,8 @@ export function ReportSheet({ doc }: { doc: FormResponse }) {
 
   function value(f: FormField) {
     if (f.auto) return doc.auto[f.auto] || "—";
-    if (f.by === "company") return f.fixed || "—";
+    if (f.by === "company")
+      return doc.companyValues?.[f.key] || f.fixed || <span className="text-neutral-400">({doc.auto.companyName} 기재 예정)</span>;
     const v = doc.values[f.key];
     switch (f.kind) {
       case "choice":
@@ -88,11 +167,17 @@ export function ReportSheet({ doc }: { doc: FormResponse }) {
         return <span className="text-[13px]">{doc.auto.facilityName} · 온라인 승인 {kst(doc.submittedAt)}</span>;
       case "photo":
         return Array.isArray(v) && v.length ? (
-          <span className="grid grid-cols-2 gap-2">
-            {v.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={src} alt={`${f.label} ${i + 1}`} className="aspect-[4/3] w-full rounded-lg object-cover" />
-            ))}
+          <span className="flex flex-col gap-1.5">
+            <span className="grid grid-cols-2 gap-2">
+              {v.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={src} alt={`${f.label} ${i + 1}`} className="aspect-[4/3] w-full rounded-lg object-cover" />
+              ))}
+            </span>
+            <span className="text-[12px] text-neutral-600">
+              촬영 일자 {doc.submittedAt.slice(0, 10)}
+              {typeof doc.values[`${f.key}__note`] === "string" && ` · ${doc.values[`${f.key}__note`]}`}
+            </span>
           </span>
         ) : (
           <span className="text-neutral-400">없음</span>
