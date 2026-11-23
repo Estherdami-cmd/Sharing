@@ -19,7 +19,13 @@ const KIND_LABEL: Record<FieldKind, string> = {
   long: "여러 줄",
   number: "숫자",
   date: "날짜",
+  datetime: "일시",
+  period: "기간",
+  choice: "고르기",
+  checks: "체크",
+  agree: "동의",
   photo: "사진",
+  sign: "서명",
 };
 
 /** 사진은 글씨가 읽힐 만큼만 줄인다. PDF는 그대로 보낸다. */
@@ -206,10 +212,26 @@ export default function CompanyForms({
                   aria-label={`${i + 1}번째 칸 이름`}
                   className="min-w-0 flex-1 bg-transparent text-[14px] font-bold text-neutral-800 outline-none"
                 />
+                {f.code && <span className="shrink-0 font-mono text-[11px] font-bold text-neutral-400">{f.code}</span>}
                 <span className="shrink-0 text-[11px] font-bold text-neutral-400">
-                  {f.auto ? `자동 · ${AUTO_KEYS[f.auto]}` : KIND_LABEL[f.kind]}
-                  {f.required ? " · 필수" : ""}
+                  {f.auto ? `자동 · ${AUTO_KEYS[f.auto]}` : f.by === "company" ? "기업이 채움" : KIND_LABEL[f.kind]}
                 </span>
+                {/* 종이 양식엔 필수 표시가 없는 경우가 많아, 기업이 여기서 정한다. 시설이 쓰는 칸에만 의미가 있다. */}
+                {!f.auto && f.by !== "company" && f.kind !== "sign" && (
+                  <button
+                    type="button"
+                    aria-pressed={f.required}
+                    onClick={() =>
+                      editDraft({ fields: draft.form.fields.map((x, j) => (j === i ? { ...x, required: !x.required } : x)) })
+                    }
+                    className={
+                      "shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-[11px] font-bold " +
+                      (f.required ? "bg-danger-bg text-danger-fg" : "bg-neutral-100 text-neutral-400")
+                    }
+                  >
+                    필수
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label={`${f.label} 칸 빼기`}

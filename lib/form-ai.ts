@@ -7,7 +7,7 @@ import { AUTO_KEYS, FIELD_KINDS, type ReportForm, normalizeForm } from "./report
  */
 const MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 const ENDPOINT = "https://api.openai.com/v1/responses";
-const TIMEOUT_MS = 45_000;
+const TIMEOUT_MS = 90_000; // 여러 쪽 PDF는 오래 걸린다
 
 const AUTO_ENUM = ["none", ...Object.keys(AUTO_KEYS)];
 
@@ -15,25 +15,32 @@ const SCHEMA = {
   type: "object",
   properties: {
     title: { type: "string" },
+    formCode: { type: "string" },
     intro: { type: "string" },
+    closing: { type: "string" },
     fields: {
       type: "array",
       items: {
         type: "object",
         properties: {
           key: { type: "string" },
+          code: { type: "string" },
+          section: { type: "string" },
           label: { type: "string" },
           kind: { type: "string", enum: [...FIELD_KINDS] },
+          options: { type: "array", items: { type: "string" } },
+          by: { type: "string", enum: ["company", "recipient"] },
+          fixed: { type: "string" },
           auto: { type: "string", enum: AUTO_ENUM },
           required: { type: "boolean" },
           hint: { type: "string" },
         },
-        required: ["key", "label", "kind", "auto", "required", "hint"],
+        required: ["key", "code", "section", "label", "kind", "options", "by", "fixed", "auto", "required", "hint"],
         additionalProperties: false,
       },
     },
   },
-  required: ["title", "intro", "fields"],
+  required: ["title", "formCode", "intro", "closing", "fields"],
   additionalProperties: false,
 };
 
@@ -41,22 +48,31 @@ function prompt() {
   const autos = Object.entries(AUTO_KEYS)
     .map(([k, v]) => `- ${k}: ${v}`)
     .join("\n");
-  return `이 문서는 기업이 기부물품을 받은 복지시설에게 작성을 요청하는 보고 양식(결과보고서·수령확인서·활용보고서 등)이다.
-시설이 채워야 하는 항목을 문서에 나온 순서대로 뽑아라.
+  return `이 문서는 기업이 기부물품을 받은 복지시설(수령 기관)에게 작성을 요청하는 양식(수령확인서·결과보고서·활용보고서 등)이다.
+여러 쪽이면 첫 번째 "빈 양식" 쪽을 기준으로 하고, 작성 방법 쪽은 각 칸의 작성자·규칙을 판단하는 데만 써라. 작성 예시 쪽은 무시하라.
+칸을 문서에 나온 순서대로 뽑아라.
 
-규칙:
-- title: 문서 제목 그대로(예: "기부물품 활용 결과보고서"). 회사명이 있으면 포함.
-- intro: 작성 안내 문구가 있으면 한두 문장으로, 없으면 빈 문자열.
-- fields: 칸(빈칸·표의 셀·체크란) 하나당 하나. 장식 문구, 결재란, 페이지 번호는 넣지 마라.
-  - key: 영문 camelCase 짧은 이름(예: usage, beneficiaryCount).
-  - label: 문서에 적힌 칸 이름 그대로(한국어).
-  - kind: text(한 줄), long(여러 줄 서술), number(숫자), date(날짜), photo(사진 첨부).
-  - auto: 아래 값 중 이 칸에 그대로 들어갈 것이 있으면 그 이름, 없으면 "none".
+- title: 문서 제목(회사명이 따로 있으면 앞에 붙여 "(주)○○ 기부물품 수령 확인서"처럼).
+- formCode: 양식번호가 있으면(예: TOV-CSR-F01), 없으면 빈 문자열.
+- intro: 제목 아래 안내 문구 한두 문장, 없으면 빈 문자열.
+- closing: 서명란 위 확인 문구(예: "위 물품을 … 수령하였음을 확인합니다."), 없으면 빈 문자열.
+- fields: 칸 하나당 하나. 문서번호·결재란·페이지 번호·안내 상자는 넣지 마라.
+  - key: 영문 짧은 이름(칸 코드가 있으면 코드 그대로, 예: A1).
+  - code: 칸 앞의 코드([A1] → "A1"), 없으면 빈 문자열.
+  - section: 칸이 속한 구역 제목(예: "기부자", "수령 기관"), 없으면 빈 문자열.
+  - label: 칸 이름 그대로.
+  - kind: text 한 줄 / long 여러 줄 서술 / number 숫자 / date 날짜 / datetime 일시 / period 기간 /
+          choice 선택지 중 하나(☐가 나열된 칸) / checks 여러 개 체크 / agree 동의 체크 하나 /
+          photo 사진 첨부 / sign 서명·직인·인.
+  - options: choice·checks면 선택지 문구들, 아니면 빈 배열. "기타 ____"는 "기타".
+  - by: 기업(기부자)이 채우는 칸이면 "company", 수령 기관이 채우면 "recipient". 작성 방법에 작성자가 있으면 그대로 따른다.
+  - fixed: 기업 칸에 이미 값이 인쇄돼 있으면 그 값, 아니면 빈 문자열.
+  - auto: 이 칸에 그대로 들어갈 값이 아래에 있으면 그 이름, 없으면 "none".
 ${autos}
-  - required: 문서에 필수 표시가 있거나 보고서의 핵심 칸이면 true.
-  - hint: 칸 옆 작성 요령이 있으면 짧게, 없으면 빈 문자열.
-- 서명·직인 칸은 kind text, label에 "(서명)"을 붙여라.
-- 문서가 보고 양식이 아니면 title을 빈 문자열로 하고 fields는 빈 배열로 답하라.`;
+  - required: 필수 표시가 있거나 작성 방법에 필수로 나오면 true.
+  - hint: 칸 옆·작성 방법의 짧은 작성 요령, 없으면 빈 문자열. agree면 동의 문구 전체.
+- 품목 표(품명·규격·수량… 열)는 한 줄만 있다고 보고 열마다 칸 하나로 뽑아라.
+- 문서가 이런 양식이 아니면 title을 빈 문자열로 하고 fields는 빈 배열로 답하라.`;
 }
 
 export type FormReadOutcome =

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { deliveryContext, getFormResponse, responseId, saveFormResponse } from "@/lib/form-store";
-import { type FormValues, MAX_PHOTOS, missingRequired } from "@/lib/report-form";
+import { type FormValues, MAX_PHOTOS, isRecipientInput, missingRequired } from "@/lib/report-form";
 
 type Params = { params: Promise<{ intakeId: string; allocationId: string }> };
 
@@ -38,13 +38,18 @@ export async function POST(request: Request, { params }: Params) {
   // 양식에 있는 칸만, 칸 종류에 맞는 값만 받는다. 자동 항목은 서버가 채운 값을 쓴다.
   const values: FormValues = {};
   for (const f of ctx.form.fields) {
-    if (f.auto) continue;
+    if (!isRecipientInput(f)) continue;
     const v = raw[f.key];
     if (f.kind === "photo") {
-      const photos = (Array.isArray(v) ? v : [])
+      values[f.key] = (Array.isArray(v) ? v : [])
         .filter((p): p is string => typeof p === "string" && p.startsWith("data:image/") && p.length <= MAX_PHOTO_DATA_URL)
         .slice(0, MAX_PHOTOS);
-      values[f.key] = photos;
+    } else if (f.kind === "checks") {
+      values[f.key] = (Array.isArray(v) ? v : []).filter((o): o is string => typeof o === "string" && f.options.includes(o));
+    } else if (f.kind === "choice") {
+      values[f.key] = typeof v === "string" && f.options.includes(v) ? v : "";
+    } else if (f.kind === "agree") {
+      values[f.key] = v === "동의" ? "동의" : "";
     } else {
       values[f.key] = typeof v === "string" ? v.trim().slice(0, f.kind === "long" ? 1000 : 100) : "";
     }
