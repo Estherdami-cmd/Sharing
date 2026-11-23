@@ -51,6 +51,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
   const [regions, setRegions] = useState<string[]>([]);
   // 시설을 직접 고르는 대신 맡길 수 있는 가까운 배분기관.
   const [hub, setHub] = useState<HubRecommendation | null>(null);
+  const [hubs, setHubs] = useState<HubRecommendation[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
   // 기관마다 채우고 싶은 수량이 다를 수 있어 카드별로 따로 들고 있는다.
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -67,6 +68,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
     setMatches(data.matches);
     setRegions(data.regions);
     setHub(data.hub ?? null);
+    setHubs(data.hubs ?? []);
     return true;
   }, []);
 
@@ -202,6 +204,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
         <EntrustCard
           donation={donation}
           hub={hub}
+          hubs={hubs}
           onChangeQuantity={(quantity) => patchDonation({ quantity })}
         />
       )}

@@ -137,6 +137,25 @@ export async function recommendHub(regionName: string) {
 
 export type HubRecommendation = NonNullable<Awaited<ReturnType<typeof recommendHub>>>;
 
+/**
+ * 맡길 수 있는 배분기관 전체, 기부자 지역에서 가까운 순. 추천은 맨 앞(가장 가까운 곳)이고,
+ * 기부자가 거래하던 곳이나 협력 NGO처럼 다른 곳을 직접 고를 수 있게 함께 내려준다.
+ */
+export async function listHubOptions(regionName: string): Promise<HubRecommendation[]> {
+  const orgs = await getBeneficiaries();
+  const origin = getRegion(regionName);
+  return orgs
+    .filter((o) => isHub(o))
+    .map((hub) => ({
+      id: hub.id,
+      name: hub.name,
+      category: hub.category ?? "배분기관",
+      distanceKm: distanceKm(origin, hub),
+      linkedCount: linkedFacilities(hub.id, orgs).length,
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}
+
 export class IntakeError extends Error {
   constructor(
     message: string,

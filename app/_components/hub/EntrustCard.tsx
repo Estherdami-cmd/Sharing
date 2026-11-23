@@ -16,15 +16,22 @@ import { field } from "../../ui";
  */
 export default function EntrustCard({
   donation,
-  hub,
+  hub: recommended,
+  hubs = [],
   onChangeQuantity,
 }: {
   donation: Donation;
+  /** 가장 가까운 배분기관. 처음엔 여기로 맡기도록 골라 둔다. */
   hub: HubRecommendation;
+  /** 직접 고를 수 있는 배분기관 전체(가까운 순). 거래하던 곳·협력 NGO에 맡기고 싶을 때. */
+  hubs?: HubRecommendation[];
   /** 수량만 모자랄 때 이 카드에서 바로 고친다. 등록 화면으로 되돌아가지 않아도 되게. */
   onChangeQuantity?: (quantity: number) => Promise<void>;
 }) {
   const router = useRouter();
+  const [hubId, setHubId] = useState(recommended.id);
+  const hub = hubs.find((h) => h.id === hubId) ?? recommended;
+  const isRecommended = hub.id === recommended.id;
   const { ok, checks } = checkHubCriteria(donation);
   // 등록 화면에서 기업·단체로 들어왔으면 그 정보로 시작하고, 유형·이름은 다시 묻지 않는다.
   const fromCompany = donation.donorType === "company";
@@ -132,8 +139,28 @@ export default function EntrustCard({
           <p className="text-xs font-bold text-neutral-500">직접 고르기 어렵다면</p>
           <h2 className="text-[18px] font-bold tracking-[-0.02em]">{hub.name}에 맡기기</h2>
         </div>
-        <span className="shrink-0 rounded-full bg-danger-fg px-2.5 py-1 text-xs font-bold text-white">추천</span>
+        <span className="shrink-0 rounded-full bg-danger-fg px-2.5 py-1 text-xs font-bold text-white">
+          {isRecommended ? "추천" : "직접 고름"}
+        </span>
       </div>
+      {hubs.length > 1 && (
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-bold text-neutral-500">맡길 배분기관</span>
+          <select
+            value={hubId}
+            onChange={(e) => setHubId(e.target.value)}
+            aria-label="맡길 배분기관"
+            className={`${field} cursor-pointer`}
+          >
+            {hubs.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name} · {h.category === "NGO" ? "NGO 배분기관" : h.category} · {h.distanceKm}km
+                {h.id === recommended.id ? " (가장 가까움)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <p className="text-[14px] leading-relaxed text-neutral-700">
         {hub.category} · {hub.distanceKm}km. 맡은 시설 {hub.linkedCount}곳에 필요한 만큼 나눠 드려요.
         {donation.quantity >= 20 && ` ${donation.quantity}개는 한 시설이 다 받기 어려워요.`}
