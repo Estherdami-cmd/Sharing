@@ -146,7 +146,7 @@ export default function OrgHome({ orgId }: { orgId: string }) {
           </div>
           {hub && (
             <p className="mt-1.5 inline-flex items-center rounded-full bg-primary-100 px-2.5 py-1 text-xs font-bold text-primary-700">
-              {hub.name} 소속 · 배분기관이 나눠 주는 물품도 이 목표로 들어와요
+              가까운 배분기관 {hub.name} · 여기서 나눠 주는 물품도 이 목표로 들어와요
             </p>
           )}
           <div className="mt-2">

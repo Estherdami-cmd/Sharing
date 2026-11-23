@@ -22,7 +22,7 @@ import {
   normalizeCandidates,
   normalizeScheduleSlot,
 } from "./hub";
-import { distanceKm, getRegion, isSameItemBy } from "./rules";
+import { type Packing, distanceKm, getRegion, isSameItemBy, normalizePacking } from "./rules";
 import {
   type NeedView,
   getBeneficiaries,
@@ -68,6 +68,8 @@ export type Intake = {
   quantity: number;
   expiryDate: string | null;
   productImageUrl: string | null;
+  /** 기업이 박스로 맡겼으면 그 포장. 수량은 낱개 총 개수다. */
+  packing: Packing | null;
   status: "pending" | "stored" | "rejected";
   createdAt: string;
   approvedAt: string | null;
@@ -99,6 +101,7 @@ function intakeFromDoc(id: string, data: Record<string, unknown>): Intake {
     quantity: data.quantity as number,
     expiryDate: (data.expiryDate as string | null) ?? null,
     productImageUrl: (data.productImageUrl as string | null) ?? null,
+    packing: normalizePacking(data.packing),
     status: data.status as Intake["status"],
     createdAt: data.createdAt as string,
     approvedAt: (data.approvedAt as string | null) ?? null,
@@ -136,6 +139,25 @@ export async function recommendHub(regionName: string) {
 }
 
 export type HubRecommendation = NonNullable<Awaited<ReturnType<typeof recommendHub>>>;
+
+/**
+ * 맡길 수 있는 배분기관 전체, 기부자 지역에서 가까운 순. 추천은 맨 앞(가장 가까운 곳)이고,
+ * 기부자가 거래하던 곳이나 협력 NGO처럼 다른 곳을 직접 고를 수 있게 함께 내려준다.
+ */
+export async function listHubOptions(regionName: string): Promise<HubRecommendation[]> {
+  const orgs = await getBeneficiaries();
+  const origin = getRegion(regionName);
+  return orgs
+    .filter((o) => isHub(o))
+    .map((hub) => ({
+      id: hub.id,
+      name: hub.name,
+      category: hub.category ?? "배분기관",
+      distanceKm: distanceKm(origin, hub),
+      linkedCount: linkedFacilities(hub.id, orgs).length,
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}
 
 export class IntakeError extends Error {
   constructor(
@@ -176,6 +198,7 @@ export async function createIntakeFromDonation(input: {
     quantity: donation.quantity,
     expiryDate: donation.expiryDate,
     productImageUrl: donation.productImageUrl,
+    packing: donation.packing,
     status: "pending" as const,
     createdAt: new Date().toISOString(),
     approvedAt: null,
@@ -218,6 +241,7 @@ export async function createWalkinIntakes(
         quantity: item.quantity,
         expiryDate: item.expiryDate,
         productImageUrl: imageUrl,
+        packing: null,
         status: "stored" as const,
         createdAt: now,
         approvedAt: now,
@@ -235,6 +259,18 @@ export async function getIntake(id: string): Promise<IntakeView | undefined> {
   const snap = await getDoc(doc(intakesCol, id));
   if (!snap.exists()) return undefined;
   return toView(intakeFromDoc(snap.id, snap.data()));
+}
+
+/** 이 물품들로 만든 입고 전체. 기업 관리 코드 조회에서 "맡긴 물품이 어디까지 갔나"를 볼 때. */
+export async function listIntakesByDonations(donationIds: string[]): Promise<IntakeView[]> {
+  const intakes: Intake[] = [];
+  // Firestore의 in 조건은 한 번에 30개까지다.
+  for (let i = 0; i < donationIds.length; i += 30) {
+    const chunk = donationIds.slice(i, i + 30);
+    const snap = await getDocs(query(intakesCol, where("donationId", "in", chunk)));
+    intakes.push(...snap.docs.map((d) => intakeFromDoc(d.id, d.data())));
+  }
+  return Promise.all(intakes.map(toView));
 }
 
 export async function listIntakes(hubId: string): Promise<IntakeView[]> {
@@ -295,9 +331,16 @@ export async function distributionCandidates(
       linked: linkedIds.has(n.beneficiaryId),
       exactItem: isSameItemBy(intake, n),
     }))
+    /*
+      급한 곳부터. 같은 물건을 요청한 곳 → 급한 요청(진행률이 낮은 곳) → 덜 채워진 순 →
+      가까운 배분기관이 이곳인 시설 → 먼저 올린 순. "소속"은 거리로 정한 것이라 실제 관계가
+      아니므로, 급한 정도보다 앞세우지 않는다.
+    */
     .sort(
       (a, b) =>
         Number(b.exactItem) - Number(a.exactItem) ||
+        Number(b.urgent) - Number(a.urgent) ||
+        a.progress - b.progress ||
         Number(b.linked) - Number(a.linked) ||
         a.createdAt.localeCompare(b.createdAt),
     )

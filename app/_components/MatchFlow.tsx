@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { formatQty } from "@/lib/rules";
 import type { Donation, NeedMatch } from "@/lib/store";
 import { needPeriodLabel } from "@/lib/period";
 import {
@@ -51,22 +52,34 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
   const [regions, setRegions] = useState<string[]>([]);
   // 시설을 직접 고르는 대신 맡길 수 있는 가까운 배분기관.
   const [hub, setHub] = useState<HubRecommendation | null>(null);
+  const [hubs, setHubs] = useState<HubRecommendation[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
   // 기관마다 채우고 싶은 수량이 다를 수 있어 카드별로 따로 들고 있는다.
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   // 추천 순위와 별개로, 특정 기관을 알고 있으면 이름으로 바로 찾을 수 있게 한다.
   const [searchQuery, setSearchQuery] = useState("");
 
+  /*
+    불러오기가 겹치면 마지막에 시작한 것만 반영한다. 첫 화면이 뜬 직후 지역을 바꾸면
+    처음 불러오기(또는 창 포커스 때 다시 불러오기)가 늦게 도착해 새 지역을 옛 값으로
+    덮어쓰는 일이 있었다 — "한 번 더 골라야 바뀐다"는 증상이 그것이다.
+  */
+  const loadSeq = useRef(0);
   const loadMatches = useCallback(async (id: string) => {
+    const seq = ++loadSeq.current;
     setMatchLoading(true);
-    const res = await fetch(`/api/match/${id}`);
+    const res = await fetch(`/api/match/${id}`).catch(() => null);
+    if (seq !== loadSeq.current) return null; // 더 나중에 시작한 불러오기가 결과를 반영한다
     setMatchLoading(false);
-    if (!res.ok) return false;
+    if (!res?.ok) return false;
     const data = await res.json();
     setDonation(data.donation);
     setMatches(data.matches);
     setRegions(data.regions);
     setHub(data.hub ?? null);
+    setHubs(data.hubs ?? []);
+    // 첫 불러오기가 창 포커스 때 다시 불러오기에 밀려도 화면이 로딩에 멈추지 않게.
+    setLoadState("ready");
     return true;
   }, []);
 
@@ -74,7 +87,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
     let cancelled = false;
     (async () => {
       const ok = await loadMatches(donationId);
-      if (!cancelled) setLoadState(ok ? "ready" : "error");
+      if (!cancelled && ok !== null) setLoadState(ok ? "ready" : "error");
     })();
     return () => {
       cancelled = true;
@@ -89,6 +102,10 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
 
   async function patchDonation(patch: Record<string, unknown>) {
     if (!donation) return;
+    // 고른 값을 바로 화면에 둔다. 저장이 끝날 때까지 옛 값으로 되돌아가 보이지 않게.
+    setDonation({ ...donation, ...patch } as Donation);
+    // 저장 전에 시작된 불러오기는 옛 지역 결과라 버린다.
+    loadSeq.current++;
     await fetch(`/api/donations/${donation.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -174,6 +191,12 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
+          <label className={label}>수량</label>
+          <p className={`${fieldReadonly} flex items-center`}>
+            {formatQty(donation.quantity, donation.packing)}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
           <label className={label}>내 지역</label>
           <select
             value={donation.region}
@@ -202,6 +225,7 @@ export default function MatchFlow({ donationId }: { donationId: string }) {
         <EntrustCard
           donation={donation}
           hub={hub}
+          hubs={hubs}
           onChangeQuantity={(quantity) => patchDonation({ quantity })}
         />
       )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQty } from "@/lib/rules";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { IntakeView } from "@/lib/hub-store";
@@ -103,7 +104,7 @@ export default function IntakeReport({ intakeId }: { intakeId: string }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[17px] font-bold">
-              {donorLabel(intake)} · {intake.itemName} {intake.quantity}개
+              {donorLabel(intake)} · {intake.itemName} {formatQty(intake.quantity, intake.packing)}
             </p>
             <p className={caption}>
               {intake.hubName} 경유

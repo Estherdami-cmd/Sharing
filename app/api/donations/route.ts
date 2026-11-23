@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_REGION, isValidISODate, isValidPhone } from "@/lib/rules";
+import { DEFAULT_REGION, isValidISODate, isValidPhone, normalizePacking } from "@/lib/rules";
+import { createCompany, findCompanyByCode } from "@/lib/company";
 import { createDonation } from "@/lib/store";
 
 // 클라이언트가 올릴 때 이미 줄여서 보내지만(RegisterFlow.tsx), 그 경로를 우회한
@@ -52,8 +53,33 @@ export async function POST(request: Request) {
     company = { name, manager, contact };
   }
 
+  /*
+    기업은 처음 기부할 때 자동으로 만들어지고 관리 코드를 받는다. 코드를 같이 보내면
+    그 기업의 기부로 묶는다. 코드가 틀리면 새 기업을 만들지 않고 되돌린다 — 오타 하나로
+    같은 회사가 둘로 갈라지지 않게.
+  */
+  let companyId: string | null = null;
+  let issuedCode: string | null = null;
+  if (company) {
+    const givenCode = typeof body.companyCode === "string" ? body.companyCode.trim() : "";
+    if (givenCode) {
+      const found = await findCompanyByCode(givenCode);
+      if (!found) {
+        return NextResponse.json({ error: "기업 관리 코드를 찾을 수 없어요. 다시 확인해주세요" }, { status: 400 });
+      }
+      companyId = found.id;
+    } else {
+      const created = await createCompany(company);
+      companyId = created.company.id;
+      issuedCode = created.code;
+    }
+  }
+
   const donation = await createDonation({
     company,
+    companyId,
+    // 박스 단위는 기업 기부에만 둔다. 개인은 낱개로 들고 온다.
+    packing: company ? normalizePacking(body.packing) : null,
     itemName,
     category,
     quantity: body.quantity,
@@ -66,5 +92,6 @@ export async function POST(request: Request) {
     productImageUrl: sanitizeImageDataUrl(body.productImageUrl),
     expiryImageUrl: sanitizeImageDataUrl(body.expiryImageUrl),
   });
-  return NextResponse.json(donation);
+  // 새로 발급한 코드는 이 응답에서 한 번만 원문으로 나간다.
+  return NextResponse.json({ ...donation, companyCode: issuedCode });
 }

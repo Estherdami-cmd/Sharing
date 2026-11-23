@@ -21,6 +21,8 @@ import {
   type MatchGrade,
   addDays,
   clampQuantity,
+  normalizePacking,
+  type Packing,
   distanceKm,
   evaluateShareable,
   getRegion,
@@ -61,8 +63,11 @@ export type Beneficiary = {
    *  - "beneficiary": 경상북도_푸드뱅크 현황 (손으로 정리한 5곳)
    *  - "lvlhmap":  포항시 생활지도 시설현황 (API로 받아오는 109곳)
    *  - "partner":  공공데이터에 없어서 직접 등록한 협력 기관 (NGO 등)
+   *  - "registered": 기관 관리 화면에서 기관이 스스로 등록한 곳
    */
-  source?: "beneficiary" | "lvlhmap" | "partner";
+  source?: "beneficiary" | "lvlhmap" | "partner" | "registered";
+  /** 스스로 등록한 기관이면 등록한 때. */
+  registeredAt?: string;
 };
 
 /**
@@ -134,6 +139,10 @@ export type Donation = {
   donorType: "individual" | "company";
   /** 기업·단체 이름. 결과 보고서에 들어가는 공개 정보라 여기 둔다. 개인이면 null. */
   donorName: string | null;
+  /** 이 물품을 등록한 기업(companies 문서 id). 기업 관리 코드로 기부 내역을 모아 볼 때 쓴다. */
+  companyId: string | null;
+  /** 박스 단위로 냈으면 그 포장. quantity는 낱개 총 개수 그대로다. */
+  packing: Packing | null;
 };
 
 /**
@@ -723,8 +732,16 @@ function pickOrgFor(
  * 같은 기관이 같은 id를 유지한다 — 이미 걸린 요청·신청이 끊기지 않는다.
  */
 let beneficiariesCache: Beneficiary[] | null = null;
+let beneficiariesLoadedAt = 0;
+/*
+ * 기관이 화면에서 직접 등록할 수 있게 되면서, 다른 서버 인스턴스가 새 기관을 모른 채
+ * 오래 남지 않도록 1분이 지나면 다시 읽는다. 등록한 인스턴스는 바로 캐시에 넣는다.
+ */
+const BENEFICIARIES_TTL_MS = 60_000;
 async function ensureBeneficiariesLoaded(): Promise<Beneficiary[]> {
-  if (beneficiariesCache) return beneficiariesCache;
+  if (beneficiariesCache && Date.now() - beneficiariesLoadedAt < BENEFICIARIES_TTL_MS) {
+    return beneficiariesCache;
+  }
   let snap = await getDocs(beneficiariesCol);
   if (snap.empty) {
     await Promise.all(
@@ -736,7 +753,41 @@ async function ensureBeneficiariesLoaded(): Promise<Beneficiary[]> {
     id: d.id,
     ...(d.data() as Omit<Beneficiary, "id">),
   }));
+  beneficiariesLoadedAt = Date.now();
   return beneficiariesCache;
+}
+
+/**
+ * 공공데이터에 없는 기관이 기관 관리 화면에서 직접 등록한다. 공공데이터 동기화는
+ * source가 lvlhmap인 기관만 정리하므로 여기서 만든 기관은 지워지지 않는다.
+ * 좌표는 주소를 지도 API로 찾지 않고, 고른 동네의 중심을 쓴다(거리 추천은 동네 단위로 맞으면 충분하다).
+ */
+export async function createBeneficiary(input: {
+  name: string;
+  category: string;
+  address: string;
+  region: string;
+}): Promise<Beneficiary> {
+  const region = getRegion(input.region);
+  const ref = doc(beneficiariesCol);
+  const org: Beneficiary = {
+    id: `org-${ref.id}`,
+    name: input.name,
+    address: input.address,
+    region: region.name,
+    lat: region.lat,
+    lng: region.lng,
+    category: input.category,
+    operatingDays: [],
+    pickupSlots: [],
+    source: "registered",
+    registeredAt: new Date().toISOString(),
+  };
+  const { id, ...data } = org;
+  await setDoc(doc(beneficiariesCol, id), data);
+  const list = await ensureBeneficiariesLoaded();
+  if (!list.some((b) => b.id === id)) list.push(org);
+  return org;
 }
 
 export async function getBeneficiaries(): Promise<Beneficiary[]> {
@@ -850,6 +901,8 @@ function donationFromDoc(id: string, data: Record<string, unknown>): Donation {
     genericName: (data.genericName as string | null) ?? null,
     donorType: data.donorType === "company" ? "company" : "individual",
     donorName: (data.donorName as string | null) ?? null,
+    companyId: (data.companyId as string | null) ?? null,
+    packing: normalizePacking(data.packing),
   };
 }
 
@@ -1068,7 +1121,8 @@ export async function matchNeeds(
   genericName: string | null = null,
 ): Promise<NeedMatch[]> {
   const origin = getRegion(regionName || DEFAULT_REGION);
-  const all = await listNeeds();
+  // 이미 목표를 다 채운 요청은 추천하지 않는다. 다 찬 곳이 2순위로 뜨면 정작 모자란 곳이 밀린다.
+  const all = (await listNeeds()).filter((need) => need.remainingQty > 0);
 
   return (
     all
@@ -1244,6 +1298,9 @@ export async function createDonation(input: {
   genericName?: string | null;
   /** 기업·단체로 등록할 때만. donorName은 필수, 연락처는 따로 저장한다. */
   company?: { name: string; manager: string; contact: string } | null;
+  /** 기업으로 등록할 때 그 기업 문서 id. */
+  companyId?: string | null;
+  packing?: Packing | null;
 }): Promise<Donation> {
   // 나눔 가능 여부는 클라이언트가 보낸 값을 믿지 않고 항상 서버가 판정한다.
   const verdict = evaluateShareable(input.expiryDate);
@@ -1262,6 +1319,8 @@ export async function createDonation(input: {
     genericName: input.genericName ?? null,
     donorType: input.company ? ("company" as const) : ("individual" as const),
     donorName: input.company?.name ?? null,
+    companyId: input.company ? (input.companyId ?? null) : null,
+    packing: input.packing ?? null,
   };
   const ref = await addDoc(donationsCol, data);
   if (input.company) {
@@ -1280,6 +1339,14 @@ export async function getDonorContact(donationId: string): Promise<DonorContact 
   if (!snap.exists()) return null;
   const data = snap.data();
   return { manager: (data.manager as string) ?? "", contact: (data.contact as string) ?? "" };
+}
+
+/** 한 기업이 등록한 물품 전체, 최근 순. */
+export async function listDonationsByCompany(companyId: string): Promise<Donation[]> {
+  const snap = await getDocs(query(donationsCol, where("companyId", "==", companyId)));
+  return snap.docs
+    .map((d) => donationFromDoc(d.id, d.data()))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getDonation(id: string): Promise<Donation | undefined> {
@@ -1349,6 +1416,17 @@ export async function getApplication(
   const snap = await getDoc(doc(applicationsCol, id));
   if (!snap.exists()) return undefined;
   return applicationFromDoc(snap.id, snap.data());
+}
+
+/** 이 물품들로 낸 신청 전체(시설에 직접 준 경로). */
+export async function listApplicationsByDonations(donationIds: string[]): Promise<Application[]> {
+  const out: Application[] = [];
+  for (let i = 0; i < donationIds.length; i += 30) {
+    const chunk = donationIds.slice(i, i + 30);
+    const snap = await getDocs(query(applicationsCol, where("donationId", "in", chunk)));
+    out.push(...snap.docs.map((d) => applicationFromDoc(d.id, d.data())));
+  }
+  return out;
 }
 
 export async function listApplications(): Promise<Application[]> {
